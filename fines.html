@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fines & Tolls — Ozee Rentals Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:#07101e;border-bottom:1px solid rgba(245,166,35,.15);padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:200;}
+.topbar img{height:36px;filter:brightness(0) invert(1);}
+.topbar-right{display:flex;align-items:center;gap:1rem;}
+.topbar-user{font-size:.82rem;color:rgba(255,255,255,.5);}
+.topbar-logout{font-size:.78rem;color:#F5A623;text-decoration:none;letter-spacing:1px;text-transform:uppercase;padding:.4rem .9rem;border:1px solid rgba(245,166,35,.3);}
+.app{display:flex;flex:1;}
+.sidebar{width:220px;background:#07101e;border-right:1px solid rgba(255,255,255,.06);padding:1.5rem 0;flex-shrink:0;}
+.sidebar-nav{list-style:none;}
+.sidebar-nav li a{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.5rem;color:rgba(255,255,255,.5);text-decoration:none;font-size:.88rem;font-weight:600;letter-spacing:.5px;transition:all .2s;border-left:3px solid transparent;}
+.sidebar-nav li a:hover{color:#fff;background:rgba(255,255,255,.04);}
+.sidebar-nav li a.active{color:#F5A623;background:rgba(245,166,35,.08);border-left-color:#F5A623;}
+.sidebar-nav li a .s-icon{font-size:1.1rem;width:20px;text-align:center;}
+.sidebar-divider{margin:1rem 1.5rem;border:none;border-top:1px solid rgba(255,255,255,.06);}
+.main{flex:1;padding:2rem;overflow-y:auto;}
+.page-title{font-family:"Barlow Condensed",sans-serif;font-size:2.2rem;font-weight:900;text-transform:uppercase;letter-spacing:-1px;margin-bottom:.3rem;}
+.page-title span{color:#F5A623;}
+.page-sub{color:rgba(255,255,255,.4);font-size:.88rem;margin-bottom:2rem;}
+.table-wrap{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);overflow:hidden;}
+.table-header{padding:1.25rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;}
+.table-title{font-family:"Barlow Condensed",sans-serif;font-size:1.2rem;font-weight:900;text-transform:uppercase;letter-spacing:1px;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;padding:.9rem 1rem;font-size:.7rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);border-bottom:1px solid rgba(255,255,255,.07);}
+td{padding:.9rem 1rem;font-size:.88rem;border-bottom:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.8);vertical-align:middle;}
+tr:hover td{background:rgba(255,255,255,.03);}
+.badge{padding:.25rem .7rem;font-size:.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.badge-green{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
+.badge-yellow{background:rgba(245,166,35,.15);color:#F5A623;border:1px solid rgba(245,166,35,.3);}
+.badge-red{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.badge-blue{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3);}
+.btn{padding:.5rem 1rem;font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;font-family:"Barlow",sans-serif;transition:all .2s;}
+.btn-gold{background:linear-gradient(135deg,#F5A623,#D4880A);color:#000;}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);}
+.btn-outline:hover{border-color:#F5A623;color:#F5A623;}
+.btn-danger{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;}
+.btn-sm{padding:.35rem .8rem;font-size:.72rem;}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;align-items:center;justify-content:center;padding:2rem;}
+.modal.open{display:flex;}
+.modal-box{background:#0d1526;border:1px solid rgba(245,166,35,.2);width:100%;max-width:800px;max-height:90vh;overflow-y:auto;}
+.modal-head{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;}
+.modal-head h3{font-family:"Barlow Condensed",sans-serif;font-size:1.5rem;font-weight:900;text-transform:uppercase;}
+.modal-close{background:none;border:none;color:rgba(255,255,255,.5);font-size:1.5rem;cursor:pointer;}
+.modal-body{padding:1.5rem;}
+.modal-foot{padding:1.5rem;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:flex-end;gap:.75rem;}
+.form-group{margin-bottom:1rem;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;}
+.form-label{display:block;font-size:.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.4rem;}
+.form-input,.form-select,.form-textarea{width:100%;padding:.7rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:.9rem;font-family:"Barlow",sans-serif;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:#F5A623;}
+.form-select option{background:#0d1526;}
+.form-textarea{resize:vertical;min-height:80px;}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;}
+.info-block{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:1.25rem;}
+.info-label{font-size:.68rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:.35rem;}
+.info-val{font-size:.95rem;font-weight:600;color:#fff;}
+.search-bar{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;}
+.search-input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.6rem 1rem;font-family:"Barlow",sans-serif;font-size:.88rem;min-width:220px;}
+.search-input:focus{outline:none;border-color:#F5A623;}
+.loading-cell{text-align:center;color:rgba(255,255,255,.3);font-style:italic;padding:3rem!important;}
+.doc-list{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem;}
+.doc-link{padding:.3rem .8rem;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#60a5fa;text-decoration:none;font-size:.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.doc-link:hover{background:rgba(59,130,246,.25);}
+.sig-img{max-width:200px;height:60px;object-fit:contain;background:#fff;padding:.25rem;}
+.alert-box{padding:1rem 1.5rem;margin-bottom:1.5rem;font-size:.88rem;}
+.alert-yellow{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:#F5A623;}
+@media(max-width:900px){.sidebar{display:none;}.form-row,.info-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <img src="../logo.jpeg" alt="Ozee Rentals">
+  <div class="topbar-right">
+    <span class="topbar-user" id="adminEmail">Loading...</span>
+    <a href="#" class="topbar-logout" onclick="signOut()">Sign Out</a>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar">
+    <ul class="sidebar-nav">
+      <li><a href="dashboard.html" class=""><span class="s-icon">📊</span> Dashboard</a></li>
+      <li><a href="cars.html" class=""><span class="s-icon">🚗</span> Car Management</a></li>
+      <li><a href="drivers.html" class=""><span class="s-icon">👥</span> Driver Applications</a></li>
+      <li><a href="assignments.html" class=""><span class="s-icon">🔗</span> Car Assignments</a></li>
+      <li><a href="fines.html" class="active"><span class="s-icon">🚨</span> Fines &amp; Tolls</a></li>
+      <hr class="sidebar-divider">
+      <li><a href="../home.html"><span class="s-icon">🌐</span> View Website</a></li>
+    </ul>
+  </aside>
+  <main class="main">
+    
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2rem;flex-wrap:wrap;gap:1rem;">
+  <div><div class="page-title">Fines & <span>Tolls</span></div><div class="page-sub">Record and track traffic fines, toll notices — system auto-matches the driver who had the car</div></div>
+  <button class="btn btn-gold" onclick="openFineModal()">+ Add Fine / Toll</button>
+</div>
+<div class="table-wrap">
+  <div class="table-header">
+    <div class="table-title">All Notices</div>
+    <div class="search-bar">
+      <select class="search-input" style="min-width:140px;" onchange="filterFines(this.value)">
+        <option value="">All Status</option>
+        <option>Pending</option><option>Transferred</option><option>Paid by Driver</option><option>Paid by Company</option><option>Resolved</option>
+      </select>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>Car Rego</th><th>Incident Date</th><th>Type</th><th>Amount</th><th>Driver</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody id="finesTable"><tr><td colspan="7" class="loading-cell">Loading...</td></tr></tbody>
+  </table>
+</div>
+
+<!-- ADD FINE MODAL -->
+<div class="modal" id="fineModal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Add Fine / Toll Notice</h3><button class="modal-close" onclick="closeFineModal()">×</button></div>
+    <div class="modal-body">
+      <div class="alert-box alert-yellow" style="margin-bottom:1.5rem;">💡 The system will automatically find who had the car on the incident date and link the fine to them.</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Car <span class="req">*</span></label><select class="form-select" id="f_car"><option value="">Select car...</option></select></div>
+        <div class="form-group"><label class="form-label">Type <span class="req">*</span></label><select class="form-select" id="f_type"><option>Fine</option><option>Toll</option><option>Parking</option><option>Other</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Incident Date <span class="req">*</span></label><input type="date" class="form-input" id="f_incident"></div>
+        <div class="form-group"><label class="form-label">Notice Received</label><input type="date" class="form-input" id="f_received"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Amount (AUD) <span class="req">*</span></label><input type="number" class="form-input" id="f_amount" placeholder="150.00" step="0.01"></div>
+        <div class="form-group"><label class="form-label">Authority / Issuer</label><input type="text" class="form-input" id="f_authority" placeholder="e.g. Roads & Maritime, Linkt"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description <span class="req">*</span></label><input type="text" class="form-input" id="f_desc" placeholder="e.g. Speed camera — 75 in 60 zone"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Notice Number</label><input type="text" class="form-input" id="f_notice_num" placeholder="Infringement number"></div>
+        <div class="form-group"><label class="form-label">Admin Fee (AUD)</label><input type="number" class="form-input" id="f_admin_fee" placeholder="0.00" step="0.01" value="0"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Upload Notice (PDF/Image)</label><input type="file" class="form-input" id="f_doc" accept=".pdf,.jpg,.png"></div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="f_notes" placeholder="Any additional notes..."></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeFineModal()">Cancel</button>
+      <button class="btn btn-gold" onclick="saveFine()">Save Fine / Toll</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let allFines = [];
+
+async function loadFines(){
+  const {data} = await supabase.from('fines_tolls')
+    .select('*,cars(rego,make_model),drivers(first_name,last_name,mobile,email)')
+    .order('incident_date',{ascending:false});
+  allFines = data || [];
+  renderFines(allFines);
+}
+
+function renderFines(fines){
+  const tb = document.getElementById('finesTable');
+  if(!fines.length){ tb.innerHTML='<tr><td colspan="7" class="loading-cell">No fines or tolls recorded yet.</td></tr>'; return; }
+  const sB = s => s==='Pending'?'badge-yellow':s==='Transferred'?'badge-blue':s==='Resolved'?'badge-green':'badge-gray';
+  tb.innerHTML = fines.map(f=>`
+    <tr>
+      <td><strong>${f.cars?.rego||'—'}</strong><br><small style="color:rgba(255,255,255,.4);">${f.cars?.make_model||''}</small></td>
+      <td>${new Date(f.incident_date).toLocaleDateString('en-AU')}</td>
+      <td><span class="badge badge-blue">${f.type}</span></td>
+      <td style="color:#f87171;font-weight:700;">$${f.amount}</td>
+      <td>${f.drivers ? `<strong>${f.drivers.first_name} ${f.drivers.last_name}</strong><br><small style="color:rgba(255,255,255,.4);">${f.drivers.mobile||''}</small>` : '<span style="color:rgba(255,255,255,.3);">Not matched</span>'}</td>
+      <td><span class="badge ${sB(f.status)}">${f.status}</span></td>
+      <td>
+        ${f.notice_url?`<a href="${f.notice_url}" target="_blank" class="btn btn-outline btn-sm">View</a>`:''}
+        <select class="search-input" style="min-width:140px;font-size:.72rem;padding:.3rem;" onchange="updateFineStatus('${f.id}',this.value)">
+          <option>Pending</option><option ${f.status==='Transferred'?'selected':''}>Transferred</option><option ${f.status==='Paid by Driver'?'selected':''}>Paid by Driver</option><option ${f.status==='Paid by Company'?'selected':''}>Paid by Company</option><option ${f.status==='Resolved'?'selected':''}>Resolved</option>
+        </select>
+      </td>
+    </tr>`).join('');
+}
+
+function filterFines(s){ renderFines(s ? allFines.filter(f=>f.status===s) : allFines); }
+
+async function updateFineStatus(id, status){
+  await supabase.from('fines_tolls').update({status, transferred_date: status==='Transferred'?new Date().toISOString().split('T')[0]:null}).eq('id',id);
+  loadFines();
+}
+
+async function openFineModal(){
+  const {data:cars} = await supabase.from('cars').select('id,rego,make_model').order('rego');
+  document.getElementById('f_car').innerHTML = '<option value="">Select car...</option>' + (cars||[]).map(c=>`<option value="${c.id}">${c.rego} — ${c.make_model}</option>`).join('');
+  document.getElementById('f_incident').value = '';
+  document.getElementById('f_received').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fineModal').classList.add('open');
+}
+function closeFineModal(){ document.getElementById('fineModal').classList.remove('open'); }
+
+async function saveFine(){
+  const fineData = {
+    car_id: document.getElementById('f_car').value,
+    type: document.getElementById('f_type').value,
+    incident_date: document.getElementById('f_incident').value,
+    notice_received: document.getElementById('f_received').value || new Date().toISOString().split('T')[0],
+    amount: parseFloat(document.getElementById('f_amount').value),
+    authority: document.getElementById('f_authority').value || null,
+    description: document.getElementById('f_desc').value,
+    notice_number: document.getElementById('f_notice_num').value || null,
+    admin_fee: parseFloat(document.getElementById('f_admin_fee').value) || 0,
+    notes: document.getElementById('f_notes').value || null,
+    status: 'Pending',
+  };
+  if(!fineData.car_id||!fineData.incident_date||!fineData.amount||!fineData.description){ alert('Please fill all required fields.'); return; }
+
+  const {data:fine,error} = await supabase.from('fines_tolls').insert([fineData]).select().single();
+  if(error){ alert('Error: '+error.message); return; }
+
+  // Upload notice document
+  const docInput = document.getElementById('f_doc');
+  if(docInput.files[0] && fine){
+    const file = docInput.files[0];
+    const path = `fine_${fine.id}/${Date.now()}.${file.name.split('.').pop()}`;
+    const {data:up} = await supabase.storage.from('car-documents').upload(path,file);
+    if(up){
+      const {data:{publicUrl}} = supabase.storage.from('car-documents').getPublicUrl(path);
+      await supabase.from('fines_tolls').update({notice_url:publicUrl}).eq('id',fine.id);
+    }
+  }
+
+  closeFineModal();
+  loadFines();
+
+  // Show who the fine was matched to
+  if(fine){
+    const {data:updated} = await supabase.from('fines_tolls').select('drivers(first_name,last_name,mobile,email)').eq('id',fine.id).single();
+    if(updated?.drivers){
+      alert(`Fine saved! Auto-matched to: ${updated.drivers.first_name} ${updated.drivers.last_name} (${updated.drivers.mobile})`);
+    } else {
+      alert('Fine saved. No driver matched for that date — please check car assignments.');
+    }
+  }
+}
+
+loadFines();
+</script>
+
+  </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
+<script>
+(async()=>{
+  const {data:{session}} = await supabase.auth.getSession();
+  if(!session){ window.location.href='index.html'; return; }
+  document.getElementById('adminEmail').textContent = session.user.email;
+})();
+async function signOut(){ await supabase.auth.signOut(); window.location.href='index.html'; }
+</script>
+</body></html>
