@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Initialize Supabase immediately when script loads
+const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U';
+window._sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+</script>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Assignments — Ozee Rentals Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:#07101e;border-bottom:1px solid rgba(245,166,35,.15);padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:200;}
+.topbar img{height:36px;filter:brightness(0) invert(1);}
+.topbar-right{display:flex;align-items:center;gap:1rem;}
+.topbar-user{font-size:.82rem;color:rgba(255,255,255,.5);}
+.topbar-logout{font-size:.78rem;color:#F5A623;text-decoration:none;letter-spacing:1px;text-transform:uppercase;padding:.4rem .9rem;border:1px solid rgba(245,166,35,.3);}
+.app{display:flex;flex:1;}
+.sidebar{width:220px;background:#07101e;border-right:1px solid rgba(255,255,255,.06);padding:1.5rem 0;flex-shrink:0;}
+.sidebar-nav{list-style:none;}
+.sidebar-nav li a{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.5rem;color:rgba(255,255,255,.5);text-decoration:none;font-size:.88rem;font-weight:600;letter-spacing:.5px;transition:all .2s;border-left:3px solid transparent;}
+.sidebar-nav li a:hover{color:#fff;background:rgba(255,255,255,.04);}
+.sidebar-nav li a.active{color:#F5A623;background:rgba(245,166,35,.08);border-left-color:#F5A623;}
+.sidebar-nav li a .s-icon{font-size:1.1rem;width:20px;text-align:center;}
+.sidebar-divider{margin:1rem 1.5rem;border:none;border-top:1px solid rgba(255,255,255,.06);}
+.main{flex:1;padding:2rem;overflow-y:auto;}
+.page-title{font-family:"Barlow Condensed",sans-serif;font-size:2.2rem;font-weight:900;text-transform:uppercase;letter-spacing:-1px;margin-bottom:.3rem;}
+.page-title span{color:#F5A623;}
+.page-sub{color:rgba(255,255,255,.4);font-size:.88rem;margin-bottom:2rem;}
+.table-wrap{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);overflow:hidden;}
+.table-header{padding:1.25rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;}
+.table-title{font-family:"Barlow Condensed",sans-serif;font-size:1.2rem;font-weight:900;text-transform:uppercase;letter-spacing:1px;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;padding:.9rem 1rem;font-size:.7rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);border-bottom:1px solid rgba(255,255,255,.07);}
+td{padding:.9rem 1rem;font-size:.88rem;border-bottom:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.8);vertical-align:middle;}
+tr:hover td{background:rgba(255,255,255,.03);}
+.badge{padding:.25rem .7rem;font-size:.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.badge-green{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
+.badge-yellow{background:rgba(245,166,35,.15);color:#F5A623;border:1px solid rgba(245,166,35,.3);}
+.badge-red{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.badge-blue{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3);}
+.btn{padding:.5rem 1rem;font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;font-family:"Barlow",sans-serif;transition:all .2s;}
+.btn-gold{background:linear-gradient(135deg,#F5A623,#D4880A);color:#000;}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);}
+.btn-outline:hover{border-color:#F5A623;color:#F5A623;}
+.btn-danger{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;}
+.btn-sm{padding:.35rem .8rem;font-size:.72rem;}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;align-items:center;justify-content:center;padding:2rem;}
+.modal.open{display:flex;}
+.modal-box{background:#0d1526;border:1px solid rgba(245,166,35,.2);width:100%;max-width:800px;max-height:90vh;overflow-y:auto;}
+.modal-head{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;}
+.modal-head h3{font-family:"Barlow Condensed",sans-serif;font-size:1.5rem;font-weight:900;text-transform:uppercase;}
+.modal-close{background:none;border:none;color:rgba(255,255,255,.5);font-size:1.5rem;cursor:pointer;}
+.modal-body{padding:1.5rem;}
+.modal-foot{padding:1.5rem;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:flex-end;gap:.75rem;}
+.form-group{margin-bottom:1rem;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;}
+.form-label{display:block;font-size:.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.4rem;}
+.form-input,.form-select,.form-textarea{width:100%;padding:.7rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:.9rem;font-family:"Barlow",sans-serif;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:#F5A623;}
+.form-select option{background:#0d1526;}
+.form-textarea{resize:vertical;min-height:80px;}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;}
+.info-block{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:1.25rem;}
+.info-label{font-size:.68rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:.35rem;}
+.info-val{font-size:.95rem;font-weight:600;color:#fff;}
+.search-bar{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;}
+.search-input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.6rem 1rem;font-family:"Barlow",sans-serif;font-size:.88rem;min-width:220px;}
+.search-input:focus{outline:none;border-color:#F5A623;}
+.loading-cell{text-align:center;color:rgba(255,255,255,.3);font-style:italic;padding:3rem!important;}
+.doc-list{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem;}
+.doc-link{padding:.3rem .8rem;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#60a5fa;text-decoration:none;font-size:.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.doc-link:hover{background:rgba(59,130,246,.25);}
+.sig-img{max-width:200px;height:60px;object-fit:contain;background:#fff;padding:.25rem;}
+.alert-box{padding:1rem 1.5rem;margin-bottom:1.5rem;font-size:.88rem;}
+.alert-yellow{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:#F5A623;}
+@media(max-width:900px){.sidebar{display:none;}.form-row,.info-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <img src="../logo.jpeg" alt="Ozee Rentals">
+  <div class="topbar-right">
+    <span class="topbar-user" id="adminEmail">Loading...</span>
+    <a href="#" class="topbar-logout" onclick="signOut()">Sign Out</a>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar">
+    <ul class="sidebar-nav">
+      <li><a href="dashboard.html" class=""><span class="s-icon">📊</span> Dashboard</a></li>
+      <li><a href="cars.html" class=""><span class="s-icon">🚗</span> Car Management</a></li>
+      <li><a href="drivers.html" class=""><span class="s-icon">👥</span> Driver Applications</a></li>
+      <li><a href="assignments.html" class="active"><span class="s-icon">🔗</span> Car Assignments</a></li>
+      <li><a href="fines.html" class=""><span class="s-icon">🚨</span> Fines &amp; Tolls</a></li>
+      <hr class="sidebar-divider">
+      <li><a href="../home.html"><span class="s-icon">🌐</span> View Website</a></li>
+    </ul>
+  </aside>
+  <main class="main">
+    
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2rem;flex-wrap:wrap;gap:1rem;">
+  <div><div class="page-title">Car <span>Assignments</span></div><div class="page-sub">Track which driver has which car — essential for fine and toll notices</div></div>
+  <button class="btn btn-gold" onclick="openAssignModal()">+ New Assignment</button>
+</div>
+
+<!-- LOOKUP TOOL -->
+<div class="table-wrap" style="margin-bottom:2rem;">
+  <div class="table-header"><div class="table-title">🔍 Find Driver by Date</div></div>
+  <div style="padding:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
+    <div><div class="form-label">Car Rego</div><input class="search-input" id="lookup_rego" placeholder="e.g. ABC123" style="min-width:150px;"></div>
+    <div><div class="form-label">Incident Date</div><input type="date" class="search-input" id="lookup_date" style="min-width:160px;"></div>
+    <button class="btn btn-gold" onclick="lookupDriver()">Find Driver</button>
+  </div>
+  <div id="lookupResult" style="padding:0 1.5rem 1.5rem;display:none;">
+    <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);padding:1.25rem;border-left:4px solid #4ade80;">
+      <div style="font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:#4ade80;margin-bottom:.75rem;">Driver Found</div>
+      <div id="lookupResultContent"></div>
+    </div>
+  </div>
+  <div id="lookupNotFound" style="padding:0 1.5rem 1.5rem;display:none;">
+    <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);padding:1.25rem;">No driver found for that car on that date.</div>
+  </div>
+</div>
+
+<!-- ACTIVE ASSIGNMENTS -->
+<div class="table-wrap" style="margin-bottom:2rem;">
+  <div class="table-header"><div class="table-title">Active Assignments</div></div>
+  <table>
+    <thead><tr><th>Driver</th><th>Car</th><th>Start Date</th><th>Contract</th><th>Rate/Week</th><th>Bond</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody id="activeTable"><tr><td colspan="8" class="loading-cell">Loading...</td></tr></tbody>
+  </table>
+</div>
+
+<!-- HISTORY -->
+<div class="table-wrap">
+  <div class="table-header"><div class="table-title">Assignment History</div></div>
+  <table>
+    <thead><tr><th>Driver</th><th>Car</th><th>Start</th><th>End</th><th>Duration</th><th>Status</th></tr></thead>
+    <tbody id="historyTable"><tr><td colspan="6" class="loading-cell">Loading...</td></tr></tbody>
+  </table>
+</div>
+
+<!-- ASSIGN MODAL -->
+<div class="modal" id="assignModal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>New Car Assignment</h3><button class="modal-close" onclick="closeAssignModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Driver <span class="req">*</span></label><select class="form-select" id="a_driver"><option value="">Select driver...</option></select></div>
+        <div class="form-group"><label class="form-label">Car <span class="req">*</span></label><select class="form-select" id="a_car"><option value="">Select car...</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Start Date <span class="req">*</span></label><input type="date" class="form-input" id="a_start"></div>
+        <div class="form-group"><label class="form-label">End Date</label><input type="date" class="form-input" id="a_end"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Contract Period</label><select class="form-select" id="a_contract"><option>3 Months</option><option>6 Months</option><option>Monthly</option><option>Weekly</option></select></div>
+        <div class="form-group"><label class="form-label">Weekly Rate (AUD) <span class="req">*</span></label><input type="number" class="form-input" id="a_rate" placeholder="250"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Bond Amount (AUD) <span class="req">*</span></label><input type="number" class="form-input" id="a_bond" placeholder="4 weeks rent"></div>
+        <div class="form-group"><label class="form-label">Bond Paid?</label><select class="form-select" id="a_bond_paid"><option value="false">Not Yet</option><option value="true">Yes — Received</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="a_notes" placeholder="Any additional notes..."></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeAssignModal()">Cancel</button>
+      <button class="btn btn-gold" onclick="saveAssignment()">Create Assignment</button>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadAssignments(){
+  const {data:active} = await window._sb.from('car_assignments')
+    .select('*,cars(rego,make_model),drivers(first_name,last_name,mobile,email)')
+    .eq('status','Active').order('start_date',{ascending:false});
+
+  const {data:history} = await window._sb.from('car_assignments')
+    .select('*,cars(rego,make_model),drivers(first_name,last_name)')
+    .in('status',['Completed','Terminated']).order('end_date',{ascending:false}).limit(20);
+
+  const aT = document.getElementById('activeTable');
+  if(!(active||[]).length){ aT.innerHTML='<tr><td colspan="8" class="loading-cell">No active assignments</td></tr>'; }
+  else aT.innerHTML = active.map(a=>`
+    <tr>
+      <td><strong>${a.drivers?.first_name||''} ${a.drivers?.last_name||''}</strong><br><small style="color:rgba(255,255,255,.4);">${a.drivers?.mobile||''}</small></td>
+      <td><strong>${a.cars?.rego||'—'}</strong><br><small style="color:rgba(255,255,255,.4);">${a.cars?.make_model||''}</small></td>
+      <td>${new Date(a.start_date).toLocaleDateString('en-AU')}</td>
+      <td>${a.contract_period}</td>
+      <td style="color:#F5A623;font-weight:700;">$${a.weekly_rate}/wk</td>
+      <td>${a.bond_paid?'<span class="badge badge-green">Paid</span>':'<span class="badge badge-yellow">Pending</span>'}</td>
+      <td><span class="badge badge-green">Active</span></td>
+      <td><button class="btn btn-danger btn-sm" onclick="endAssignment('${a.id}')">End Rental</button></td>
+    </tr>`).join('');
+
+  const hT = document.getElementById('historyTable');
+  if(!(history||[]).length){ hT.innerHTML='<tr><td colspan="6" class="loading-cell">No history yet</td></tr>'; }
+  else hT.innerHTML = history.map(a=>{
+    const start = new Date(a.start_date);
+    const end = a.end_date ? new Date(a.end_date) : new Date();
+    const days = Math.round((end-start)/(1000*60*60*24));
+    return `<tr>
+      <td>${a.drivers?.first_name||''} ${a.drivers?.last_name||''}</td>
+      <td>${a.cars?.rego||'—'} — ${a.cars?.make_model||''}</td>
+      <td>${start.toLocaleDateString('en-AU')}</td>
+      <td>${a.end_date ? new Date(a.end_date).toLocaleDateString('en-AU') : '—'}</td>
+      <td>${days} days</td>
+      <td><span class="badge ${a.status==='Completed'?'badge-blue':'badge-red'}">${a.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+async function lookupDriver(){
+  const rego = document.getElementById('lookup_rego').value.trim().toUpperCase();
+  const date = document.getElementById('lookup_date').value;
+  if(!rego||!date){ alert('Please enter both a car rego and a date.'); return; }
+
+  document.getElementById('lookupResult').style.display='none';
+  document.getElementById('lookupNotFound').style.display='none';
+
+  const {data} = await window._sb.from('car_assignments')
+    .select('*,cars(rego,make_model),drivers(first_name,last_name,mobile,email,license_number,license_state)')
+    .lte('start_date',date)
+    .or(`end_date.is.null,end_date.gte.${date}`)
+    .in('status',['Active','Completed']);
+
+  const match = (data||[]).find(a=>a.cars?.rego===rego);
+  if(match){
+    document.getElementById('lookupResultContent').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+        <div><div class="info-label">Driver</div><div class="info-val">${match.drivers?.first_name} ${match.drivers?.last_name}</div></div>
+        <div><div class="info-label">Mobile</div><div class="info-val"><a href="tel:${match.drivers?.mobile}" style="color:#4ade80;">${match.drivers?.mobile}</a></div></div>
+        <div><div class="info-label">Email</div><div class="info-val"><a href="mailto:${match.drivers?.email}" style="color:#4ade80;">${match.drivers?.email}</a></div></div>
+        <div><div class="info-label">Licence</div><div class="info-val">${match.drivers?.license_number} (${match.drivers?.license_state})</div></div>
+        <div><div class="info-label">Rental Period</div><div class="info-val">${new Date(match.start_date).toLocaleDateString('en-AU')} → ${match.end_date?new Date(match.end_date).toLocaleDateString('en-AU'):'Present'}</div></div>
+        <div><div class="info-label">Car</div><div class="info-val">${match.cars?.rego} — ${match.cars?.make_model}</div></div>
+      </div>`;
+    document.getElementById('lookupResult').style.display='block';
+  } else {
+    document.getElementById('lookupNotFound').style.display='block';
+  }
+}
+
+async function endAssignment(id){
+  if(!confirm('Mark this rental as completed?')) return;
+  await window._sb.from('car_assignments').update({status:'Completed',end_date:new Date().toISOString().split('T')[0]}).eq('id',id);
+  loadAssignments();
+}
+
+async function openAssignModal(){
+  const [{data:drivers},{data:cars}] = await Promise.all([
+    window._sb.from('drivers').select('id,first_name,last_name').eq('status','Approved').order('first_name'),
+    window._sb.from('cars').select('id,rego,make_model,weekly_rate').eq('status','Available').order('rego'),
+  ]);
+  document.getElementById('a_driver').innerHTML = '<option value="">Select driver...</option>' + (drivers||[]).map(d=>`<option value="${d.id}">${d.first_name} ${d.last_name}</option>`).join('');
+  document.getElementById('a_car').innerHTML = '<option value="">Select car...</option>' + (cars||[]).map(c=>`<option value="${c.id}" data-rate="${c.weekly_rate}">${c.rego} — ${c.make_model} ($${c.weekly_rate}/wk)</option>`).join('');
+  document.getElementById('a_start').value = new Date().toISOString().split('T')[0];
+  document.getElementById('assignModal').classList.add('open');
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const carSel = document.getElementById('a_car');
+  if(carSel) carSel.addEventListener('change',()=>{
+    const opt = carSel.selectedOptions[0];
+    const rate = opt?.getAttribute('data-rate');
+    if(rate){
+      document.getElementById('a_rate').value = rate;
+      document.getElementById('a_bond').value = (parseFloat(rate)*4).toFixed(0);
+    }
+  });
+});
+
+function closeAssignModal(){ document.getElementById('assignModal').classList.remove('open'); }
+
+async function saveAssignment(){
+  const data = {
+    driver_id: document.getElementById('a_driver').value,
+    car_id: document.getElementById('a_car').value,
+    start_date: document.getElementById('a_start').value,
+    end_date: document.getElementById('a_end').value || null,
+    contract_period: document.getElementById('a_contract').value,
+    weekly_rate: parseFloat(document.getElementById('a_rate').value),
+    bond_amount: parseFloat(document.getElementById('a_bond').value),
+    bond_paid: document.getElementById('a_bond_paid').value === 'true',
+    notes: document.getElementById('a_notes').value,
+    status: 'Active',
+  };
+  if(!data.driver_id||!data.car_id||!data.start_date||!data.weekly_rate){ alert('Please fill all required fields.'); return; }
+  const {error} = await window._sb.from('car_assignments').insert([data]);
+  if(error){ alert('Error: '+error.message); return; }
+  closeAssignModal();
+  loadAssignments();
+}
+
+</script>
+
+  </main>
+</div>
+
+
+<script>
+// Auth guard - runs after DOM loads
+document.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await window._sb.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  const el = document.getElementById('adminEmail');
+  if (el) el.textContent = session.user.email;
+  loadAssignments();
+});
+async function signOut() {
+  await window._sb.auth.signOut();
+  localStorage.clear();
+  sessionStorage.clear();
+  window.location.href = 'index.html';
+}
+</script>
+</body></html>
