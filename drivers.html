@@ -246,6 +246,6 @@ window._sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   if(!session){ window.location.href='index.html'; return; }
   document.getElementById('adminEmail').textContent = session.user.email;
 })();
-async function signOut(){ await window._sb.auth.signOut(); window.location.href='index.html'; }
+async function signOut(){ await window._sb.auth.signOut(); localStorage.clear(); sessionStorage.clear(); window.location.href='index.html'; }
 </script>
 </body></html>
