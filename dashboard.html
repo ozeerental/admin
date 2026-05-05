@@ -154,10 +154,10 @@ tr:hover td{background:rgba(255,255,255,.03);}
 <script>
 async function loadStats(){
   const [cars, drivers, assignments, fines] = await Promise.all([
-    supabase.from('cars').select('status'),
-    supabase.from('drivers').select('status'),
-    supabase.from('car_assignments').select('status').eq('status','Active'),
-    supabase.from('fines_tolls').select('status').eq('status','Pending'),
+    window._sb.from('cars').select('status'),
+    window._sb.from('drivers').select('status'),
+    window._sb.from('car_assignments').select('status').eq('status','Active'),
+    window._sb.from('fines_tolls').select('status').eq('status','Pending'),
   ]);
   const c = cars.data || [];
   const d = drivers.data || [];
@@ -171,12 +171,12 @@ async function loadStats(){
   document.getElementById('s_fines').textContent = (fines.data||[]).length;
 
   // Recent apps
-  const {data:apps} = await supabase.from('drivers').select('first_name,last_name,email,status,created_at').order('created_at',{ascending:false}).limit(5);
+  const {data:apps} = await window._sb.from('drivers').select('first_name,last_name,email,status,created_at').order('created_at',{ascending:false}).limit(5);
   const statusBadge = s => s==='Pending'?'badge-yellow':s==='Approved'?'badge-green':'badge-red';
   document.getElementById('recentApps').innerHTML = (apps||[]).length ? apps.map(a=>`<tr><td>${a.first_name} ${a.last_name}</td><td>${a.email}</td><td><span class="badge ${statusBadge(a.status)}">${a.status}</span></td><td>${new Date(a.created_at).toLocaleDateString('en-AU')}</td></tr>`).join('') : '<tr class="loading-row"><td colspan="4">No applications yet</td></tr>';
 
   // Recent fines
-  const {data:ft} = await supabase.from('fines_tolls').select('cars(rego),type,amount,status').order('created_at',{ascending:false}).limit(5);
+  const {data:ft} = await window._sb.from('fines_tolls').select('cars(rego),type,amount,status').order('created_at',{ascending:false}).limit(5);
   document.getElementById('recentFines').innerHTML = (ft||[]).length ? ft.map(f=>`<tr><td>${f.cars?.rego||'—'}</td><td>${f.type}</td><td>$${f.amount}</td><td><span class="badge badge-yellow">${f.status}</span></td></tr>`).join('') : '<tr class="loading-row"><td colspan="4">No fines recorded</td></tr>';
 }
 loadStats();
@@ -186,20 +186,19 @@ loadStats();
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.supabase.co';
+const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.window._sb.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabase = supabaseClient;
+window._sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
 <script>
 // Auth guard
 (async()=>{
-  const {data:{session}} = await supabase.auth.getSession();
+  const {data:{session}} = await window._sb.auth.getSession();
   if(!session){ window.location.href='index.html'; return; }
   document.getElementById('adminEmail').textContent = session.user.email;
 })();
 async function signOut(){
-  await supabase.auth.signOut();
+  await window._sb.auth.signOut();
   window.location.href='index.html';
 }
 </script>
