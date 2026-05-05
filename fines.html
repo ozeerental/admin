@@ -153,7 +153,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
 let allFines = [];
 
 async function loadFines(){
-  const {data} = await supabase.from('fines_tolls')
+  const {data} = await window._sb.from('fines_tolls')
     .select('*,cars(rego,make_model),drivers(first_name,last_name,mobile,email)')
     .order('incident_date',{ascending:false});
   allFines = data || [];
@@ -184,12 +184,12 @@ function renderFines(fines){
 function filterFines(s){ renderFines(s ? allFines.filter(f=>f.status===s) : allFines); }
 
 async function updateFineStatus(id, status){
-  await supabase.from('fines_tolls').update({status, transferred_date: status==='Transferred'?new Date().toISOString().split('T')[0]:null}).eq('id',id);
+  await window._sb.from('fines_tolls').update({status, transferred_date: status==='Transferred'?new Date().toISOString().split('T')[0]:null}).eq('id',id);
   loadFines();
 }
 
 async function openFineModal(){
-  const {data:cars} = await supabase.from('cars').select('id,rego,make_model').order('rego');
+  const {data:cars} = await window._sb.from('cars').select('id,rego,make_model').order('rego');
   document.getElementById('f_car').innerHTML = '<option value="">Select car...</option>' + (cars||[]).map(c=>`<option value="${c.id}">${c.rego} — ${c.make_model}</option>`).join('');
   document.getElementById('f_incident').value = '';
   document.getElementById('f_received').value = new Date().toISOString().split('T')[0];
@@ -213,7 +213,7 @@ async function saveFine(){
   };
   if(!fineData.car_id||!fineData.incident_date||!fineData.amount||!fineData.description){ alert('Please fill all required fields.'); return; }
 
-  const {data:fine,error} = await supabase.from('fines_tolls').insert([fineData]).select().single();
+  const {data:fine,error} = await window._sb.from('fines_tolls').insert([fineData]).select().single();
   if(error){ alert('Error: '+error.message); return; }
 
   // Upload notice document
@@ -221,10 +221,10 @@ async function saveFine(){
   if(docInput.files[0] && fine){
     const file = docInput.files[0];
     const path = `fine_${fine.id}/${Date.now()}.${file.name.split('.').pop()}`;
-    const {data:up} = await supabase.storage.from('car-documents').upload(path,file);
+    const {data:up} = await window._sb.storage.from('car-documents').upload(path,file);
     if(up){
-      const {data:{publicUrl}} = supabase.storage.from('car-documents').getPublicUrl(path);
-      await supabase.from('fines_tolls').update({notice_url:publicUrl}).eq('id',fine.id);
+      const {data:{publicUrl}} = window._sb.storage.from('car-documents').getPublicUrl(path);
+      await window._sb.from('fines_tolls').update({notice_url:publicUrl}).eq('id',fine.id);
     }
   }
 
@@ -233,7 +233,7 @@ async function saveFine(){
 
   // Show who the fine was matched to
   if(fine){
-    const {data:updated} = await supabase.from('fines_tolls').select('drivers(first_name,last_name,mobile,email)').eq('id',fine.id).single();
+    const {data:updated} = await window._sb.from('fines_tolls').select('drivers(first_name,last_name,mobile,email)').eq('id',fine.id).single();
     if(updated?.drivers){
       alert(`Fine saved! Auto-matched to: ${updated.drivers.first_name} ${updated.drivers.last_name} (${updated.drivers.mobile})`);
     } else {
@@ -249,17 +249,16 @@ loadFines();
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.supabase.co';
+const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.window._sb.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabase = supabaseClient;
+window._sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
 <script>
 (async()=>{
-  const {data:{session}} = await supabase.auth.getSession();
+  const {data:{session}} = await window._sb.auth.getSession();
   if(!session){ window.location.href='index.html'; return; }
   document.getElementById('adminEmail').textContent = session.user.email;
 })();
-async function signOut(){ await supabase.auth.signOut(); window.location.href='index.html'; }
+async function signOut(){ await window._sb.auth.signOut(); window.location.href='index.html'; }
 </script>
 </body></html>
