@@ -133,7 +133,7 @@ let allDrivers = [];
 let viewingDriverId = null;
 
 async function loadDrivers(){
-  const {data} = await supabase.from('drivers').select('*').order('created_at',{ascending:false});
+  const {data} = await window._sb.from('drivers').select('*').order('created_at',{ascending:false});
   allDrivers = data || [];
   renderDrivers(allDrivers);
 }
@@ -163,7 +163,7 @@ async function viewDriver(id){
   if(!driver) return;
 
   // Load documents
-  const {data:docs} = await supabase.from('documents').select('*').eq('entity_type','driver').eq('entity_id',id);
+  const {data:docs} = await window._sb.from('documents').select('*').eq('entity_type','driver').eq('entity_id',id);
 
   const docLinks = (type) => {
     const found = (docs||[]).filter(d=>d.document_type===type);
@@ -221,7 +221,7 @@ async function viewDriver(id){
 async function updateDriverStatus(status){
   if(!viewingDriverId) return;
   const notes = document.getElementById('adminNotes').value;
-  const {error} = await supabase.from('drivers').update({status, notes}).eq('id', viewingDriverId);
+  const {error} = await window._sb.from('drivers').update({status, notes}).eq('id', viewingDriverId);
   if(error){ alert('Error: '+error.message); return; }
   closeDriverModal();
   loadDrivers();
@@ -236,17 +236,16 @@ loadDrivers();
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.supabase.co';
+const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.window._sb.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabase = supabaseClient;
+window._sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
 <script>
 (async()=>{
-  const {data:{session}} = await supabase.auth.getSession();
+  const {data:{session}} = await window._sb.auth.getSession();
   if(!session){ window.location.href='index.html'; return; }
   document.getElementById('adminEmail').textContent = session.user.email;
 })();
-async function signOut(){ await supabase.auth.signOut(); window.location.href='index.html'; }
+async function signOut(){ await window._sb.auth.signOut(); window.location.href='index.html'; }
 </script>
 </body></html>
