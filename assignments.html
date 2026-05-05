@@ -170,11 +170,11 @@ tr:hover td{background:rgba(255,255,255,.03);}
 
 <script>
 async function loadAssignments(){
-  const {data:active} = await supabase.from('car_assignments')
+  const {data:active} = await window._sb.from('car_assignments')
     .select('*,cars(rego,make_model),drivers(first_name,last_name,mobile,email)')
     .eq('status','Active').order('start_date',{ascending:false});
 
-  const {data:history} = await supabase.from('car_assignments')
+  const {data:history} = await window._sb.from('car_assignments')
     .select('*,cars(rego,make_model),drivers(first_name,last_name)')
     .in('status',['Completed','Terminated']).order('end_date',{ascending:false}).limit(20);
 
@@ -217,7 +217,7 @@ async function lookupDriver(){
   document.getElementById('lookupResult').style.display='none';
   document.getElementById('lookupNotFound').style.display='none';
 
-  const {data} = await supabase.from('car_assignments')
+  const {data} = await window._sb.from('car_assignments')
     .select('*,cars(rego,make_model),drivers(first_name,last_name,mobile,email,license_number,license_state)')
     .lte('start_date',date)
     .or(`end_date.is.null,end_date.gte.${date}`)
@@ -242,14 +242,14 @@ async function lookupDriver(){
 
 async function endAssignment(id){
   if(!confirm('Mark this rental as completed?')) return;
-  await supabase.from('car_assignments').update({status:'Completed',end_date:new Date().toISOString().split('T')[0]}).eq('id',id);
+  await window._sb.from('car_assignments').update({status:'Completed',end_date:new Date().toISOString().split('T')[0]}).eq('id',id);
   loadAssignments();
 }
 
 async function openAssignModal(){
   const [{data:drivers},{data:cars}] = await Promise.all([
-    supabase.from('drivers').select('id,first_name,last_name').eq('status','Approved').order('first_name'),
-    supabase.from('cars').select('id,rego,make_model,weekly_rate').eq('status','Available').order('rego'),
+    window._sb.from('drivers').select('id,first_name,last_name').eq('status','Approved').order('first_name'),
+    window._sb.from('cars').select('id,rego,make_model,weekly_rate').eq('status','Available').order('rego'),
   ]);
   document.getElementById('a_driver').innerHTML = '<option value="">Select driver...</option>' + (drivers||[]).map(d=>`<option value="${d.id}">${d.first_name} ${d.last_name}</option>`).join('');
   document.getElementById('a_car').innerHTML = '<option value="">Select car...</option>' + (cars||[]).map(c=>`<option value="${c.id}" data-rate="${c.weekly_rate}">${c.rego} — ${c.make_model} ($${c.weekly_rate}/wk)</option>`).join('');
@@ -285,7 +285,7 @@ async function saveAssignment(){
     status: 'Active',
   };
   if(!data.driver_id||!data.car_id||!data.start_date||!data.weekly_rate){ alert('Please fill all required fields.'); return; }
-  const {error} = await supabase.from('car_assignments').insert([data]);
+  const {error} = await window._sb.from('car_assignments').insert([data]);
   if(error){ alert('Error: '+error.message); return; }
   closeAssignModal();
   loadAssignments();
@@ -298,17 +298,16 @@ loadAssignments();
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.supabase.co';
+const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.window._sb.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabase = supabaseClient;
+window._sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
 <script>
 (async()=>{
-  const {data:{session}} = await supabase.auth.getSession();
+  const {data:{session}} = await window._sb.auth.getSession();
   if(!session){ window.location.href='index.html'; return; }
   document.getElementById('adminEmail').textContent = session.user.email;
 })();
-async function signOut(){ await supabase.auth.signOut(); window.location.href='index.html'; }
+async function signOut(){ await window._sb.auth.signOut(); window.location.href='index.html'; }
 </script>
 </body></html>
