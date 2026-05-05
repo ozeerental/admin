@@ -171,7 +171,7 @@ let allCars = [];
 let editingCarId = null;
 
 async function loadCars(){
-  const {data,error} = await supabase.from('cars').select('*').order('created_at',{ascending:false});
+  const {data,error} = await window._sb.from('cars').select('*').order('created_at',{ascending:false});
   allCars = data || [];
   renderCars(allCars);
 }
@@ -224,7 +224,7 @@ function closeCarModal(){ document.getElementById('carModal').classList.remove('
 
 async function deleteCar(id, rego){
   if(!confirm(`Delete car ${rego}? This cannot be undone.`)) return;
-  const {error} = await supabase.from('cars').delete().eq('id',id);
+  const {error} = await window._sb.from('cars').delete().eq('id',id);
   if(error){ alert('Error: '+error.message); return; }
   loadCars();
 }
@@ -258,9 +258,9 @@ async function saveCar(){
   let carId = editingCarId;
   let error;
   if(editingCarId){
-    ({error} = await supabase.from('cars').update(carData).eq('id',editingCarId));
+    ({error} = await window._sb.from('cars').update(carData).eq('id',editingCarId));
   } else {
-    const {data,error:e} = await supabase.from('cars').insert([carData]).select().single();
+    const {data,error:e} = await window._sb.from('cars').insert([carData]).select().single();
     error=e; if(data) carId=data.id;
   }
   if(error){ alert('Error saving car: '+error.message); return; }
@@ -276,10 +276,10 @@ async function saveCar(){
     if(inp.files[0] && carId){
       const file = inp.files[0];
       const path = `car_${carId}/${d.type}_${Date.now()}.${file.name.split('.').pop()}`;
-      const {data:up} = await supabase.storage.from('car-documents').upload(path,file,{upsert:true});
+      const {data:up} = await window._sb.storage.from('car-documents').upload(path,file,{upsert:true});
       if(up){
-        const {data:{publicUrl}} = supabase.storage.from('car-documents').getPublicUrl(path);
-        await supabase.from('documents').insert([{entity_type:'car',entity_id:carId,document_type:d.type,file_name:file.name,file_url:publicUrl,file_size:file.size}]);
+        const {data:{publicUrl}} = window._sb.storage.from('car-documents').getPublicUrl(path);
+        await window._sb.from('documents').insert([{entity_type:'car',entity_id:carId,document_type:d.type,file_name:file.name,file_url:publicUrl,file_size:file.size}]);
       }
     }
   }
@@ -288,13 +288,13 @@ async function saveCar(){
   if(photos.files.length && carId){
     for(const file of photos.files){
       const path = `car_${carId}/photo_${Date.now()}_${file.name}`;
-      const {data:up} = await supabase.storage.from('car-documents').upload(path,file,{upsert:true});
+      const {data:up} = await window._sb.storage.from('car-documents').upload(path,file,{upsert:true});
       if(up){
-        const {data:{publicUrl}} = supabase.storage.from('car-documents').getPublicUrl(path);
-        await supabase.from('documents').insert([{entity_type:'car',entity_id:carId,document_type:'photo',file_name:file.name,file_url:publicUrl,file_size:file.size}]);
+        const {data:{publicUrl}} = window._sb.storage.from('car-documents').getPublicUrl(path);
+        await window._sb.from('documents').insert([{entity_type:'car',entity_id:carId,document_type:'photo',file_name:file.name,file_url:publicUrl,file_size:file.size}]);
         // Set first photo as main car photo
         if(file===photos.files[0]){
-          await supabase.from('cars').update({photo_url:publicUrl}).eq('id',carId);
+          await window._sb.from('cars').update({photo_url:publicUrl}).eq('id',carId);
         }
       }
     }
@@ -312,17 +312,16 @@ loadCars();
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.supabase.co';
+const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.window._sb.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabase = supabaseClient;
+window._sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
 <script>
 (async()=>{
-  const {data:{session}} = await supabase.auth.getSession();
+  const {data:{session}} = await window._sb.auth.getSession();
   if(!session){ window.location.href='index.html'; return; }
   document.getElementById('adminEmail').textContent = session.user.email;
 })();
-async function signOut(){ await supabase.auth.signOut(); window.location.href='index.html'; }
+async function signOut(){ await window._sb.auth.signOut(); window.location.href='index.html'; }
 </script>
 </body></html>
