@@ -4,9 +4,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // Initialize Supabase immediately when script loads
-const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U';
-window._sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+var PROJ='tbhqamcuewycaqertpba';
+
+window._sb = window.supabase.createClient('https://'+PROJ+'.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U');
 </script>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Driver Applications — Ozee Rentals Admin</title>
@@ -174,7 +174,7 @@ async function viewDriver(id){
 
   const docLinks = (type) => {
     const found = (docs||[]).filter(d=>d.document_type===type);
-    return found.length ? found.map(d=>`<a href="${d.file_url}" target="_blank" class="doc-link">📎 ${d.document_type.replace(/_/g,' ')}</a>`).join('') : '<span style="color:rgba(255,255,255,.3);font-size:.8rem;">Not uploaded</span>';
+    return found.length ? found.map(d=>`<a href="#" onclick="openDoc('${d.file_url}');return false;" class="doc-link">📎 ${d.document_type.replace(/_/g,' ')}</a>`).join('') : '<span style="color:rgba(255,255,255,.3);font-size:.8rem;">Not uploaded</span>';
   };
 
   document.getElementById('driverModalTitle').textContent = `${driver.first_name} ${driver.last_name}`;
@@ -256,6 +256,31 @@ async function signOut() {
   localStorage.clear();
   sessionStorage.clear();
   window.location.href = 'index.html';
+}
+
+async function openDoc(fileUrl) {
+  try {
+    // Extract path from URL (everything after /driver-documents/)
+    var path = fileUrl.split('/driver-documents/')[1];
+    if (!path) {
+      // Try car-documents bucket
+      path = fileUrl.split('/car-documents/')[1];
+      if (path) {
+        window.open(fileUrl, '_blank');
+        return;
+      }
+      alert('Could not determine file path');
+      return;
+    }
+    // Generate signed URL valid for 1 hour
+    var { data, error } = await window._sb.storage
+      .from('driver-documents')
+      .createSignedUrl(decodeURIComponent(path), 3600);
+    if (error) { alert('Error: ' + error.message); return; }
+    window.open(data.signedUrl, '_blank');
+  } catch(e) {
+    alert('Error opening document: ' + e.message);
+  }
 }
 </script>
 </body></html>
