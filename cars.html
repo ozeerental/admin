@@ -377,6 +377,26 @@ async function saveCar() {
     return;
   }
 
+  // Upload helper function
+  async function uploadCarDoc(inputId, docType) {
+    const inp = document.getElementById(inputId);
+    if (!inp || !inp.files[0]) return;
+    const file = inp.files[0];
+    const path = `car_${carId}/${docType}_${Date.now()}_${file.name}`;
+    const { data: up } = await _db.storage.from('car-documents').upload(path, file, {upsert: true});
+    if (up) {
+      const { data: { publicUrl } } = _db.storage.from('car-documents').getPublicUrl(path);
+      await _db.from('documents').delete().eq('entity_id', carId).eq('document_type', docType);
+      await _db.from('documents').insert([{
+        entity_type: 'car', entity_id: carId,
+        document_type: docType, file_name: file.name,
+        file_url: publicUrl, file_size: file.size
+      }]);
+    }
+  }
+  await uploadCarDoc('doc_rego', 'registration');
+  await uploadCarDoc('doc_ins', 'insurance');
+
   // Upload photos if any
   const photos = document.getElementById('doc_photos');
   if (photos.files.length && carId) {
@@ -815,7 +835,12 @@ function sendEmail() {
   body += 'Contact us anytime:\nPhone: 0450 786 145\nEmail: omer@ozeerentals.com.au\n\nOzee Car Rent\n17A Drift St, West Wallsend NSW 2286';
 
   var mailto = 'mailto:' + email + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-  window.location.href = mailto;
+  var a = document.createElement('a');
+  a.href = mailto;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 </script>
