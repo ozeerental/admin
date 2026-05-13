@@ -725,9 +725,11 @@ async function openShareDocs(carId, rego, make) {
 
   document.getElementById('shareDocsLoading').style.display = 'none';
   document.getElementById('shareDocsList').style.display = 'block';
+  document.getElementById('shareDocsList').style.visibility = 'visible';
+  document.getElementById('shareDocsList').style.opacity = '1';
   document.getElementById('shareDocsFoot').style.display = 'flex';
 
-  _shareDocs = docs || [];
+  _shareDocs = (docs || []).filter(function(d){ return d.document_type !== 'photo' || true; });
 
   if (!_shareDocs.length) {
     document.getElementById('shareDocsNone').style.display = 'block';
@@ -737,6 +739,8 @@ async function openShareDocs(carId, rego, make) {
 
   document.getElementById('shareDocsNone').style.display = 'none';
   document.getElementById('shareDocsCheckboxes').style.display = 'flex';
+  document.getElementById('shareDocsCheckboxes').style.flexDirection = 'column';
+  document.getElementById('shareDocsCheckboxes').style.gap = '10px';
 
   var typeLabels = {
     'registration': '📋 Registration Certificate',
@@ -750,11 +754,12 @@ async function openShareDocs(carId, rego, make) {
   document.getElementById('shareDocsCheckboxes').innerHTML = _shareDocs.map(function(doc, i) {
     var label = typeLabels[doc.document_type] || ('📄 ' + doc.document_type.replace(/_/g,' '));
     var name = doc.file_name || doc.document_type;
-    return '<div style="display:flex;align-items:center;gap:.75rem;padding:1rem;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);">' +
-      '<input type="checkbox" id="doc_' + i + '" value="' + i + '" style="width:18px;height:18px;accent-color:#F5A623;cursor:pointer;" checked>' +
-      '<label for="doc_' + i + '" style="flex:1;cursor:pointer;">' +
-        '<div style="font-size:.9rem;font-weight:600;color:#fff;">' + label + '</div>' +
-        '<div style="font-size:.75rem;color:rgba(255,255,255,.35);margin-top:2px;">' + name + '</div>' +
+    var checked = doc.document_type !== 'photo' ? 'checked' : 'checked';
+    return '<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:4px;margin-bottom:8px;">' +
+      '<input type="checkbox" id="doc_' + i + '" value="' + i + '" style="width:20px;height:20px;accent-color:#F5A623;cursor:pointer;flex-shrink:0;" ' + checked + '>' +
+      '<label for="doc_' + i + '" style="flex:1;cursor:pointer;display:block;">' +
+        '<div style="font-size:14px;font-weight:600;color:#ffffff;margin-bottom:3px;">' + label + '</div>' +
+        '<div style="font-size:12px;color:rgba(255,255,255,.4);">' + name + '</div>' +
       '</label>' +
     '</div>';
   }).join('');
