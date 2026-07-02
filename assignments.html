@@ -4,9 +4,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // Initialize Supabase immediately when script loads
-const SUPABASE_URL = 'https://tbhqamcuewycaqertpba.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U';
-window._sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+var PROJ='tbhqamcuewycaqertpba';
+
+window._sb = window.supabase.createClient('https://'+PROJ+'.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U');
 </script>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Car Assignments — Ozee Rentals Admin</title>
@@ -79,6 +79,173 @@ tr:hover td{background:rgba(255,255,255,.03);}
 .alert-box{padding:1rem 1.5rem;margin-bottom:1.5rem;font-size:.88rem;}
 .alert-yellow{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:#F5A623;}
 @media(max-width:900px){.sidebar{display:none;}.form-row,.info-grid{grid-template-columns:1fr;}}
+
+/* ═══════════════════════════════════════
+   MOBILE RESPONSIVE — ALL ADMIN PAGES
+   Target: iPhone and Android phones
+═══════════════════════════════════════ */
+
+/* Hamburger button */
+.mob-menu-btn{
+  display:none;
+  background:none;border:none;
+  color:#fff;font-size:1.4rem;
+  cursor:pointer;padding:4px 8px;
+  line-height:1;
+}
+
+/* Mobile overlay for sidebar */
+.sidebar-overlay{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  z-index:998;
+}
+.sidebar-overlay.open{display:block;}
+
+@media(max-width:900px){
+  /* ── LAYOUT ── */
+  .app{flex-direction:column;}
+  
+  /* ── SIDEBAR ── */
+  .sidebar{
+    position:fixed;top:0;left:-260px;
+    width:260px!important;height:100vh;
+    z-index:999;transition:left .3s ease;
+    overflow-y:auto;
+  }
+  .sidebar.open{left:0;}
+  .mob-menu-btn{display:block;}
+  
+  /* ── TOP BAR ── */
+  .topbar{
+    display:flex!important;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 16px!important;
+    position:sticky;top:0;z-index:100;
+  }
+  .topbar-left{display:flex;align-items:center;gap:10px;}
+  
+  /* ── MAIN ── */
+  main{padding:20px 16px!important;overflow-x:hidden;}
+  
+  /* ── PAGE HEADER ── */
+  .page-header{margin-bottom:24px!important;}
+  .page-header h1{font-size:1.6rem!important;}
+  .page-header p{font-size:.85rem!important;}
+  
+  /* ── STAT CARDS ── */
+  .stats-row{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:12px!important;
+  }
+  .stat-card{padding:18px!important;}
+  .stat-card .stat-val{font-size:2rem!important;}
+  
+  /* ── DASHBOARD PANELS ── */
+  .dash-panels{
+    grid-template-columns:1fr!important;
+    gap:16px!important;
+  }
+  
+  /* ── TABLES — convert to card view ── */
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  
+  table{width:100%;border-collapse:collapse;}
+  
+  /* Hide less important columns on mobile */
+  table th:nth-child(3),
+  table td:nth-child(3),
+  table th:nth-child(4),
+  table td:nth-child(4){display:none;}
+  
+  /* Make table cells bigger for touch */
+  table td,table th{
+    padding:14px 10px!important;
+    font-size:.82rem!important;
+  }
+  
+  /* ── DRIVERS TABLE — show approve/reject as full-width buttons ── */
+  #driversTable tr{position:relative;}
+  #driversTable td:last-child{
+    display:flex!important;
+    flex-direction:column;
+    gap:8px;
+    padding:10px!important;
+  }
+  #driversTable td:last-child .btn{
+    width:100%!important;
+    text-align:center;
+    padding:10px!important;
+    font-size:.82rem!important;
+  }
+  
+  /* ── CARS TABLE ── */
+  .car-photo-thumb{width:50px!important;height:40px!important;}
+  
+  /* ── MODALS ── */
+  .modal-box{
+    width:95vw!important;
+    max-width:95vw!important;
+    max-height:90vh!important;
+    overflow-y:auto!important;
+    margin:5vh auto!important;
+    padding:20px!important;
+  }
+  .modal-foot{
+    flex-direction:column!important;
+    gap:10px!important;
+  }
+  .modal-foot .btn{
+    width:100%!important;
+    text-align:center;
+    padding:14px!important;
+    font-size:.9rem!important;
+  }
+  
+  /* ── FORM GRIDS ── */
+  .form-grid{grid-template-columns:1fr!important;}
+  .form-grid-2{grid-template-columns:1fr!important;}
+  
+  /* ── BUTTONS ── */
+  .btn-sm{padding:10px 14px!important;font-size:.78rem!important;}
+  
+  /* ── FILTERS ROW ── */
+  .filters-row{
+    flex-direction:column!important;
+    gap:10px!important;
+    align-items:stretch!important;
+  }
+  .filters-row input,
+  .filters-row select{width:100%!important;}
+  
+  /* ── PAGE ACTIONS ── */
+  .page-actions{
+    flex-direction:column!important;
+    gap:10px!important;
+    align-items:stretch!important;
+  }
+  .page-actions .btn{width:100%;text-align:center;}
+  
+  /* ── FINES TABLE ── */
+  .fines-table th:nth-child(5),
+  .fines-table td:nth-child(5),
+  .fines-table th:nth-child(6),
+  .fines-table td:nth-child(6){display:none;}
+  
+  /* ── ASSIGNMENTS ── */
+  .assign-table th:nth-child(4),
+  .assign-table td:nth-child(4){display:none;}
+}
+
+@media(max-width:480px){
+  .stats-row{grid-template-columns:1fr!important;}
+  .page-header h1{font-size:1.4rem!important;}
+  table th:nth-child(2),
+  table td:nth-child(2){font-size:.75rem!important;}
+}
 </style>
 </head>
 <body>
@@ -98,7 +265,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
       <li><a href="assignments.html" class="active"><span class="s-icon">🔗</span> Car Assignments</a></li>
       <li><a href="fines.html" class=""><span class="s-icon">🚨</span> Fines &amp; Tolls</a></li>
       <hr class="sidebar-divider">
-      <li><a href="../home.html"><span class="s-icon">🌐</span> View Website</a></li>
+      <li><a href="https://ozeerentals.com.au"><span class="s-icon">🌐</span> View Website</a></li>
     </ul>
   </aside>
   <main class="main">
@@ -130,7 +297,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
 <!-- ACTIVE ASSIGNMENTS -->
 <div class="table-wrap" style="margin-bottom:2rem;">
   <div class="table-header"><div class="table-title">Active Assignments</div></div>
-  <table>
+  <table class="assign-table">
     <thead><tr><th>Driver</th><th>Car</th><th>Start Date</th><th>Contract</th><th>Rate/Week</th><th>Bond</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody id="activeTable"><tr><td colspan="8" class="loading-cell">Loading...</td></tr></tbody>
   </table>
@@ -320,4 +487,50 @@ async function signOut() {
   window.location.href = 'index.html';
 }
 </script>
+
+<script>
+// Mobile sidebar toggle
+(function(){
+  // Add overlay div
+  var overlay = document.createElement('div');
+  overlay.className = 'sidebar-overlay';
+  overlay.id = 'sidebarOverlay';
+  overlay.onclick = function(){ closeSidebar(); };
+  document.body.appendChild(overlay);
+
+  // Add hamburger button to topbar
+  var topbar = document.querySelector('.topbar');
+  if(topbar){
+    var btn = document.createElement('button');
+    btn.className = 'mob-menu-btn';
+    btn.innerHTML = '☰';
+    btn.onclick = function(){ toggleSidebar(); };
+    // Wrap existing content in topbar-left
+    var existing = topbar.firstElementChild;
+    var wrap = document.createElement('div');
+    wrap.className = 'topbar-left';
+    wrap.appendChild(btn);
+    if(existing) wrap.appendChild(existing);
+    topbar.insertBefore(wrap, topbar.firstChild);
+  }
+
+  function toggleSidebar(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('sidebarOverlay');
+    if(sb){ sb.classList.toggle('open'); }
+    if(ov){ ov.classList.toggle('open'); }
+  }
+  function closeSidebar(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('sidebarOverlay');
+    if(sb){ sb.classList.remove('open'); }
+    if(ov){ ov.classList.remove('open'); }
+  }
+  // Close sidebar when nav link clicked
+  document.querySelectorAll('.sidebar-nav a').forEach(function(a){
+    a.addEventListener('click', function(){ if(window.innerWidth<=900) closeSidebar(); });
+  });
+})();
+</script>
+
 </body></html>
