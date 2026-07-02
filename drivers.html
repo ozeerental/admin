@@ -445,23 +445,32 @@ async function signOut() {
 
 async function openDoc(fileUrl) {
   try {
-    // Extract path from URL (everything after /driver-documents/)
-    var path = fileUrl.split('/driver-documents/')[1];
-    if (!path) {
-      // Try car-documents bucket
-      path = fileUrl.split('/car-documents/')[1];
-      if (path) {
-        window.open(fileUrl, '_blank');
-        return;
-      }
-      alert('Could not determine file path');
+    var path = null;
+
+    // Case 1: Already a storage path (e.g. driver_xxx/signature.png)
+    if (!fileUrl.startsWith('http')) {
+      path = fileUrl;
+    }
+    // Case 2: Full supabase URL - extract path
+    else if (fileUrl.includes('/driver-documents/')) {
+      path = decodeURIComponent(fileUrl.split('/driver-documents/')[1].split('?')[0]);
+    }
+    // Case 3: Car documents (public bucket) - open directly
+    else if (fileUrl.includes('/car-documents/')) {
+      window.open(fileUrl, '_blank');
       return;
     }
-    // Generate signed URL valid for 1 hour
+    // Case 4: Unknown URL - open directly
+    else {
+      window.open(fileUrl, '_blank');
+      return;
+    }
+
+    // Generate signed URL for private driver-documents bucket
     var { data, error } = await window._sb.storage
       .from('driver-documents')
-      .createSignedUrl(decodeURIComponent(path), 3600);
-    if (error) { alert('Error: ' + error.message); return; }
+      .createSignedUrl(path, 3600);
+    if (error) { alert('Error opening document: ' + error.message); return; }
     window.open(data.signedUrl, '_blank');
   } catch(e) {
     alert('Error opening document: ' + e.message);
