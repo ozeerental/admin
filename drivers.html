@@ -351,11 +351,14 @@ async function viewDriver(id){
     const found = (docs||[]).filter(d=>d.document_type===type);
     if(!found.length) return '<span style="color:rgba(255,255,255,.3);font-size:.8rem;">Not uploaded</span>';
     return found.map(d=>{
-      // Show signature as inline image
+      // Show signature as inline image (loads signed URL async)
       if(d.document_type==='signature'){
+        var sigId = 'sig_' + Math.random().toString(36).slice(2);
+        loadSignatureImage(d.file_url, sigId);
         return `<div style="margin-top:8px;">
-          <img src="${d.file_url}" alt="Signature" style="max-width:100%;max-height:120px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:#fff;padding:8px;cursor:pointer;" onclick="openDoc('${d.file_url}')">
-          <div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-top:4px;">Click to open full size</div>
+          <img id="${sigId}" alt="Signature" style="max-width:100%;max-height:120px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:#fff;padding:8px;cursor:pointer;display:none;" onclick="openDoc('${d.file_url}')">
+          <div id="${sigId}_loading" style="font-size:.8rem;color:rgba(255,255,255,.4);padding:12px;">Loading signature...</div>
+          <div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-top:4px;">Click image to open full size</div>
         </div>`;
       }
       return `<a href="#" onclick="openDoc('${d.file_url}');return false;" class="doc-link">📎 ${d.document_type.replace(/_/g,' ')}</a>`;
@@ -402,22 +405,202 @@ async function viewDriver(id){
       <div class="info-block"><div class="info-label">Current Status</div><div class="info-val"><strong>${driver.status}</strong></div></div>
       <div class="info-block"><div class="info-label">Applied On</div><div class="info-val">${new Date(driver.created_at).toLocaleDateString('en-AU')}</div></div>
     </div>
-    <div class="form-group" style="margin-top:1rem;">
-      <label class="form-label">Admin Notes</label>
-      <textarea class="form-textarea" id="adminNotes" placeholder="Add notes about this application...">${driver.notes||''}</textarea>
+    <div style="margin-top:1.5rem;border-top:2px solid rgba(248,180,0,.3);padding-top:1.25rem;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;">
+        <span style="font-size:1.1rem;">🚗</span>
+        <h3 style="font-size:1rem;font-weight:700;color:#f8b400;margin:0;letter-spacing:.5px;">CAR HANDOVER DETAILS</h3>
+        <span style="font-size:.7rem;color:rgba(255,255,255,.35);margin-left:auto;">Fill when approving</span>
+      </div>
+      <div style="background:rgba(248,180,0,.04);border:1px solid rgba(248,180,0,.12);border-radius:10px;padding:1rem;">
+        <div class="form-group" style="margin-bottom:.9rem;">
+          <label class="form-label">Allocated Car</label>
+          <select class="form-input" id="ho_car" onchange="onCarSelect()">
+            <option value="">— Select a car —</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.9rem;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Rego Number</label>
+            <input class="form-input" id="ho_rego" placeholder="e.g. ABC123" value="${driver.handover_car_rego||''}">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Odometer (km)</label>
+            <input class="form-input" id="ho_odo" placeholder="e.g. 45230" value="${driver.handover_odometer||''}">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:.9rem;">
+          <label class="form-label">Fuel Level</label>
+          <select class="form-input" id="ho_fuel">
+            <option value="">— Select —</option>
+            <option ${driver.handover_fuel_level==='Full'?'selected':''}>Full</option>
+            <option ${driver.handover_fuel_level==='3/4'?'selected':''}>3/4</option>
+            <option ${driver.handover_fuel_level==='1/2'?'selected':''}>1/2</option>
+            <option ${driver.handover_fuel_level==='1/4'?'selected':''}>1/4</option>
+            <option ${driver.handover_fuel_level==='Empty'?'selected':''}>Empty</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:.9rem;">
+          <label class="form-label">Accessories Included</label>
+          <div id="ho_accessories" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.35rem;">
+            ${['Phone holder','USB charger','Dash cam','Floor mats','Spare tyre','Car manual','Toll tag','First aid kit'].map(function(acc){
+              var checked = (driver.handover_accessories||'').indexOf(acc)!==-1 ? 'checked' : '';
+              return '<label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:rgba(255,255,255,.75);cursor:pointer;"><input type="checkbox" class="ho-acc" value="'+acc+'" '+checked+' style="width:16px;height:16px;accent-color:#f8b400;"> '+acc+'</label>';
+            }).join('')}
+          </div>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Additional Comments / Details</label>
+          <textarea class="form-textarea" id="ho_comments" placeholder="e.g. existing scratch on rear bumper, pickup location, special conditions..." style="min-height:60px;">${driver.handover_comments||''}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top:1.25rem;">
+      <label class="form-label">Admin Notes (internal only)</label>
+      <textarea class="form-textarea" id="adminNotes" placeholder="Internal notes — not shared with driver...">${driver.notes||''}</textarea>
     </div>
   `;
+
+  // Populate car dropdown after modal renders
+  populateHandoverCars(driver.handover_car_rego);
   document.getElementById('driverModal').classList.add('open');
+}
+
+// Populate the car dropdown in handover section
+async function populateHandoverCars(selectedRego){
+  var sel = document.getElementById('ho_car');
+  if(!sel) return;
+  var { data: cars } = await window._sb.from('cars').select('id,rego,make_model,year').order('rego');
+  window._handoverCars = cars || [];
+  (cars||[]).forEach(function(car){
+    var opt = document.createElement('option');
+    opt.value = car.rego;
+    opt.textContent = car.rego + ' — ' + car.make_model + ' ' + car.year;
+    if(selectedRego && car.rego===selectedRego) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// Auto-fill rego when a car is picked from dropdown
+function onCarSelect(){
+  var sel = document.getElementById('ho_car');
+  var rego = sel.value;
+  document.getElementById('ho_rego').value = rego;
+}
+
+// Gather handover data from the form
+function collectHandoverData(){
+  var accessories = Array.from(document.querySelectorAll('.ho-acc:checked')).map(function(cb){return cb.value;}).join(', ');
+  var carSel = document.getElementById('ho_car');
+  var carText = carSel && carSel.selectedIndex>0 ? carSel.options[carSel.selectedIndex].textContent : '';
+  return {
+    handover_car_rego: document.getElementById('ho_rego').value || null,
+    handover_car_details: carText || null,
+    handover_odometer: document.getElementById('ho_odo').value || null,
+    handover_fuel_level: document.getElementById('ho_fuel').value || null,
+    handover_accessories: accessories || null,
+    handover_comments: document.getElementById('ho_comments').value || null,
+    handover_date: new Date().toISOString()
+  };
 }
 
 async function updateDriverStatus(status){
   if(!viewingDriverId) return;
   const notes = document.getElementById('adminNotes').value;
-  const {error} = await window._sb.from('drivers').update({status, notes}).eq('id', viewingDriverId);
-  if(error){ alert('Error: '+error.message); return; }
+  const driver = allDrivers.find(function(d){return d.id===viewingDriverId;});
+
+  // Build update object
+  var updateObj = { status: status, notes: notes };
+  var handover = null;
+
+  // If approving, collect and save handover details
+  if(status === 'Approved'){
+    handover = collectHandoverData();
+    Object.assign(updateObj, handover);
+  }
+
+  const btn = document.getElementById(status==='Approved'?'approveBtn':'rejectBtn');
+  if(btn){ btn.disabled = true; btn.textContent = status==='Approved'?'Processing...':'Rejecting...'; }
+
+  const {error} = await window._sb.from('drivers').update(updateObj).eq('id', viewingDriverId);
+  if(error){ 
+    alert('Error: '+error.message); 
+    if(btn){ btn.disabled=false; btn.textContent=status==='Approved'?'Approve Driver':'Reject'; }
+    return; 
+  }
+
+  // On approval: generate PDF + email the driver
+  if(status === 'Approved' && driver){
+    try {
+      await sendApprovalEmail(driver, handover);
+    } catch(e){
+      console.error('Email error:', e);
+      alert('Driver approved and saved, but email failed to send: ' + e.message + '\nYou can still contact the driver manually.');
+    }
+  }
+
   closeDriverModal();
   loadDrivers();
-  alert(`Driver ${status === 'Approved' ? 'approved' : 'rejected'} successfully.`);
+  alert('Driver ' + (status === 'Approved' ? 'approved' : 'rejected') + ' successfully.' + (status==='Approved' ? ' Confirmation email sent to driver.' : ''));
+}
+
+// Send approval email with handover details
+async function sendApprovalEmail(driver, handover){
+  var fullName = [driver.first_name, driver.middle_name, driver.last_name].filter(Boolean).join(' ');
+  var accessories = handover.handover_accessories || 'None specified';
+
+  var html = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">'
+    + '<div style="background:#070b12;padding:24px;text-align:center;">'
+    + '<h1 style="color:#f8b400;margin:0;font-size:26px;">OZEE RENTALS</h1>'
+    + '<p style="color:#fff;margin:4px 0 0;font-size:13px;">Newcastle NSW Car Rentals</p>'
+    + '</div>'
+    + '<div style="padding:28px;background:#fff;color:#333;">'
+    + '<h2 style="color:#070b12;">Application Approved! ✅</h2>'
+    + '<p>Hi ' + fullName + ',</p>'
+    + '<p>Great news! Your Ozee Rentals driver application has been <strong>approved</strong>. We\'re excited to have you on board.</p>';
+
+  if(handover.handover_car_rego){
+    html += '<div style="background:#f8f8f8;border-left:4px solid #f8b400;padding:16px;margin:20px 0;">'
+      + '<h3 style="margin:0 0 12px;color:#070b12;">Your Allocated Vehicle</h3>'
+      + '<table style="width:100%;font-size:14px;border-collapse:collapse;">'
+      + (handover.handover_car_details ? '<tr><td style="padding:4px 0;color:#888;">Vehicle:</td><td style="padding:4px 0;font-weight:bold;">' + handover.handover_car_details + '</td></tr>' : '')
+      + '<tr><td style="padding:4px 0;color:#888;">Rego:</td><td style="padding:4px 0;font-weight:bold;">' + handover.handover_car_rego + '</td></tr>'
+      + (handover.handover_odometer ? '<tr><td style="padding:4px 0;color:#888;">Odometer:</td><td style="padding:4px 0;">' + handover.handover_odometer + ' km</td></tr>' : '')
+      + (handover.handover_fuel_level ? '<tr><td style="padding:4px 0;color:#888;">Fuel Level:</td><td style="padding:4px 0;">' + handover.handover_fuel_level + '</td></tr>' : '')
+      + '<tr><td style="padding:4px 0;color:#888;">Accessories:</td><td style="padding:4px 0;">' + accessories + '</td></tr>'
+      + '</table>';
+    if(handover.handover_comments){
+      html += '<p style="margin:12px 0 0;font-size:13px;"><strong>Notes:</strong> ' + handover.handover_comments + '</p>';
+    }
+    html += '</div>';
+  }
+
+  html += '<p>Please contact us to arrange your car pickup:</p>'
+    + '<p style="font-size:15px;"><strong>📞 0450 786 145</strong><br>'
+    + '📧 admin@ozeerentals.com.au</p>'
+    + '<p>We look forward to seeing you soon!</p>'
+    + '<p style="margin-top:24px;">Best regards,<br><strong>Ozee Rentals Team</strong></p>'
+    + '</div>'
+    + '<div style="background:#070b12;padding:16px;text-align:center;color:rgba(255,255,255,.5);font-size:11px;">'
+    + 'Ozee Rentals Pty Ltd · ABN 71 694 905 667 · 17A Drift St, West Wallsend, Newcastle NSW 2286'
+    + '</div></div>';
+
+  var res = await fetch('https://tbhqamcuewycaqertpba.supabase.co/functions/v1/send-driver-email', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + window._sb.supabaseKey,
+      'apikey': window._sb.supabaseKey
+    },
+    body: JSON.stringify({
+      to: driver.email,
+      subject: 'Your Ozee Rentals Application is Approved! 🚗',
+      html: html
+    })
+  });
+  var data = await res.json();
+  if(!res.ok || data.error){ throw new Error(data.error || 'Email send failed'); }
+  return data;
 }
 
 function closeDriverModal(){ document.getElementById('driverModal').classList.remove('open'); viewingDriverId=null; }
@@ -441,6 +624,32 @@ async function signOut() {
   localStorage.clear();
   sessionStorage.clear();
   window.location.href = 'index.html';
+}
+
+
+async function loadSignatureImage(filePath, imgId){
+  try {
+    var path = !filePath.startsWith('http') ? filePath :
+               filePath.includes('/driver-documents/') ? decodeURIComponent(filePath.split('/driver-documents/')[1].split('?')[0]) : filePath;
+    var { data, error } = await window._sb.storage
+      .from('driver-documents')
+      .createSignedUrl(path, 3600);
+    if(error){ 
+      var loadEl = document.getElementById(imgId + '_loading');
+      if(loadEl) loadEl.textContent = 'Signature unavailable';
+      return; 
+    }
+    // Wait for element to exist then set it
+    setTimeout(function(){
+      var img = document.getElementById(imgId);
+      var loadEl = document.getElementById(imgId + '_loading');
+      if(img){ 
+        img.src = data.signedUrl; 
+        img.style.display = 'block';
+      }
+      if(loadEl) loadEl.style.display = 'none';
+    }, 100);
+  } catch(e){ console.error('Signature load error:', e); }
 }
 
 async function openDoc(fileUrl) {
