@@ -418,7 +418,12 @@ async function viewDriver(id){
           <label class="form-label">Allocated Car</label>
           <select class="form-input" id="ho_car" onchange="onCarSelect()">
             <option value="">— Select a car —</option>
+            <option value="__manual__">✏️ Enter manually (not listed)</option>
           </select>
+        </div>
+        <div class="form-group" style="margin-bottom:.9rem;display:none;" id="ho_manual_wrap">
+          <label class="form-label">Car Details (manual entry)</label>
+          <input class="form-input" id="ho_manual_details" placeholder="e.g. Toyota Corolla 2019, Silver" value="${(driver.handover_car_details && !driver.handover_car_details.includes(' — ')) ? driver.handover_car_details : ''}">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.9rem;">
           <div class="form-group" style="margin:0;">
@@ -474,27 +479,52 @@ async function populateHandoverCars(selectedRego){
   if(!sel) return;
   var { data: cars } = await window._sb.from('cars').select('id,rego,make_model,year').order('rego');
   window._handoverCars = cars || [];
+  var matchedListedCar = false;
   (cars||[]).forEach(function(car){
     var opt = document.createElement('option');
     opt.value = car.rego;
     opt.textContent = car.rego + ' — ' + car.make_model + ' ' + car.year;
-    if(selectedRego && car.rego===selectedRego) opt.selected = true;
+    if(selectedRego && car.rego===selectedRego){ opt.selected = true; matchedListedCar = true; }
     sel.appendChild(opt);
   });
+  // If a rego was saved but doesn't match any listed car, it was a manual entry
+  if(selectedRego && !matchedListedCar){
+    sel.value = '__manual__';
+    var manualWrap = document.getElementById('ho_manual_wrap');
+    if(manualWrap) manualWrap.style.display = 'block';
+    document.getElementById('ho_rego').value = selectedRego;
+  }
 }
 
 // Auto-fill rego when a car is picked from dropdown
 function onCarSelect(){
   var sel = document.getElementById('ho_car');
-  var rego = sel.value;
-  document.getElementById('ho_rego').value = rego;
+  var val = sel.value;
+  var manualWrap = document.getElementById('ho_manual_wrap');
+  if(val === '__manual__'){
+    // Show manual entry field, clear rego for typing
+    manualWrap.style.display = 'block';
+    document.getElementById('ho_rego').value = '';
+    document.getElementById('ho_rego').removeAttribute('readonly');
+  } else {
+    // Listed car selected (or none) - hide manual field, auto-fill rego
+    manualWrap.style.display = 'none';
+    document.getElementById('ho_rego').value = val;
+  }
 }
 
 // Gather handover data from the form
 function collectHandoverData(){
   var accessories = Array.from(document.querySelectorAll('.ho-acc:checked')).map(function(cb){return cb.value;}).join(', ');
   var carSel = document.getElementById('ho_car');
-  var carText = carSel && carSel.selectedIndex>0 ? carSel.options[carSel.selectedIndex].textContent : '';
+  var carText = '';
+  if(carSel && carSel.value === '__manual__'){
+    // Manual entry - use the typed car details
+    carText = document.getElementById('ho_manual_details').value || '';
+  } else if(carSel && carSel.selectedIndex > 0){
+    // Listed car - use the dropdown text
+    carText = carSel.options[carSel.selectedIndex].textContent;
+  }
   return {
     handover_car_rego: document.getElementById('ho_rego').value || null,
     handover_car_details: carText || null,
