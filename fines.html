@@ -334,6 +334,21 @@ async function loadFines(){
   renderFines(allFines);
 }
 
+
+// Delete a fine/toll (+ notice file if stored)
+async function deleteFine(id, rego, type){
+  if(!confirm('Delete this '+type+(rego?' for '+rego:'')+'?\n\nThis cannot be undone.')) return;
+  try {
+    // Delete the fine record
+    var { error } = await window._sb.from('fines_tolls').delete().eq('id', id);
+    if(error){ alert('Error: '+error.message); return; }
+    loadFines();
+    alert('Deleted successfully.');
+  } catch(e){
+    alert('Error: '+e.message);
+  }
+}
+
 function renderFines(fines){
   const tb = document.getElementById('finesTable');
   if(!fines.length){ tb.innerHTML='<tr><td colspan="7" class="loading-cell">No fines or tolls recorded yet.</td></tr>'; return; }
@@ -351,6 +366,7 @@ function renderFines(fines){
         <select class="search-input" style="min-width:140px;font-size:.72rem;padding:.3rem;" onchange="updateFineStatus('${f.id}',this.value)">
           <option>Pending</option><option ${f.status==='Transferred'?'selected':''}>Transferred</option><option ${f.status==='Paid by Driver'?'selected':''}>Paid by Driver</option><option ${f.status==='Paid by Company'?'selected':''}>Paid by Company</option><option ${f.status==='Resolved'?'selected':''}>Resolved</option>
         </select>
+        <button class="btn btn-sm" onclick="deleteFine('${f.id}','${f.cars?.rego||''}','${f.type}')" style="background:rgba(120,120,120,.12);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);margin-top:4px;">🗑️ Delete</button>
       </td>
     </tr>`).join('');
 }
