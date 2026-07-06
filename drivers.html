@@ -313,6 +313,37 @@ async function loadDrivers(){
   renderDrivers(allDrivers);
 }
 
+
+// Delete a driver + their documents + storage files
+async function deleteDriver(id){
+  var driver = allDrivers.find(function(d){return d.id===id;});
+  var name = driver ? (driver.first_name+' '+driver.last_name) : 'this driver';
+  if(!confirm('Delete '+name+'?\n\nThis permanently removes the driver, their documents, and uploaded files. This cannot be undone.')) return;
+
+  try {
+    // 1. Delete storage files in driver_<id>/ folder
+    var folder = 'driver_'+id;
+    var { data: files } = await window._sb.storage.from('driver-documents').list(folder, {limit:1000});
+    if(files && files.length){
+      var paths = files.map(function(f){ return folder+'/'+f.name; });
+      await window._sb.storage.from('driver-documents').remove(paths);
+    }
+    // 2. Delete document records
+    await window._sb.from('documents').delete().eq('entity_type','driver').eq('entity_id',id);
+    // 3. Delete linked fines/tolls then assignments (FK constraints)
+    await window._sb.from('fines_tolls').delete().eq('driver_id', id);
+    await window._sb.from('car_assignments').delete().eq('driver_id', id);
+    // 4. Delete the driver record
+    var { error } = await window._sb.from('drivers').delete().eq('id', id);
+    if(error){ alert('Error deleting driver: '+error.message); return; }
+    // 4. Reload
+    loadDrivers();
+    alert(name+' deleted successfully.');
+  } catch(e){
+    alert('Error: '+e.message);
+  }
+}
+
 function renderDrivers(drivers){
   const tb = document.getElementById('driversTable');
   if(!drivers.length){ tb.innerHTML='<tr><td colspan="7" class="loading-cell">No applications yet.</td></tr>'; return; }
@@ -331,8 +362,9 @@ function renderDrivers(drivers){
         <button class="btn btn-outline btn-sm" onclick="viewDriver('${d.id}')" style="margin-bottom:6px;width:100%;">👁 View</button>
         ${d.status==='Pending'?`
         <button class="btn btn-sm" onclick="quickApprove('${d.id}')" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:#4ade80;width:100%;margin-bottom:6px;">✅ Approve</button>
-        <button class="btn btn-sm" onclick="quickReject('${d.id}')" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;width:100%;">❌ Reject</button>
+        <button class="btn btn-sm" onclick="quickReject('${d.id}')" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;width:100%;margin-bottom:6px;">❌ Reject</button>
         `:''}
+        <button class="btn btn-sm" onclick="deleteDriver('${d.id}')" style="background:rgba(120,120,120,.12);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);width:100%;">🗑️ Delete</button>
       </td>
     </tr>`).join('');
 }
