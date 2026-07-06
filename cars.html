@@ -636,10 +636,28 @@ function editCar(id) {
 }
 
 async function deleteCar(id, rego) {
-  if (!confirm(`Delete car ${rego}? This cannot be undone.`)) return;
-  const { error } = await _db.from('cars').delete().eq('id', id);
-  if (error) { alert('Error: ' + error.message); return; }
-  await loadCars();
+  if (!confirm(`Delete car ${rego}?\n\nThis permanently removes the car, its photos, documents, and any linked fines/assignments. This cannot be undone.`)) return;
+  try {
+    // 1. Delete storage files in car_<id>/ folder
+    const folder = 'car_' + id;
+    const { data: files } = await _db.storage.from('car-documents').list(folder, {limit:1000});
+    if (files && files.length) {
+      const paths = files.map(f => folder + '/' + f.name);
+      await _db.storage.from('car-documents').remove(paths);
+    }
+    // 2. Delete document records for this car
+    await _db.from('documents').delete().eq('entity_type','car').eq('entity_id', id);
+    // 3. Delete linked fines/tolls (FK constraint) then assignments (FK constraint)
+    await _db.from('fines_tolls').delete().eq('car_id', id);
+    await _db.from('car_assignments').delete().eq('car_id', id);
+    // 4. Delete the car record
+    const { error } = await _db.from('cars').delete().eq('id', id);
+    if (error) { alert('Error: ' + error.message); return; }
+    await loadCars();
+    alert(`Car ${rego} deleted successfully.`);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
 }
 
 // ─── EVENT LISTENERS ───
