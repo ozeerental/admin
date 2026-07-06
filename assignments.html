@@ -343,6 +343,23 @@ tr:hover td{background:rgba(255,255,255,.03);}
 </div>
 
 <script>
+
+// Delete a car assignment (+ any linked fines first)
+async function deleteAssignment(id){
+  if(!confirm('Delete this assignment?\n\nThis permanently removes the assignment record. This cannot be undone.')) return;
+  try {
+    // First delete any fines linked to this assignment (FK constraint)
+    await window._sb.from('fines_tolls').delete().eq('assignment_id', id);
+    // Then delete the assignment
+    var { error } = await window._sb.from('car_assignments').delete().eq('id', id);
+    if(error){ alert('Error: '+error.message); return; }
+    loadAssignments();
+    alert('Assignment deleted successfully.');
+  } catch(e){
+    alert('Error: '+e.message);
+  }
+}
+
 async function loadAssignments(){
   const {data:active} = await window._sb.from('car_assignments')
     .select('*,cars(rego,make_model),drivers(first_name,last_name,mobile,email)')
@@ -363,7 +380,8 @@ async function loadAssignments(){
       <td style="color:#F5A623;font-weight:700;">$${a.weekly_rate}/wk</td>
       <td>${a.bond_paid?'<span class="badge badge-green">Paid</span>':'<span class="badge badge-yellow">Pending</span>'}</td>
       <td><span class="badge badge-green">Active</span></td>
-      <td><button class="btn btn-danger btn-sm" onclick="endAssignment('${a.id}')">End Rental</button></td>
+      <td><button class="btn btn-danger btn-sm" onclick="endAssignment('${a.id}')">End Rental</button>
+      <button class="btn btn-sm" onclick="deleteAssignment('${a.id}')" style="background:rgba(120,120,120,.12);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);margin-top:4px;">🗑️ Delete</button></td>
     </tr>`).join('');
 
   const hT = document.getElementById('historyTable');
