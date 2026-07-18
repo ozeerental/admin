@@ -457,6 +457,21 @@ async function viewDriver(id){
           <label class="form-label">Car Details (manual entry)</label>
           <input class="form-input" id="ho_manual_details" placeholder="e.g. Toyota Corolla 2019, Silver" value="${(driver.handover_car_details && !driver.handover_car_details.includes(' — ')) ? driver.handover_car_details : ''}">
         </div>
+        <div class="form-group" style="margin-bottom:.9rem;">
+          <label class="form-label">Agreed Rental Period <span style="color:#f5a623;">(goes on the contract)</span></label>
+          <select class="form-input" id="ho_duration">
+            <option value="">-- Select agreed period --</option>
+            <option value="2 Weeks">2 Weeks</option>
+            <option value="1 Month">1 Month</option>
+            <option value="2 Months">2 Months</option>
+            <option value="3 Months">3 Months</option>
+            <option value="4 Months">4 Months</option>
+            <option value="5 Months">5 Months</option>
+            <option value="6 Months">6 Months</option>
+            <option value="More than 6 Months">More than 6 Months</option>
+          </select>
+          <div style="font-size:.78rem;color:#9aa4b2;margin-top:.35rem;">Driver requested: <strong style="color:#f5a623;">${driver.requested_duration || 'Not specified'}</strong></div>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.9rem;">
           <div class="form-group" style="margin:0;">
             <label class="form-label">Rego Number</label>
@@ -502,6 +517,8 @@ async function viewDriver(id){
 
   // Populate car dropdown after modal renders
   populateHandoverCars(driver.handover_car_rego);
+  var _hd = document.getElementById('ho_duration');
+  if(_hd) _hd.value = driver.rental_duration || driver.requested_duration || '';
   document.getElementById('driverModal').classList.add('open');
 }
 
@@ -564,6 +581,7 @@ function collectHandoverData(){
     handover_fuel_level: document.getElementById('ho_fuel').value || null,
     handover_accessories: accessories || null,
     handover_comments: document.getElementById('ho_comments').value || null,
+    rental_duration: (document.getElementById('ho_duration') ? document.getElementById('ho_duration').value : '') || null,
     handover_date: new Date().toISOString()
   };
 }
@@ -751,7 +769,7 @@ async function generateApprovalPDF(d, handover, docs){
   // ── SECTION 6 AGREEMENT ──
   sectionHeader('RENTAL VEHICLE AGREEMENT — TERMS & CONDITIONS');
   para('This is an agreement between the prospective hirer identified on page 1 (you) and the car owner(s) to rent the motor vehicle described on Page 1 including all accessories, tools, tyres, and equipment and any replacement vehicle (the vehicle).');
-  subHead('Contract Period: 3 / 6 Months (to be confirmed)   |   Bond: 3 weeks of rent in advance (2 weeks bond and 1 week rent');
+  subHead('Contract Period: ' + ((handover && handover.rental_duration) || d.rental_duration || d.requested_duration || 'To be confirmed') + '   |   Bond: 4 weeks rent in advance');
   subHead('Vehicle Insurance Excess: $1,195 + ($550 Age Excess if applicable)');
   y += 1;
   subHead('1. VEHICLE CONDITION AND RETURN');
