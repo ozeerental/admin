@@ -51,6 +51,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
 .btn-danger{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;}
 .btn-sm{padding:.35rem .8rem;font-size:.72rem;}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;align-items:center;justify-content:center;padding:2rem;}
+@media(max-width:600px){.modal{padding:.6rem;align-items:flex-end;}.modal>*{max-height:92vh;overflow-y:auto;width:100%;border-radius:18px 18px 0 0;}}
 .modal.open{display:flex;}
 .modal-box{background:#0d1526;border:1px solid rgba(245,166,35,.2);width:100%;max-width:800px;max-height:90vh;overflow-y:auto;}
 .modal-head{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;}
@@ -247,6 +248,34 @@ select option{background:#0d1526;color:#fff;}
   table th:nth-child(2),
   table td:nth-child(2){font-size:.75rem!important;}
 }
+
+/* ═══ MOBILE APP-STYLE CARDS — rows become cards, no sideways scrolling ═══ */
+@media(max-width:768px){
+  .table-wrap{overflow:visible!important;background:transparent!important;border:none!important;}
+  .table-wrap table{display:block;width:100%;}
+  .table-wrap table thead{display:none;}
+  .table-wrap table tbody,.table-wrap table tr,.table-wrap table td{display:block;width:100%;}
+  .table-wrap table tbody tr{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:14px;margin-bottom:1rem;padding:.9rem .95rem;}
+  .table-wrap table td{display:flex;justify-content:space-between;align-items:center;gap:.8rem;padding:.42rem 0;border:none!important;text-align:right;font-size:.88rem;}
+  .table-wrap table td::before{content:attr(data-mob);font-size:.66rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.45);text-align:left;flex-shrink:0;}
+  .table-wrap table td:first-child{display:block;text-align:left;padding-bottom:.55rem;margin-bottom:.3rem;border-bottom:1px solid rgba(255,255,255,.09)!important;font-size:1rem;}
+  .table-wrap table td:first-child::before{display:none;}
+  .table-wrap table td:last-child{display:flex;flex-wrap:wrap;gap:.5rem;padding-top:.65rem;text-align:left;}
+  .table-wrap table td:last-child::before{display:none;}
+  .table-wrap table td.actions-cell{flex-wrap:wrap;gap:.5rem;}
+  .table-wrap table td.actions-cell .btn{flex:1 1 calc(50% - .25rem);width:auto!important;margin:0!important;padding:.8rem .4rem!important;font-size:.9rem!important;min-height:48px;font-weight:700;}
+  .table-wrap table td.actions-cell .act-view{flex:1 1 100%;}
+  .table-wrap table td .badge{margin-left:auto;}
+  .table-wrap table .loading-cell{display:block;text-align:center;border:none!important;}
+  /* modal buttons: stack full-width like an app sheet */
+  /* modal-foot mobile handled above (single source) */
+}
+.act-approve{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.35);color:#4ade80;}
+.act-reject{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#f87171;}
+.act-delete{background:rgba(120,120,120,.14);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.7);}
+.actions-cell{display:flex;gap:.4rem;flex-wrap:wrap;}
+.actions-cell .btn{margin:0;}
+@media(min-width:901px){.actions-cell{flex-direction:column;}.actions-cell .btn{width:100%;}}
 </style>
 </head>
 <body>
@@ -350,21 +379,21 @@ function renderDrivers(drivers){
   const statusBadge = s => s==='Pending'?'badge-yellow':s==='Approved'?'badge-green':'badge-red';
   tb.innerHTML = drivers.map(d=>`
     <tr>
-      <td>
+      <td data-mob="Applicant">
         <strong>${d.first_name} ${d.middle_name?d.middle_name+' ':''} ${d.last_name}</strong>
         <div style="font-size:.75rem;color:rgba(255,255,255,.4);margin-top:2px;">${d.mobile}</div>
       </td>
-      <td style="font-size:.82rem;">${d.email}</td>
-      <td>${d.visa_status||'—'}</td>
-      <td>${new Date(d.created_at).toLocaleDateString('en-AU')}</td>
-      <td><span class="badge ${statusBadge(d.status)}">${d.status}</span></td>
-      <td>
-        <button class="btn btn-outline btn-sm" onclick="viewDriver('${d.id}')" style="margin-bottom:6px;width:100%;">👁 View</button>
+      <td data-mob="Email" style="font-size:.82rem;word-break:break-all;">${d.email}</td>
+      <td data-mob="Visa">${d.visa_status||'—'}</td>
+      <td data-mob="Applied">${new Date(d.created_at).toLocaleDateString('en-AU')}</td>
+      <td data-mob="Status"><span class="badge ${statusBadge(d.status)}">${d.status}</span></td>
+      <td class="actions-cell">
+        <button class="btn btn-outline btn-sm act-view" onclick="viewDriver('${d.id}')">👁 View</button>
         ${d.status==='Pending'?`
-        <button class="btn btn-sm" onclick="quickApprove('${d.id}')" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:#4ade80;width:100%;margin-bottom:6px;">✅ Approve</button>
-        <button class="btn btn-sm" onclick="quickReject('${d.id}')" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;width:100%;margin-bottom:6px;">❌ Reject</button>
+        <button class="btn btn-sm act-approve" onclick="quickApprove('${d.id}')">✅ Approve</button>
+        <button class="btn btn-sm act-reject" onclick="quickReject('${d.id}')">❌ Reject</button>
         `:''}
-        <button class="btn btn-sm" onclick="deleteDriver('${d.id}')" style="background:rgba(120,120,120,.12);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);width:100%;">🗑️ Delete</button>
+        <button class="btn btn-sm act-delete" onclick="deleteDriver('${d.id}')">🗑️ Delete</button>
       </td>
     </tr>`).join('');
 }
