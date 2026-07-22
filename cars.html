@@ -381,6 +381,10 @@ tr:hover td{background:rgba(255,255,255,.03);}
             <option>Available</option><option>Rented</option><option>Maintenance</option>
           </select>
         </div>
+        <div class="form-group">
+          <label class="form-label">Available From <span style="color:#8a929b;font-weight:400;">(shown on website when Rented / Maintenance)</span></label>
+          <input type="date" class="form-input" id="c_avail_from">
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Suitable For <span class="req">*</span></label>
@@ -473,6 +477,7 @@ function openCarModal(car) {
   document.getElementById('c_fuel').value = car ? (car.fuel_type || 'Petrol') : 'Petrol';
   document.getElementById('c_rate').value = car ? car.weekly_rate : '';
   document.getElementById('c_status').value = car ? car.status : 'Available';
+  document.getElementById('c_avail_from').value = car && car.available_from ? car.available_from : '';
   document.getElementById('c_rego_exp').value = car ? (car.rego_expiry || '') : '';
   document.getElementById('c_svc').value = car ? (car.service_due || '') : '';
   document.getElementById('c_notes').value = car ? (car.notes || '') : '';
@@ -516,6 +521,7 @@ async function saveCar() {
     fuel_type: document.getElementById('c_fuel').value,
     weekly_rate: rate,
     status: document.getElementById('c_status').value,
+    available_from: document.getElementById('c_avail_from').value || null,
     suitable_for: suitable,
     rego_expiry: document.getElementById('c_rego_exp').value || null,
     service_due: document.getElementById('c_svc').value || null,
