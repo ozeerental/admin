@@ -29,6 +29,10 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 .table-header{padding:1.25rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;}
 .table-title{font-family:"Barlow Condensed",sans-serif;font-size:1.2rem;font-weight:900;text-transform:uppercase;letter-spacing:1px;}
 table{width:100%;border-collapse:collapse;}
+.act-share{background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:#00E5FF;}
+.actions-cell{display:flex;gap:.4rem;flex-wrap:wrap;}
+.actions-cell .btn{margin:0;}
+@media(min-width:901px){.actions-cell{flex-direction:column;}.actions-cell .btn{width:100%;}}
 th{text-align:left;padding:.9rem 1rem;font-size:.7rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);border-bottom:1px solid rgba(255,255,255,.07);}
 td{padding:.9rem 1rem;font-size:.88rem;border-bottom:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.8);vertical-align:middle;}
 tr:hover td{background:rgba(255,255,255,.03);}
@@ -250,6 +254,30 @@ tr:hover td{background:rgba(255,255,255,.03);}
   table th:nth-child(2),
   table td:nth-child(2){font-size:.75rem!important;}
 }
+
+/* ═══ MOBILE APP-STYLE CARDS — rows become cards, no sideways scrolling ═══ */
+@media(max-width:768px){
+  .table-wrap{overflow:visible!important;background:transparent!important;border:none!important;}
+  .table-wrap table{display:block;width:100%;}
+  .table-wrap table thead{display:none;}
+  .table-wrap table tbody,.table-wrap table tr,.table-wrap table td{display:block;width:100%;}
+  .table-wrap table tbody tr{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:14px;margin-bottom:1rem;padding:.9rem .95rem;}
+  .table-wrap table td{display:flex;justify-content:space-between;align-items:center;gap:.8rem;padding:.42rem 0;border:none!important;text-align:right;font-size:.88rem;}
+  .table-wrap table td::before{content:attr(data-mob);font-size:.66rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.45);text-align:left;flex-shrink:0;}
+  .table-wrap table td:first-child{display:block;text-align:left;padding-bottom:.55rem;margin-bottom:.3rem;border-bottom:1px solid rgba(255,255,255,.09)!important;font-size:1rem;}
+  .table-wrap table td:first-child::before{display:none;}
+  .table-wrap table td:last-child{display:flex;flex-wrap:wrap;gap:.5rem;padding-top:.65rem;text-align:left;}
+  .table-wrap table td:last-child::before{display:none;}
+  .table-wrap table td.actions-cell{flex-wrap:wrap;gap:.5rem;}
+  .table-wrap table td.actions-cell .btn{flex:1 1 calc(50% - .25rem);width:auto!important;margin:0!important;padding:.8rem .4rem!important;font-size:.9rem!important;min-height:48px;font-weight:700;}
+  .table-wrap table td.actions-cell .act-edit{flex:1 1 100%;}
+  .table-wrap table td .badge{margin-left:auto;}
+  .table-wrap table .loading-cell{display:block;text-align:center;border:none!important;}
+  /* modal buttons: stack full-width like an app sheet */
+  .modal-foot{display:flex!important;flex-wrap:wrap;gap:.55rem;}
+  .modal-foot .btn{flex:1 1 100%;margin:0!important;padding:.85rem!important;min-height:48px;font-size:.95rem!important;}
+}
+@media(max-width:768px){#carsTable td:nth-child(2)::before{content:'Make & Model';}#carsTable td:nth-child(3)::before{content:'Year';}#carsTable td:nth-child(4)::before{content:'Category';}#carsTable td:nth-child(5)::before{content:'Suitable For';}#carsTable td:nth-child(6)::before{content:'Rate / Week';}#carsTable td:nth-child(7)::before{content:'Status';}}
 </style>
 </head>
 <body>
@@ -618,17 +646,17 @@ function renderCars(cars) {
   const badge = s => s === 'Available' ? 'badge-green' : s === 'Rented' ? 'badge-yellow' : 'badge-red';
   tb.innerHTML = cars.map(c => `
     <tr>
-      <td><strong>${c.rego}</strong></td>
-      <td>${c.make_model}</td>
-      <td>${c.year}</td>
-      <td>${c.category || '—'}</td>
-      <td>${(c.suitable_for || []).map(t => `<span class="badge badge-blue" style="margin:1px 2px;font-size:.6rem;">${t}</span>`).join('')}</td>
-      <td><strong style="color:#F5A623;">$${c.weekly_rate}/wk</strong></td>
-      <td><span class="badge ${badge(c.status)}">${c.status}</span></td>
-      <td style="white-space:nowrap;">
-        <button class="btn btn-outline btn-sm" onclick="editCar('${c.id}')">Edit</button>
-        <button class="btn btn-sm" style="background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:#00E5FF;" onclick="openShareDocs('${c.id}','${c.rego}','${c.make_model}')">📤 Share</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteCar('${c.id}','${c.rego}')">Delete</button>
+      <td data-mob="Rego"><strong>${c.rego}</strong></td>
+      <td data-mob="Make & Model">${c.make_model}</td>
+      <td data-mob="Year">${c.year}</td>
+      <td data-mob="Category">${c.category || '—'}</td>
+      <td data-mob="Suitable For">${(c.suitable_for || []).map(t => `<span class="badge badge-blue" style="margin:1px 2px;font-size:.6rem;">${t}</span>`).join('')||'—'}</td>
+      <td data-mob="Rate/Week"><strong style="color:#F5A623;">$${c.weekly_rate}/wk</strong></td>
+      <td data-mob="Status"><span class="badge ${badge(c.status)}">${c.status}</span></td>
+      <td class="actions-cell">
+        <button class="btn btn-outline btn-sm act-edit" onclick="editCar('${c.id}')">✏️ Edit</button>
+        <button class="btn btn-sm act-share" onclick="openShareDocs('${c.id}','${c.rego}','${c.make_model}')">📤 Share</button>
+        <button class="btn btn-danger btn-sm act-del" onclick="deleteCar('${c.id}','${c.rego}')">🗑️ Delete</button>
       </td>
     </tr>`).join('');
 }
