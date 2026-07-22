@@ -372,6 +372,19 @@ function renderDrivers(drivers){
 function filterDrivers(q){ renderDrivers(allDrivers.filter(d=>(d.first_name+d.last_name+d.email).toLowerCase().includes(q.toLowerCase()))); }
 function filterByStatus(s){ renderDrivers(s ? allDrivers.filter(d=>d.status===s) : allDrivers); }
 
+function licExp(yr){
+  var y=parseInt(yr); if(!y||isNaN(y)) return null;
+  var e=new Date().getFullYear()-y;
+  return (e>=0&&e<=80)?e:null;
+}
+function calcAge(dob){
+  if(!dob) return null;
+  try{ var b=new Date(dob); if(isNaN(b.getTime())) return null;
+    var t=new Date(); var a=t.getFullYear()-b.getFullYear();
+    var m=t.getMonth()-b.getMonth();
+    if(m<0||(m===0&&t.getDate()<b.getDate())) a--;
+    return (a>=0&&a<130)?a:null; }catch(e){ return null; }
+}
 async function viewDriver(id){
   viewingDriverId = id;
   const driver = allDrivers.find(d=>d.id===id);
@@ -403,14 +416,14 @@ async function viewDriver(id){
   document.getElementById('driverModalBody').innerHTML = `
     <div class="info-grid">
       <div class="info-block"><div class="info-label">Full Name</div><div class="info-val">${driver.first_name} ${driver.middle_name||''} ${driver.last_name}</div></div>
-      <div class="info-block"><div class="info-label">Date of Birth</div><div class="info-val">${driver.dob ? new Date(driver.dob).toLocaleDateString('en-AU') : '—'} (Age: ${driver.age||'—'})</div></div>
+      <div class="info-block"><div class="info-label">Date of Birth</div><div class="info-val">${driver.dob ? new Date(driver.dob).toLocaleDateString('en-AU') : '—'}${calcAge(driver.dob)!==null ? ' (Age: '+calcAge(driver.dob)+')' : ''}</div></div>
       <div class="info-block"><div class="info-label">Mobile</div><div class="info-val"><a href="tel:${driver.mobile}" style="color:#F5A623;">${driver.mobile}</a></div></div>
       <div class="info-block"><div class="info-label">Email</div><div class="info-val"><a href="mailto:${driver.email}" style="color:#F5A623;">${driver.email}</a></div></div>
       <div class="info-block"><div class="info-label">Address</div><div class="info-val">${driver.address||'—'}</div></div>
       <div class="info-block"><div class="info-label">Visa Status</div><div class="info-val">${driver.visa_status||'—'}</div></div>
       <div class="info-block"><div class="info-label">Licence Number</div><div class="info-val">${driver.license_number||'—'} (${driver.license_state||'—'})</div></div>
       <div class="info-block"><div class="info-label">Licence Expiry</div><div class="info-val">${driver.license_expiry ? new Date(driver.license_expiry).toLocaleDateString('en-AU') : '—'}</div></div>
-      <div class="info-block"><div class="info-label">Licence Year / Age</div><div class="info-val">${driver.license_year||'—'} / ${driver.license_age||'—'} years experience</div></div>
+      <div class="info-block"><div class="info-label">Licence Year Obtained</div><div class="info-val">${driver.license_year||'—'}${licExp(driver.license_year)!==null ? ' ('+licExp(driver.license_year)+' years experience)' : ''}</div></div>
       <div class="info-block"><div class="info-label">Emergency Contact</div><div class="info-val">${driver.emergency_name||'—'} (${driver.emergency_relation||'—'}) — ${driver.emergency_phone||'—'}</div></div>
     </div>
     <div style="margin-bottom:1.5rem;">
@@ -729,7 +742,7 @@ async function generateApprovalPDF(d, handover, docs){
   // ── SECTION 1 PERSONAL ──
   sectionHeader('SECTION 01 — PERSONAL INFORMATION');
   field('Full Name', fullName);
-  field('Date of Birth', d.dob);
+  field('Date of Birth', d.dob ? (new Date(d.dob).toLocaleDateString('en-AU') + (calcAge(d.dob)!==null ? ' (Age: '+calcAge(d.dob)+')' : '')) : d.dob);
   field('Residential Address', d.address);
   field('Mobile Number', d.mobile);
   field('Email Address', d.email);
@@ -740,7 +753,7 @@ async function generateApprovalPDF(d, handover, docs){
   field('Licence Number', d.license_number);
   field('Licence State', d.license_state);
   field('Licence Expiry', d.license_expiry);
-  field('Years Licence Held', d.license_year);
+  field('Licence Year Obtained', d.license_year ? (d.license_year + (licExp(d.license_year)!==null ? ' ('+licExp(d.license_year)+' years experience)' : '')) : d.license_year);
 
   // ── SECTION 3 EMERGENCY ──
   sectionHeader('SECTION 03 — EMERGENCY CONTACT');
@@ -750,11 +763,15 @@ async function generateApprovalPDF(d, handover, docs){
 
   // ── SECTION 4 DOCUMENTS (tick boxes) ──
   sectionHeader('SECTION 04 — UPLOADED DOCUMENTS');
-  const docMap = { license_front:'Licence Front', license_back:'Licence Back', passport:'Passport', visa_vevo:'Visa / VEVO', bond_rent_receipt:'Bond + Rent Receipt', medicare_id:'Bond + Rent Receipt' };
+  const docMap = { license_front:'Licence Front', license_back:'Licence Back', passport:'Passport', visa_vevo:'Visa / VEVO', bond_rent_receipt:'Bond + Rent Receipt' };
+  // legacy: some drivers uploaded this as medicare_id before the rename
+  const typeAliases = { bond_rent_receipt:['bond_rent_receipt','medicare_id'] };
   const uploadedTypes = (docs||[]).map(function(x){ return x.document_type; });
   Object.keys(docMap).forEach(function(type){
-    const found = (docs||[]).find(function(x){ return x.document_type===type; });
-    tickLine(docMap[type], uploadedTypes.indexOf(type)!==-1, found ? found.file_name : null);
+    const accepted = typeAliases[type] || [type];
+    const found = (docs||[]).find(function(x){ return accepted.indexOf(x.document_type)!==-1; });
+    const has = !!found;
+    tickLine(docMap[type], has, found ? found.file_name : null);
   });
   y += 3;
 
