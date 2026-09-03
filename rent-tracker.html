@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rent Tracker — Ozee Rentals Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:#07101e;border-bottom:1px solid rgba(245,166,35,.15);padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:200;}
+.topbar img{height:36px;filter:brightness(0) invert(1);}
+.topbar-right{display:flex;align-items:center;gap:1rem;}
+.topbar-user{font-size:.82rem;color:rgba(255,255,255,.5);}
+.topbar-logout{font-size:.78rem;color:#F5A623;text-decoration:none;letter-spacing:1px;text-transform:uppercase;padding:.4rem .9rem;border:1px solid rgba(245,166,35,.3);cursor:pointer;background:none;font-family:"Barlow",sans-serif;}
+.app{display:flex;flex:1;}
+.sidebar{width:220px;background:#07101e;border-right:1px solid rgba(255,255,255,.06);padding:1.5rem 0;flex-shrink:0;}
+.sidebar-nav{list-style:none;}
+.sidebar-nav li a{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.5rem;color:rgba(255,255,255,.5);text-decoration:none;font-size:.88rem;font-weight:600;transition:all .2s;border-left:3px solid transparent;}
+.sidebar-nav li a:hover{color:#fff;background:rgba(255,255,255,.04);}
+.sidebar-nav li a.active{color:#F5A623;background:rgba(245,166,35,.08);border-left-color:#F5A623;}
+.sidebar-divider{margin:1rem 1.5rem;border:none;border-top:1px solid rgba(255,255,255,.06);}
+.main{flex:1;padding:2rem;overflow-y:auto;}
+.page-title{font-family:"Barlow Condensed",sans-serif;font-size:2.2rem;font-weight:900;text-transform:uppercase;letter-spacing:-1px;margin-bottom:.3rem;}
+.page-title span{color:#F5A623;}
+.page-sub{color:rgba(255,255,255,.4);font-size:.88rem;margin-bottom:1.5rem;}
+
+.week-banner{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:8px;padding:.9rem 1.2rem;margin-bottom:1.5rem;font-size:.88rem;color:#F5A623;font-weight:700;}
+
+.driver-list{display:flex;flex-direction:column;gap:.9rem;}
+.d-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;overflow:hidden;}
+.d-head{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.2rem;cursor:pointer;flex-wrap:wrap;gap:.8rem;}
+.d-head:hover{background:rgba(255,255,255,.02);}
+.d-info{display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;}
+.d-name{font-family:"Barlow Condensed",sans-serif;font-size:1.15rem;font-weight:800;text-transform:uppercase;}
+.d-car{font-size:.78rem;color:rgba(255,255,255,.4);}
+.status-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.dot-paid{background:#4ade80;box-shadow:0 0 8px rgba(74,222,128,.6);}
+.dot-unpaid{background:#f87171;box-shadow:0 0 8px rgba(248,113,113,.6);}
+.dot-partial{background:#F5A623;box-shadow:0 0 8px rgba(245,166,35,.6);}
+.overdue-tag{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);color:#f87171;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:.3rem .7rem;border-radius:100px;}
+.d-right{display:flex;align-items:center;gap:.8rem;}
+.d-week-status{font-size:.8rem;font-weight:700;}
+.st-paid{color:#4ade80;} .st-unpaid{color:#f87171;} .st-partial{color:#F5A623;}
+.chev{color:rgba(255,255,255,.3);transition:transform .2s;}
+.d-card.open .chev{transform:rotate(180deg);}
+
+.d-body{display:none;border-top:1px solid rgba(255,255,255,.08);padding:1.2rem;}
+.d-card.open .d-body{display:block;}
+.week-row{display:flex;justify-content:space-between;align-items:center;padding:.65rem 0;border-bottom:1px solid rgba(255,255,255,.05);flex-wrap:wrap;gap:.6rem;}
+.week-row:last-child{border-bottom:none;}
+.week-left{display:flex;align-items:center;gap:.7rem;}
+.week-date{font-size:.85rem;color:rgba(255,255,255,.75);min-width:150px;}
+.week-amt{font-size:.85rem;font-weight:700;color:rgba(255,255,255,.55);}
+.btn{padding:.45rem .9rem;font-size:.72rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;border:none;font-family:"Barlow",sans-serif;border-radius:4px;transition:all .2s;}
+.btn-paid{background:linear-gradient(135deg,#22c55e,#16a34a);color:#04090F;}
+.btn-paid:hover{box-shadow:0 4px 16px rgba(34,197,94,.4);}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);}
+.btn-outline:hover{border-color:#F5A623;color:#F5A623;}
+.empty-msg{color:rgba(255,255,255,.3);text-align:center;padding:3rem;font-style:italic;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <img src="https://ozeerentals.com.au/logo-white.png" alt="Ozee Rentals">
+  <div class="topbar-right">
+    <span class="topbar-user" id="adminEmail">Loading...</span>
+    <button class="topbar-logout" onclick="signOut()">Sign Out</button>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+    <ul class="sidebar-nav">
+      <li><a href="dashboard.html"><span>📊</span> Dashboard</a></li>
+      <li><a href="cars.html"><span>🚗</span> Car Management</a></li>
+      <li><a href="drivers.html"><span>👥</span> Driver Applications</a></li>
+      <li><a href="assignments.html"><span>🔗</span> Car Assignments</a></li>
+      <li><a href="fines.html"><span>🚨</span> Fines &amp; Tolls</a></li>
+      <li><a href="finance.html"><span>💰</span> Car Finance</a></li>
+      <li><a href="rent-tracker.html" class="active"><span>🗓️</span> Rent Tracker</a></li>
+      <hr class="sidebar-divider">
+      <li><a href="https://ozeerentals.com.au"><span>🌐</span> View Website</a></li>
+    </ul>
+  </aside>
+
+  <main class="main">
+    <div class="page-title">Rent <span>Tracker</span></div>
+    <div class="page-sub">Weekly rent by driver, Monday to Monday. Click a driver to see full history and mark payments.</div>
+
+    <div class="week-banner" id="weekBanner">Loading current week...</div>
+
+    <div class="driver-list" id="driverList">
+      <div class="empty-msg">Loading active drivers...</div>
+    </div>
+  </main>
+</div>
+
+<script>
+var PROJ='tbhqamcuewycaqertpba';
+const _db = window.supabase.createClient('https://'+PROJ+'.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U');
+
+let assignments = [];
+let weeksByAssignment = {}; // assignment_id -> [rows]
+
+function money(n){ return '$'+Number(n||0).toLocaleString('en-AU',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function toISO(d){ return d.toISOString().slice(0,10); }
+
+// Get Monday of the week containing the given date
+function mondayOf(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  const day = d.getDay(); // 0=Sun,1=Mon...
+  const diff = (day===0 ? -6 : 1-day);
+  d.setDate(d.getDate()+diff);
+  return d;
+}
+
+async function ensureWeeksExist(assignment){
+  const startMonday = mondayOf(assignment.start_date);
+  const todayMonday = mondayOf(toISO(new Date()));
+  // Cap backfill so we don't generate hundreds of rows for very old assignments unexpectedly — still generates all real owed weeks
+  const weeks = [];
+  let cur = new Date(startMonday);
+  while(cur <= todayMonday){
+    weeks.push(toISO(cur));
+    cur.setDate(cur.getDate()+7);
+  }
+
+  const { data: existing } = await _db.from('rent_weeks').select('week_start').eq('assignment_id', assignment.id);
+  const existingSet = new Set((existing||[]).map(r=>r.week_start));
+  const missing = weeks.filter(w => !existingSet.has(w));
+
+  if(missing.length){
+    const rows = missing.map(w => ({ assignment_id: assignment.id, week_start: w, amount_due: assignment.weekly_rate, status:'Unpaid' }));
+    await _db.from('rent_weeks').insert(rows);
+  }
+}
+
+async function loadAll(){
+  const { data: assigns, error } = await _db.from('car_assignments')
+    .select('*,cars(id,rego,make_model),drivers(first_name,last_name)')
+    .eq('status','Active');
+  if(error){ document.getElementById('driverList').innerHTML = '<div class="empty-msg">Could not load assignments.</div>'; return; }
+  assignments = assigns || [];
+
+  if(!assignments.length){
+    document.getElementById('driverList').innerHTML = '<div class="empty-msg">No active driver assignments yet.</div>';
+    document.getElementById('weekBanner').textContent = 'No active assignments to track.';
+    return;
+  }
+
+  // Backfill missing weeks for every active assignment
+  for(const a of assignments){ await ensureWeeksExist(a); }
+
+  // Now load all weeks
+  const ids = assignments.map(a=>a.id);
+  const { data: weeks } = await _db.from('rent_weeks').select('*').in('assignment_id', ids).order('week_start',{ascending:true});
+  weeksByAssignment = {};
+  (weeks||[]).forEach(w => {
+    if(!weeksByAssignment[w.assignment_id]) weeksByAssignment[w.assignment_id] = [];
+    weeksByAssignment[w.assignment_id].push(w);
+  });
+
+  const thisMonday = toISO(mondayOf(toISO(new Date())));
+  document.getElementById('weekBanner').textContent = `Current week: ${new Date(thisMonday+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'})} (Mon–Sun)`;
+
+  renderList(thisMonday);
+}
+
+function renderList(thisMonday){
+  const list = document.getElementById('driverList');
+  list.innerHTML = assignments.map(a => {
+    const weeks = weeksByAssignment[a.id] || [];
+    const unpaid = weeks.filter(w => w.status !== 'Paid');
+    const owed = unpaid.reduce((s,w) => s + (Number(w.amount_due) - Number(w.amount_paid||0)), 0);
+    const thisWeek = weeks.find(w => w.week_start === thisMonday);
+    const thisStatus = thisWeek ? thisWeek.status : 'Unpaid';
+    const dotClass = thisStatus==='Paid' ? 'dot-paid' : (thisStatus==='Partial' ? 'dot-partial' : 'dot-unpaid');
+    const stClass = thisStatus==='Paid' ? 'st-paid' : (thisStatus==='Partial' ? 'st-partial' : 'st-unpaid');
+    const driverName = a.drivers ? `${a.drivers.first_name} ${a.drivers.last_name}` : 'Unknown driver';
+    const carInfo = a.cars ? `${a.cars.rego} — ${a.cars.make_model}` : '';
+
+    return `<div class="d-card" id="card-${a.id}">
+      <div class="d-head" onclick="toggleCard('${a.id}')">
+        <div class="d-info">
+          <span class="status-dot ${dotClass}"></span>
+          <div>
+            <div class="d-name">${driverName}</div>
+            <div class="d-car">${carInfo}</div>
+          </div>
+          ${unpaid.length>1 ? `<span class="overdue-tag">${unpaid.length} weeks overdue — ${money(owed)}</span>` : ''}
+        </div>
+        <div class="d-right">
+          <span class="d-week-status ${stClass}">This week: ${thisStatus}</span>
+          <span class="chev">▾</span>
+        </div>
+      </div>
+      <div class="d-body">
+        ${weeks.slice().reverse().map(w => weekRow(a, w)).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function weekRow(assignment, w){
+  const label = new Date(w.week_start+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+  const stClass = w.status==='Paid' ? 'st-paid' : (w.status==='Partial' ? 'st-partial' : 'st-unpaid');
+  return `<div class="week-row">
+    <div class="week-left">
+      <span class="week-date">Week of ${label}</span>
+      <span class="week-amt ${stClass}">${w.status} · ${money(w.amount_due)}</span>
+    </div>
+    ${w.status !== 'Paid' ? `<button class="btn btn-paid" onclick="markPaid('${w.id}','${assignment.id}')">✓ Mark Paid</button>` : `<button class="btn btn-outline" onclick="markUnpaid('${w.id}','${assignment.id}')">Undo</button>`}
+  </div>`;
+}
+
+function toggleCard(id){
+  document.getElementById('card-'+id).classList.toggle('open');
+}
+
+async function markPaid(weekId, assignmentId){
+  const week = (weeksByAssignment[assignmentId]||[]).find(w=>w.id===weekId);
+  if(!week) return;
+  const today = toISO(new Date());
+
+  const { error } = await _db.from('rent_weeks').update({
+    status:'Paid', amount_paid: week.amount_due, paid_date: today
+  }).eq('id', weekId);
+  if(error){ alert('Could not update: '+error.message); return; }
+
+  // Keep Car Finance in sync — log this as rent income for the car too
+  const assignment = assignments.find(a=>a.id===assignmentId);
+  if(assignment){
+    const driverName = assignment.drivers ? `${assignment.drivers.first_name} ${assignment.drivers.last_name}` : null;
+    await _db.from('rent_payments').insert({
+      car_id: assignment.car_id, driver_name: driverName, amount: week.amount_due, payment_date: today,
+      note: 'Weekly rent — week of '+week.week_start
+    });
+  }
+
+  await loadAll();
+}
+
+async function markUnpaid(weekId, assignmentId){
+  if(!confirm('Undo this payment?')) return;
+  const { error } = await _db.from('rent_weeks').update({ status:'Unpaid', amount_paid:0, paid_date:null }).eq('id', weekId);
+  if(error){ alert('Could not update: '+error.message); return; }
+  await loadAll();
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await _db.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  document.getElementById('adminEmail').textContent = session.user.email;
+  await loadAll();
+});
+
+async function signOut() {
+  await _db.auth.signOut();
+  window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>

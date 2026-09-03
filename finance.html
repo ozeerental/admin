@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Finance — Ozee Rentals Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:#07101e;border-bottom:1px solid rgba(245,166,35,.15);padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:200;}
+.topbar img{height:36px;filter:brightness(0) invert(1);}
+.topbar-right{display:flex;align-items:center;gap:1rem;}
+.topbar-user{font-size:.82rem;color:rgba(255,255,255,.5);}
+.topbar-logout{font-size:.78rem;color:#F5A623;text-decoration:none;letter-spacing:1px;text-transform:uppercase;padding:.4rem .9rem;border:1px solid rgba(245,166,35,.3);cursor:pointer;background:none;font-family:"Barlow",sans-serif;}
+.app{display:flex;flex:1;}
+.sidebar{width:220px;background:#07101e;border-right:1px solid rgba(255,255,255,.06);padding:1.5rem 0;flex-shrink:0;}
+.sidebar-nav{list-style:none;}
+.sidebar-nav li a{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.5rem;color:rgba(255,255,255,.5);text-decoration:none;font-size:.88rem;font-weight:600;transition:all .2s;border-left:3px solid transparent;}
+.sidebar-nav li a:hover{color:#fff;background:rgba(255,255,255,.04);}
+.sidebar-nav li a.active{color:#F5A623;background:rgba(245,166,35,.08);border-left-color:#F5A623;}
+.sidebar-divider{margin:1rem 1.5rem;border:none;border-top:1px solid rgba(255,255,255,.06);}
+.main{flex:1;padding:2rem;overflow-y:auto;}
+.page-title{font-family:"Barlow Condensed",sans-serif;font-size:2.2rem;font-weight:900;text-transform:uppercase;letter-spacing:-1px;margin-bottom:.3rem;}
+.page-title span{color:#F5A623;}
+.page-sub{color:rgba(255,255,255,.4);font-size:.88rem;margin-bottom:2rem;}
+
+/* Car grid */
+.car-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;margin-top:1.5rem;}
+.car-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:1.2rem;cursor:pointer;transition:all .2s;}
+.car-card:hover{border-color:#F5A623;background:rgba(245,166,35,.05);}
+.car-card.active{border-color:#F5A623;background:rgba(245,166,35,.08);}
+.cc-name{font-family:"Barlow Condensed",sans-serif;font-size:1.15rem;font-weight:800;text-transform:uppercase;margin-bottom:.15rem;}
+.cc-rego{font-size:.72rem;color:rgba(255,255,255,.4);letter-spacing:1px;margin-bottom:.8rem;}
+.cc-row{display:flex;justify-content:space-between;font-size:.82rem;padding:.25rem 0;color:rgba(255,255,255,.6);}
+.cc-row b{color:#fff;}
+.cc-net{margin-top:.6rem;padding-top:.6rem;border-top:1px dashed rgba(255,255,255,.12);display:flex;justify-content:space-between;align-items:center;}
+.cc-net-label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.4);}
+.cc-net-val{font-family:"Barlow Condensed",sans-serif;font-size:1.4rem;font-weight:900;}
+.pos{color:#4ade80;} .neg{color:#f87171;}
+
+/* Detail panel */
+.detail{display:none;margin-top:2rem;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;overflow:hidden;}
+.detail.open{display:block;}
+.detail-head{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;}
+.detail-title{font-family:"Barlow Condensed",sans-serif;font-size:1.6rem;font-weight:900;text-transform:uppercase;}
+.detail-title span{color:#F5A623;}
+.detail-actions{display:flex;gap:.6rem;flex-wrap:wrap;}
+.summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);}
+.summary-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:1rem;text-align:center;}
+.summary-label{font-size:.68rem;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.4);margin-bottom:.4rem;}
+.summary-val{font-family:"Barlow Condensed",sans-serif;font-size:1.7rem;font-weight:900;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+@media(max-width:768px){.two-col{grid-template-columns:1fr;} .summary-row{grid-template-columns:1fr;}}
+.col-pane{padding:1.5rem;}
+.col-pane+.col-pane{border-left:1px solid rgba(255,255,255,.08);}
+@media(max-width:768px){.col-pane+.col-pane{border-left:none;border-top:1px solid rgba(255,255,255,.08);}}
+.col-title{font-family:"Barlow Condensed",sans-serif;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;}
+.log-list{max-height:280px;overflow-y:auto;margin-bottom:1rem;}
+.log-item{display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.85rem;}
+.log-item:last-child{border-bottom:none;}
+.log-main{color:rgba(255,255,255,.85);}
+.log-sub{font-size:.72rem;color:rgba(255,255,255,.35);}
+.log-amt{font-weight:800;}
+.log-del{background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:1rem;padding:0 .3rem;}
+.log-del:hover{color:#f87171;}
+.empty-note{color:rgba(255,255,255,.3);font-size:.85rem;font-style:italic;padding:1rem 0;text-align:center;}
+
+.mini-form{display:flex;gap:.5rem;flex-wrap:wrap;}
+.mini-form input,.mini-form select{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:.6rem;font-size:.85rem;font-family:"Barlow",sans-serif;border-radius:4px;}
+.mini-form input:focus,.mini-form select:focus{outline:none;border-color:#F5A623;}
+.f-amt{width:100px;} .f-date{width:130px;} .f-cat{width:130px;} .f-desc{flex:1;min-width:120px;}
+.btn{padding:.5rem 1rem;font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;font-family:"Barlow",sans-serif;transition:all .2s;border-radius:4px;}
+.btn-gold{background:linear-gradient(135deg,#F5A623,#D4880A);color:#000;}
+.btn-gold:hover{box-shadow:0 4px 20px rgba(245,166,35,.4);}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);}
+.btn-outline:hover{border-color:#F5A623;color:#F5A623;}
+.btn-sm{padding:.5rem .9rem;font-size:.75rem;}
+.empty-msg{color:rgba(255,255,255,.3);text-align:center;padding:3rem;font-style:italic;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <img src="https://ozeerentals.com.au/logo-white.png" alt="Ozee Rentals">
+  <div class="topbar-right">
+    <span class="topbar-user" id="adminEmail">Loading...</span>
+    <button class="topbar-logout" onclick="signOut()">Sign Out</button>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+    <ul class="sidebar-nav">
+      <li><a href="dashboard.html"><span>📊</span> Dashboard</a></li>
+      <li><a href="cars.html"><span>🚗</span> Car Management</a></li>
+      <li><a href="drivers.html"><span>👥</span> Driver Applications</a></li>
+      <li><a href="assignments.html"><span>🔗</span> Car Assignments</a></li>
+      <li><a href="fines.html"><span>🚨</span> Fines &amp; Tolls</a></li>
+      <li><a href="finance.html" class="active"><span>💰</span> Car Finance</a></li>
+      <hr class="sidebar-divider">
+      <li><a href="https://ozeerentals.com.au"><span>🌐</span> View Website</a></li>
+    </ul>
+  </aside>
+
+  <main class="main">
+    <div class="page-title">Car <span>Finance</span></div>
+    <div class="page-sub">Click a car to see its full cost & earnings history, and export a PDF report</div>
+
+    <div class="car-grid" id="carGrid">
+      <div class="empty-msg">Loading fleet...</div>
+    </div>
+
+    <div class="detail" id="detailPanel">
+      <div class="detail-head">
+        <div class="detail-title" id="detailTitle">Car <span>Name</span></div>
+        <div class="detail-actions">
+          <button class="btn btn-outline btn-sm" onclick="closeDetail()">Close</button>
+          <button class="btn btn-gold btn-sm" onclick="exportPDF()">⬇ Export PDF</button>
+        </div>
+      </div>
+
+      <div class="summary-row">
+        <div class="summary-box">
+          <div class="summary-label">Total Cost</div>
+          <div class="summary-val" id="sumCost">$0</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Total Earned</div>
+          <div class="summary-val" id="sumIncome">$0</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Net Position</div>
+          <div class="summary-val" id="sumNet">$0</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="col-pane">
+          <div class="col-title">Expenses</div>
+          <div class="mini-form" style="margin-bottom:1rem;">
+            <select class="f-cat" id="expCat">
+              <option>Purchase Price</option><option>Rego</option><option>Service</option>
+              <option>Insurance</option><option>Repair</option><option>Other</option>
+            </select>
+            <input class="f-desc" id="expDesc" placeholder="Description">
+            <input class="f-amt" id="expAmt" type="number" placeholder="$ Amount">
+            <input class="f-date" id="expDate" type="date">
+            <button class="btn btn-gold btn-sm" onclick="addExpense()">+ Add</button>
+          </div>
+          <div class="log-list" id="expList"></div>
+        </div>
+        <div class="col-pane">
+          <div class="col-title">Rent Income</div>
+          <div class="mini-form" style="margin-bottom:1rem;">
+            <input class="f-desc" id="incDriver" placeholder="Driver name (optional)">
+            <input class="f-amt" id="incAmt" type="number" placeholder="$ Amount">
+            <input class="f-date" id="incDate" type="date">
+            <button class="btn btn-gold btn-sm" onclick="addIncome()">+ Add</button>
+          </div>
+          <div class="log-list" id="incList"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ─── SUPABASE INIT (same project as rest of admin) ───
+var PROJ='tbhqamcuewycaqertpba';
+const _db = window.supabase.createClient('https://'+PROJ+'.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U');
+
+let allCars = [];
+let activeCarId = null;
+let activeExpenses = [];
+let activeIncome = [];
+
+function money(n){ return '$'+Number(n||0).toLocaleString('en-AU',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+
+async function loadCars(){
+  const { data, error } = await _db.from('cars').select('*').order('make_model');
+  if(error){ document.getElementById('carGrid').innerHTML = '<div class="empty-msg">Could not load cars.</div>'; return; }
+  allCars = data || [];
+
+  // Pull expense + income totals for all cars in two queries
+  const { data: exp } = await _db.from('car_expenses').select('car_id, amount');
+  const { data: inc } = await _db.from('rent_payments').select('car_id, amount');
+
+  const expTotals = {}, incTotals = {};
+  (exp||[]).forEach(e => expTotals[e.car_id] = (expTotals[e.car_id]||0) + Number(e.amount));
+  (inc||[]).forEach(i => incTotals[i.car_id] = (incTotals[i.car_id]||0) + Number(i.amount));
+
+  const grid = document.getElementById('carGrid');
+  if(!allCars.length){ grid.innerHTML = '<div class="empty-msg">No cars found yet — add one in Car Management first.</div>'; return; }
+
+  grid.innerHTML = allCars.map(c => {
+    const cost = expTotals[c.id] || 0;
+    const income = incTotals[c.id] || 0;
+    const net = income - cost;
+    return `<div class="car-card" data-id="${c.id}" onclick="openDetail('${c.id}')">
+      <div class="cc-name">${c.make_model} ${c.year||''}</div>
+      <div class="cc-rego">${c.rego||''}</div>
+      <div class="cc-row"><span>Total Cost</span><b>${money(cost)}</b></div>
+      <div class="cc-row"><span>Total Earned</span><b>${money(income)}</b></div>
+      <div class="cc-net">
+        <span class="cc-net-label">Net</span>
+        <span class="cc-net-val ${net>=0?'pos':'neg'}">${net>=0?'+':'-'}${money(Math.abs(net))}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function openDetail(carId){
+  activeCarId = carId;
+  document.querySelectorAll('.car-card').forEach(el => el.classList.toggle('active', el.dataset.id===carId));
+
+  const car = allCars.find(c => c.id === carId);
+  document.getElementById('detailTitle').innerHTML = `${car.make_model} <span>${car.year||''} — ${car.rego||''}</span>`;
+
+  const [{ data: exp }, { data: inc }] = await Promise.all([
+    _db.from('car_expenses').select('*').eq('car_id', carId).order('expense_date', {ascending:false}),
+    _db.from('rent_payments').select('*').eq('car_id', carId).order('payment_date', {ascending:false})
+  ]);
+  activeExpenses = exp || [];
+  activeIncome = inc || [];
+  renderDetail();
+
+  document.getElementById('detailPanel').classList.add('open');
+  document.getElementById('detailPanel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function renderDetail(){
+  const totalCost = activeExpenses.reduce((s,e) => s + Number(e.amount), 0);
+  const totalIncome = activeIncome.reduce((s,i) => s + Number(i.amount), 0);
+  const net = totalIncome - totalCost;
+
+  document.getElementById('sumCost').textContent = money(totalCost);
+  document.getElementById('sumIncome').textContent = money(totalIncome);
+  const netEl = document.getElementById('sumNet');
+  netEl.textContent = (net>=0?'+':'-') + money(Math.abs(net));
+  netEl.className = 'summary-val ' + (net>=0?'pos':'neg');
+
+  document.getElementById('expList').innerHTML = activeExpenses.length ? activeExpenses.map(e => `
+    <div class="log-item">
+      <div><div class="log-main">${e.category}${e.description?' — '+e.description:''}</div><div class="log-sub">${e.expense_date}</div></div>
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <div class="log-amt neg">-${money(e.amount)}</div>
+        <button class="log-del" onclick="deleteRow('car_expenses','${e.id}')">✕</button>
+      </div>
+    </div>`).join('') : '<div class="empty-note">No expenses logged yet</div>';
+
+  document.getElementById('incList').innerHTML = activeIncome.length ? activeIncome.map(i => `
+    <div class="log-item">
+      <div><div class="log-main">${i.driver_name || 'Rent payment'}</div><div class="log-sub">${i.payment_date}</div></div>
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <div class="log-amt pos">+${money(i.amount)}</div>
+        <button class="log-del" onclick="deleteRow('rent_payments','${i.id}')">✕</button>
+      </div>
+    </div>`).join('') : '<div class="empty-note">No rent payments logged yet</div>';
+}
+
+function closeDetail(){
+  document.getElementById('detailPanel').classList.remove('open');
+  document.querySelectorAll('.car-card').forEach(el => el.classList.remove('active'));
+  activeCarId = null;
+}
+
+async function addExpense(){
+  const category = document.getElementById('expCat').value;
+  const description = document.getElementById('expDesc').value.trim();
+  const amount = parseFloat(document.getElementById('expAmt').value);
+  const expense_date = document.getElementById('expDate').value || new Date().toISOString().slice(0,10);
+  if(!amount || amount<=0){ alert('Enter a valid amount'); return; }
+
+  const { error } = await _db.from('car_expenses').insert({ car_id: activeCarId, category, description, amount, expense_date });
+  if(error){ alert('Could not save: '+error.message); return; }
+
+  document.getElementById('expDesc').value=''; document.getElementById('expAmt').value=''; document.getElementById('expDate').value='';
+  await openDetail(activeCarId);
+  await loadCars();
+}
+
+async function addIncome(){
+  const driver_name = document.getElementById('incDriver').value.trim();
+  const amount = parseFloat(document.getElementById('incAmt').value);
+  const payment_date = document.getElementById('incDate').value || new Date().toISOString().slice(0,10);
+  if(!amount || amount<=0){ alert('Enter a valid amount'); return; }
+
+  const { error } = await _db.from('rent_payments').insert({ car_id: activeCarId, driver_name, amount, payment_date });
+  if(error){ alert('Could not save: '+error.message); return; }
+
+  document.getElementById('incDriver').value=''; document.getElementById('incAmt').value=''; document.getElementById('incDate').value='';
+  await openDetail(activeCarId);
+  await loadCars();
+}
+
+async function deleteRow(table, id){
+  if(!confirm('Delete this entry?')) return;
+  const { error } = await _db.from(table).delete().eq('id', id);
+  if(error){ alert('Could not delete: '+error.message); return; }
+  await openDetail(activeCarId);
+  await loadCars();
+}
+
+function exportPDF(){
+  const car = allCars.find(c => c.id === activeCarId);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const totalCost = activeExpenses.reduce((s,e) => s + Number(e.amount), 0);
+  const totalIncome = activeIncome.reduce((s,i) => s + Number(i.amount), 0);
+  const net = totalIncome - totalCost;
+
+  let y = 20;
+  doc.setFont('helvetica','bold'); doc.setFontSize(18);
+  doc.text('Ozee Rentals — Car Finance Report', 15, y); y += 8;
+  doc.setFontSize(12); doc.setFont('helvetica','normal');
+  doc.text(`${car.make_model} ${car.year||''}  —  Rego: ${car.rego||'-'}`, 15, y); y += 6;
+  doc.text(`Report date: ${new Date().toLocaleDateString('en-AU')}`, 15, y); y += 10;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text(`Total Cost:   $${totalCost.toLocaleString('en-AU')}`, 15, y); y += 6;
+  doc.text(`Total Earned: $${totalIncome.toLocaleString('en-AU')}`, 15, y); y += 6;
+  doc.text(`Net Position: ${net>=0?'+':'-'}$${Math.abs(net).toLocaleString('en-AU')}`, 15, y); y += 10;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('Expenses', 15, y); y += 6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  if(!activeExpenses.length){ doc.text('No expenses logged.', 15, y); y += 6; }
+  activeExpenses.forEach(e => {
+    if(y > 275){ doc.addPage(); y = 20; }
+    doc.text(`${e.expense_date}   ${e.category}${e.description?' - '+e.description:''}`, 15, y);
+    doc.text(`-$${Number(e.amount).toLocaleString('en-AU')}`, 170, y, {align:'right'});
+    y += 6;
+  });
+  y += 6;
+
+  if(y > 260){ doc.addPage(); y = 20; }
+  doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('Rent Income', 15, y); y += 6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  if(!activeIncome.length){ doc.text('No rent payments logged.', 15, y); y += 6; }
+  activeIncome.forEach(i => {
+    if(y > 275){ doc.addPage(); y = 20; }
+    doc.text(`${i.payment_date}   ${i.driver_name || 'Rent payment'}`, 15, y);
+    doc.text(`+$${Number(i.amount).toLocaleString('en-AU')}`, 170, y, {align:'right'});
+    y += 6;
+  });
+
+  doc.save(`${car.rego||car.make_model}_Finance_Report.pdf`);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await _db.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  document.getElementById('adminEmail').textContent = session.user.email;
+  await loadCars();
+});
+
+async function signOut() {
+  await _db.auth.signOut();
+  window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>
