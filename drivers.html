@@ -5,32 +5,52 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 function openAddDriverModal(){
-  ['nd_first','nd_last','nd_mobile','nd_email','nd_address','nd_license','nd_licstate'].forEach(id => document.getElementById(id).value = '');
+  ['nd_first','nd_last','nd_dob','nd_mobile','nd_email','nd_visa','nd_address','nd_license','nd_licstate','nd_licexp','nd_licyear','nd_emname','nd_emphone','nd_emrel'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('addDriverModal').classList.add('open');
 }
 function closeAddDriverModal(){
   document.getElementById('addDriverModal').classList.remove('open');
 }
 async function saveNewDriver(){
-  const first_name = document.getElementById('nd_first').value.trim();
-  const last_name = document.getElementById('nd_last').value.trim();
-  const mobile = document.getElementById('nd_mobile').value.trim();
-  const email = document.getElementById('nd_email').value.trim();
-  const address = document.getElementById('nd_address').value.trim();
-  const license_number = document.getElementById('nd_license').value.trim();
-  const license_state = document.getElementById('nd_licstate').value.trim();
+  const v = id => (document.getElementById(id).value || '').trim();
+  const first_name = v('nd_first'), last_name = v('nd_last'), mobile = v('nd_mobile');
+  const email = v('nd_email'), address = v('nd_address'), dob = v('nd_dob');
+  const license_number = v('nd_license');
 
   if(!first_name || !last_name || !mobile){ alert('First name, last name and mobile are required.'); return; }
+  if(!dob){ alert('Date of birth is required.'); return; }
 
-  const { error } = await window._sb.from('drivers').insert({
-    first_name, last_name, mobile,
-    email: email || null,
-    address: address || null,
-    license_number: license_number || null,
-    license_state: license_state || null,
-    status: 'Approved',
-    notes: 'Manually added — existing driver from before system launch'
-  });
+  const today = new Date().toISOString().slice(0,10);
+  const licYear = parseInt(v('nd_licyear'));
+
+  const payload = {
+    first_name, middle_name: null, last_name, dob,
+    address: address || 'N/A',
+    mobile,
+    email: email || 'N/A',
+    visa_status: v('nd_visa') || 'N/A',
+    license_number: license_number || 'N/A',
+    license_state: v('nd_licstate') || 'N/A',
+    license_expiry: v('nd_licexp') || null,
+    license_year: isNaN(licYear) ? null : licYear,
+    emergency_name: v('nd_emname') || 'N/A',
+    emergency_phone: v('nd_emphone') || 'N/A',
+    emergency_relation: v('nd_emrel') || 'N/A',
+    emergency_address: null,
+    had_accident: false,
+    accident_details: null,
+    insurance_declined: false,
+    criminal_history: false,
+    bankruptcy: false,
+    terms_accepted: true,
+    insurance_declared: true,
+    agreement_signed: true,
+    signed_date: today,
+    requested_duration: null,
+    status: 'Approved'
+  };
+
+  const { error } = await window._sb.from('drivers').insert(payload);
   if(error){ alert('Could not add driver: ' + error.message); return; }
 
   closeAddDriverModal();
@@ -375,11 +395,19 @@ select option{background:#0d1526;color:#fff;}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;">
         <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">First Name *</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_first"></div>
         <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Last Name *</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_last"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Date of Birth *</label><input type="date" class="search-input" style="width:100%;margin-top:.3rem;" id="nd_dob"></div>
         <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Mobile *</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_mobile"></div>
-        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Email</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_email"></div>
-        <div style="grid-column:1/-1;"><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Address</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_address"></div>
-        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Licence Number</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_license"></div>
-        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Licence State</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_licstate"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Email *</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_email"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Visa Status</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_visa" placeholder="e.g. Student Visa / Citizen"></div>
+        <div style="grid-column:1/-1;"><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Address *</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_address"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Licence Number *</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_license"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Licence State</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_licstate" placeholder="e.g. NSW"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Licence Expiry</label><input type="date" class="search-input" style="width:100%;margin-top:.3rem;" id="nd_licexp"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Licence Held Since (year)</label><input type="number" class="search-input" style="width:100%;margin-top:.3rem;" id="nd_licyear" placeholder="e.g. 2015"></div>
+        <div style="grid-column:1/-1;border-top:1px solid rgba(255,255,255,.08);padding-top:.7rem;margin-top:.3rem;"><span style="font-size:.72rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:1px;">Emergency Contact (optional)</span></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Name</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_emname"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Phone</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_emphone"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Relationship</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_emrel"></div>
       </div>
     </div>
     <div class="modal-foot">
