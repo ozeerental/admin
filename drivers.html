@@ -4,6 +4,39 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
+function openAddDriverModal(){
+  ['nd_first','nd_last','nd_mobile','nd_email','nd_address','nd_license','nd_licstate'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('addDriverModal').classList.add('open');
+}
+function closeAddDriverModal(){
+  document.getElementById('addDriverModal').classList.remove('open');
+}
+async function saveNewDriver(){
+  const first_name = document.getElementById('nd_first').value.trim();
+  const last_name = document.getElementById('nd_last').value.trim();
+  const mobile = document.getElementById('nd_mobile').value.trim();
+  const email = document.getElementById('nd_email').value.trim();
+  const address = document.getElementById('nd_address').value.trim();
+  const license_number = document.getElementById('nd_license').value.trim();
+  const license_state = document.getElementById('nd_licstate').value.trim();
+
+  if(!first_name || !last_name || !mobile){ alert('First name, last name and mobile are required.'); return; }
+
+  const { error } = await window._sb.from('drivers').insert({
+    first_name, last_name, mobile,
+    email: email || null,
+    address: address || null,
+    license_number: license_number || null,
+    license_state: license_state || null,
+    status: 'Approved',
+    notes: 'Manually added — existing driver from before system launch'
+  });
+  if(error){ alert('Could not add driver: ' + error.message); return; }
+
+  closeAddDriverModal();
+  alert('Driver added. You can now assign a car to them on the Car Assignments page.');
+  await loadDrivers();
+}
 // Initialize Supabase immediately when script loads
 var PROJ='tbhqamcuewycaqertpba';
 
@@ -311,6 +344,7 @@ select option{background:#0d1526;color:#fff;}
         <option value="">All Status</option>
         <option>Pending</option><option>Approved</option><option>Rejected</option>
       </select>
+      <button class="btn btn-gold" onclick="openAddDriverModal()">+ Add Existing Driver</button>
     </div>
   </div>
   <table>
@@ -328,6 +362,29 @@ select option{background:#0d1526;color:#fff;}
       <button class="btn btn-outline" onclick="closeDriverModal()">Close</button>
       <button class="btn btn-danger" id="rejectBtn" onclick="updateDriverStatus('Rejected')">Reject</button>
       <button class="btn btn-gold" id="approveBtn" onclick="updateDriverStatus('Approved')">Approve Driver</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD EXISTING DRIVER MODAL (manual entry for drivers who started before this system) -->
+<div class="modal" id="addDriverModal">
+  <div class="modal-box">
+    <div class="modal-head"><h3>Add Existing Driver</h3><button class="modal-close" onclick="closeAddDriverModal()">×</button></div>
+    <div class="modal-body">
+      <p style="color:rgba(255,255,255,.5);font-size:.85rem;margin-bottom:1rem;">For drivers who were already renting with you before this system was set up. This adds them straight in as Approved — no application form needed. You can then assign a car to them on the Car Assignments page.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;">
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">First Name *</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_first"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Last Name *</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_last"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Mobile *</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_mobile"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Email</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_email"></div>
+        <div style="grid-column:1/-1;"><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Address</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_address"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Licence Number</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_license"></div>
+        <div><label style="font-size:.75rem;color:rgba(255,255,255,.5);">Licence State</label><input class="search-input" style="width:100%;margin-top:.3rem;" id="nd_licstate"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeAddDriverModal()">Cancel</button>
+      <button class="btn btn-gold" onclick="saveNewDriver()">Add Driver</button>
     </div>
   </div>
 </div>
