@@ -59,6 +59,67 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 .btn-outline{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);}
 .btn-outline:hover{border-color:#F5A623;color:#F5A623;}
 .empty-msg{color:rgba(255,255,255,.3);text-align:center;padding:3rem;font-style:italic;}
+
+/* ═══════════════════════════════════════
+   MOBILE RESPONSIVE
+═══════════════════════════════════════ */
+.mob-menu-btn{
+  display:none;
+  background:none;border:none;
+  color:#fff;font-size:1.4rem;
+  cursor:pointer;padding:4px 8px;
+  line-height:1;
+}
+.sidebar-overlay{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  z-index:998;
+}
+.sidebar-overlay.open{display:block;}
+
+@media(max-width:900px){
+  .app{flex-direction:column;}
+  .sidebar{
+    position:fixed;top:0;left:-260px;
+    width:260px!important;height:100vh;
+    z-index:999;transition:left .3s ease;
+    overflow-y:auto;
+  }
+  .sidebar.open{left:0;}
+  .mob-menu-btn{display:block;}
+
+  .topbar{
+    display:flex!important;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 16px!important;
+    position:sticky;top:0;z-index:100;
+  }
+  .topbar-left{display:flex;align-items:center;gap:10px;}
+  .topbar-user{font-size:.72rem!important;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  .main{padding:20px 16px!important;overflow-x:hidden;}
+  .page-title{font-size:1.6rem!important;}
+  .page-sub{font-size:.85rem!important;}
+
+  /* Car Finance: one card per row, detail panel stacks */
+  .car-grid{grid-template-columns:1fr!important;}
+  .summary-row{grid-template-columns:1fr!important;}
+  .two-col{grid-template-columns:1fr!important;}
+  .col-pane+.col-pane{border-left:none!important;border-top:1px solid rgba(255,255,255,.08);}
+  .detail-head{flex-direction:column;align-items:flex-start!important;}
+  .mini-form{flex-direction:column;}
+  .mini-form input,.mini-form select,.f-amt,.f-date,.f-cat,.f-desc{width:100%!important;}
+
+  /* Rent Tracker: stack driver rows */
+  .d-head{flex-direction:column;align-items:flex-start!important;gap:.6rem!important;}
+  .d-right{width:100%;justify-content:space-between;}
+  .week-row{flex-direction:column;align-items:flex-start!important;}
+  .week-left{flex-direction:column;align-items:flex-start!important;gap:.2rem!important;}
+  .week-date{min-width:auto!important;}
+  .week-row .btn{width:100%;}
+}
 </style>
 </head>
 <body>
@@ -262,5 +323,47 @@ async function signOut() {
   window.location.href = 'index.html';
 }
 </script>
+
+<script>
+// Mobile sidebar toggle
+(function(){
+  var overlay = document.createElement('div');
+  overlay.className = 'sidebar-overlay';
+  overlay.id = 'sidebarOverlay';
+  overlay.onclick = function(){ closeSidebar(); };
+  document.body.appendChild(overlay);
+
+  var topbar = document.querySelector('.topbar');
+  if(topbar){
+    var btn = document.createElement('button');
+    btn.className = 'mob-menu-btn';
+    btn.innerHTML = '\u2630';
+    btn.onclick = function(){ toggleSidebar(); };
+    var existing = topbar.firstElementChild;
+    var wrap = document.createElement('div');
+    wrap.className = 'topbar-left';
+    wrap.appendChild(btn);
+    if(existing) wrap.appendChild(existing);
+    topbar.insertBefore(wrap, topbar.firstChild);
+  }
+
+  function toggleSidebar(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('sidebarOverlay');
+    if(sb){ sb.classList.toggle('open'); }
+    if(ov){ ov.classList.toggle('open'); }
+  }
+  function closeSidebar(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('sidebarOverlay');
+    if(sb){ sb.classList.remove('open'); }
+    if(ov){ ov.classList.remove('open'); }
+  }
+  document.querySelectorAll('.sidebar-nav a').forEach(function(a){
+    a.addEventListener('click', function(){ if(window.innerWidth<=900) closeSidebar(); });
+  });
+})();
+</script>
+
 </body>
 </html>
