@@ -350,11 +350,17 @@ tr:hover td{background:rgba(255,255,255,.03);}
 async function deleteAssignment(id){
   if(!confirm('Delete this assignment?\n\nThis permanently removes the assignment record. This cannot be undone.')) return;
   try {
+    // Note the car and whether this assignment was still active, before deleting
+    var { data: asg } = await window._sb.from('car_assignments').select('car_id,status').eq('id', id).single();
     // First delete any fines linked to this assignment (FK constraint)
     await window._sb.from('fines_tolls').delete().eq('assignment_id', id);
     // Then delete the assignment
     var { error } = await window._sb.from('car_assignments').delete().eq('id', id);
     if(error){ alert('Error: '+error.message); return; }
+    // If it was an active rental, return the car to Available on the public website
+    if(asg && asg.car_id && asg.status === 'Active'){
+      await window._sb.from('cars').update({status:'Available', available_from:null}).eq('id', asg.car_id);
+    }
     loadAssignments();
     alert('Assignment deleted successfully.');
   } catch(e){
@@ -436,7 +442,15 @@ async function lookupDriver(){
 
 async function endAssignment(id){
   if(!confirm('Mark this rental as completed?')) return;
-  await window._sb.from('car_assignments').update({status:'Completed',end_date:new Date().toISOString().split('T')[0]}).eq('id',id);
+  // Look up which car this assignment belongs to before closing it off
+  const {data:asg} = await window._sb.from('car_assignments').select('car_id').eq('id',id).single();
+  const {error} = await window._sb.from('car_assignments').update({status:'Completed',end_date:new Date().toISOString().split('T')[0]}).eq('id',id);
+  if(error){ alert('Error: '+error.message); return; }
+  // Auto-return the car to Available on the public website, clearing any old "available from" date
+  if(asg && asg.car_id){
+    const carStatus = await window._sb.from('cars').update({status:'Available', available_from:null}).eq('id', asg.car_id);
+    if(carStatus.error){ alert('Rental ended, but the car status could not be updated: '+carStatus.error.message+'\n\nPlease set it to Available manually in Car Management.'); }
+  }
   loadAssignments();
 }
 
@@ -481,6 +495,9 @@ async function saveAssignment(){
   if(!data.driver_id||!data.car_id||!data.start_date||!data.weekly_rate){ alert('Please fill all required fields.'); return; }
   const {error} = await window._sb.from('car_assignments').insert([data]);
   if(error){ alert('Error: '+error.message); return; }
+  // Auto-update the car status so the public website shows it as Rented
+  const carStatus = await window._sb.from('cars').update({status:'Rented'}).eq('id', data.car_id);
+  if(carStatus.error){ alert('Assignment saved, but the car status could not be updated: '+carStatus.error.message+'\n\nPlease set it to Rented manually in Car Management.'); }
   closeAssignModal();
   loadAssignments();
 }
