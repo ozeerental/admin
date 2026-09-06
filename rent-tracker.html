@@ -120,6 +120,17 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
   .week-date{min-width:auto!important;}
   .week-row .btn{width:100%;}
 }
+/* Active / Past / All filter */
+.rt-filter{display:flex;gap:.5rem;margin-bottom:1.2rem;flex-wrap:wrap;}
+.rt-tab{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6);
+  font-family:"Barlow",sans-serif;font-size:.8rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  padding:.55rem 1.1rem;border-radius:100px;cursor:pointer;transition:all .2s;}
+.rt-tab:hover{color:#fff;border-color:rgba(245,166,35,.4);}
+.rt-tab.active{background:rgba(245,166,35,.12);border-color:#F5A623;color:#F5A623;}
+.ended-tag{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.55);
+  font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:.3rem .7rem;border-radius:100px;}
+.settled-tag{background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.35);color:#4ade80;
+  font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:.3rem .7rem;border-radius:100px;}
 </style>
 </head>
 <body>
@@ -151,6 +162,12 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
     <div class="page-title">Rent <span>Tracker</span></div>
     <div class="page-sub">Weekly rent by driver, Monday to Monday. Click a driver to see full history and mark payments.</div>
 
+    <div class="rt-filter">
+      <button class="rt-tab active" data-f="Active"  onclick="setFilter('Active',this)">Active</button>
+      <button class="rt-tab"        data-f="Past"    onclick="setFilter('Past',this)">Past Drivers</button>
+      <button class="rt-tab"        data-f="All"     onclick="setFilter('All',this)">All</button>
+    </div>
+
     <div class="week-banner" id="weekBanner">Loading current week...</div>
 
     <div class="driver-list" id="driverList">
@@ -179,8 +196,16 @@ function mondayOf(dateStr){
 }
 
 async function ensureWeeksExist(assignment){
+  // Only ever auto-generate for live rentals. For ended rentals we show the
+  // weeks that already exist, so we never invent unpaid weeks for a period
+  // after the driver returned the car.
+  if(assignment.status !== 'Active') return;
   const startMonday = mondayOf(assignment.start_date);
-  const todayMonday = mondayOf(toISO(new Date()));
+  // Stop at the end date if the rental has one, otherwise at this week
+  const lastMonday = assignment.end_date
+      ? mondayOf(assignment.end_date)
+      : mondayOf(toISO(new Date()));
+  const todayMonday = lastMonday;
   // Cap backfill so we don't generate hundreds of rows for very old assignments unexpectedly — still generates all real owed weeks
   const weeks = [];
   let cur = new Date(startMonday);
@@ -199,16 +224,31 @@ async function ensureWeeksExist(assignment){
   }
 }
 
+let currentFilter = 'Active';
+
+function setFilter(f, btn){
+  currentFilter = f;
+  document.querySelectorAll('.rt-tab').forEach(b => b.classList.toggle('active', b === btn));
+  loadAll();
+}
+
 async function loadAll(){
-  const { data: assigns, error } = await _db.from('car_assignments')
-    .select('*,cars(id,rego,make_model),drivers(first_name,last_name)')
-    .eq('status','Active');
+  let q = _db.from('car_assignments')
+    .select('*,cars(id,rego,make_model),drivers(first_name,last_name)');
+  if(currentFilter === 'Active')      q = q.eq('status','Active');
+  else if(currentFilter === 'Past')   q = q.in('status',['Completed','Terminated']);
+  q = q.order('start_date',{ascending:false});
+
+  const { data: assigns, error } = await q;
   if(error){ document.getElementById('driverList').innerHTML = '<div class="empty-msg">Could not load assignments.</div>'; return; }
   assignments = assigns || [];
 
   if(!assignments.length){
-    document.getElementById('driverList').innerHTML = '<div class="empty-msg">No active driver assignments yet.</div>';
-    document.getElementById('weekBanner').textContent = 'No active assignments to track.';
+    const msg = currentFilter === 'Past'
+      ? 'No past rentals yet — ended rentals will appear here.'
+      : (currentFilter === 'All' ? 'No rentals recorded yet.' : 'No active driver assignments yet.');
+    document.getElementById('driverList').innerHTML = '<div class="empty-msg">'+msg+'</div>';
+    document.getElementById('weekBanner').textContent = msg;
     return;
   }
 
@@ -225,7 +265,14 @@ async function loadAll(){
   });
 
   const thisMonday = toISO(mondayOf(toISO(new Date())));
-  document.getElementById('weekBanner').textContent = `Current week: ${new Date(thisMonday+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'})} (Mon–Sun)`;
+  const banner = document.getElementById('weekBanner');
+  if(currentFilter === 'Past'){
+    banner.textContent = `Showing ${assignments.length} past rental${assignments.length===1?'':'s'} — full payment history for drivers who have returned their car`;
+  } else if(currentFilter === 'All'){
+    banner.textContent = `Showing all ${assignments.length} rental${assignments.length===1?'':'s'} (current and past)`;
+  } else {
+    banner.textContent = `Current week: ${new Date(thisMonday+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'})} (Mon–Sun)`;
+  }
 
   renderList(thisMonday);
 }
@@ -242,6 +289,39 @@ function renderList(thisMonday){
     const stClass = thisStatus==='Paid' ? 'st-paid' : (thisStatus==='Partial' ? 'st-partial' : 'st-unpaid');
     const driverName = a.drivers ? `${a.drivers.first_name} ${a.drivers.last_name}` : 'Unknown driver';
     const carInfo = a.cars ? `${a.cars.rego} — ${a.cars.make_model}` : '';
+
+    // ── Past (ended) rentals show a closing summary instead of "this week" ──
+    const isPast = a.status !== 'Active';
+    let headTag = '', rightSide = '';
+
+    if(isPast){
+      const totalPaid = weeks.reduce((s,w) => s + Number(w.amount_paid||0), 0);
+      const fmt = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—';
+      const period = `${fmt(a.start_date)} → ${fmt(a.end_date)}`;
+      const wksTxt = `${weeks.length} week${weeks.length===1?'':'s'}`;
+      headTag = owed > 0
+        ? `<span class="overdue-tag">Left owing ${money(owed)}</span>`
+        : `<span class="settled-tag">Settled in full</span>`;
+      rightSide = `<span class="d-week-status">${wksTxt} · ${money(totalPaid)} collected</span>
+                   <span class="chev">▾</span>`;
+      return `<div class="d-card" id="card-${a.id}">
+        <div class="d-head" onclick="toggleCard('${a.id}')">
+          <div class="d-info">
+            <span class="ended-tag">Ended</span>
+            <div>
+              <div class="d-name">${driverName}</div>
+              <div class="d-car">${carInfo} &nbsp;·&nbsp; ${period}</div>
+            </div>
+            ${headTag}
+          </div>
+          <div class="d-right">${rightSide}</div>
+        </div>
+        <div class="d-body">
+          ${weeks.length ? weeks.slice().reverse().map(w => weekRow(a, w)).join('')
+                         : '<div style="color:rgba(255,255,255,.35);font-size:.85rem;font-style:italic;padding:.5rem 0;">No weekly rent records were logged for this rental.</div>'}
+        </div>
+      </div>`;
+    }
 
     return `<div class="d-card" id="card-${a.id}">
       <div class="d-head" onclick="toggleCard('${a.id}')">
