@@ -140,6 +140,26 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
   .week-date{min-width:auto!important;}
   .week-row .btn{width:100%;}
 }
+/* Rental history */
+.hist-pane{padding:1.5rem;border-top:1px solid rgba(255,255,255,.08);}
+.hist-sub{font-family:"Barlow",sans-serif;font-size:.72rem;font-weight:500;letter-spacing:0;
+  text-transform:none;color:rgba(255,255,255,.35);margin-left:.5rem;}
+.hist-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;
+  padding:.85rem 0;border-bottom:1px solid rgba(255,255,255,.06);flex-wrap:wrap;}
+.hist-row:last-child{border-bottom:none;}
+.hist-name{font-weight:700;color:#fff;font-size:.92rem;}
+.hist-meta{font-size:.75rem;color:rgba(255,255,255,.4);margin-top:.15rem;}
+.hist-right{text-align:right;}
+.hist-amt{font-family:"Barlow Condensed",sans-serif;font-size:1.15rem;font-weight:900;color:#4ade80;}
+.hist-owed{font-size:.72rem;color:#f87171;font-weight:700;margin-top:.1rem;}
+.hist-badge{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  padding:.22rem .55rem;border-radius:100px;margin-left:.5rem;}
+.hb-active{background:rgba(74,222,128,.14);border:1px solid rgba(74,222,128,.35);color:#4ade80;}
+.hb-ended{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);}
+@media(max-width:900px){
+  .hist-row{flex-direction:column;align-items:flex-start;}
+  .hist-right{text-align:left;}
+}
 </style>
 </head>
 <body>
@@ -225,6 +245,11 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
           <div class="log-list" id="incList"></div>
         </div>
       </div>
+
+      <div class="hist-pane">
+        <div class="col-title">Rental History <span class="hist-sub">every driver who has had this car</span></div>
+        <div id="histList"></div>
+      </div>
     </div>
   </main>
 </div>
@@ -238,6 +263,7 @@ let allCars = [];
 let activeCarId = null;
 let activeExpenses = [];
 let activeIncome = [];
+let activeHistory = [];
 
 function money(n){ return '$'+Number(n||0).toLocaleString('en-AU',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 
@@ -281,12 +307,33 @@ async function openDetail(carId){
   const car = allCars.find(c => c.id === carId);
   document.getElementById('detailTitle').innerHTML = `${car.make_model} <span>${car.year||''} — ${car.rego||''}</span>`;
 
-  const [{ data: exp }, { data: inc }] = await Promise.all([
+  const [{ data: exp }, { data: inc }, { data: hist }] = await Promise.all([
     _db.from('car_expenses').select('*').eq('car_id', carId).order('expense_date', {ascending:false}),
-    _db.from('rent_payments').select('*').eq('car_id', carId).order('payment_date', {ascending:false})
+    _db.from('rent_payments').select('*').eq('car_id', carId).order('payment_date', {ascending:false}),
+    _db.from('car_assignments')
+       .select('id,start_date,end_date,status,weekly_rate,drivers(first_name,last_name,mobile)')
+       .eq('car_id', carId).order('start_date', {ascending:false})
   ]);
   activeExpenses = exp || [];
   activeIncome = inc || [];
+  activeHistory = hist || [];
+
+  // Pull the weekly rent records for these rentals so each driver's
+  // collected total is based on what was actually marked paid.
+  if(activeHistory.length){
+    const ids = activeHistory.map(h => h.id);
+    const { data: wks } = await _db.from('rent_weeks')
+      .select('assignment_id,amount_paid,amount_due,status').in('assignment_id', ids);
+    const byA = {};
+    (wks||[]).forEach(w => {
+      if(!byA[w.assignment_id]) byA[w.assignment_id] = {paid:0, owed:0, weeks:0};
+      byA[w.assignment_id].weeks++;
+      byA[w.assignment_id].paid += Number(w.amount_paid||0);
+      if(w.status !== 'Paid') byA[w.assignment_id].owed += Number(w.amount_due) - Number(w.amount_paid||0);
+    });
+    activeHistory.forEach(h => { h._stats = byA[h.id] || {paid:0, owed:0, weeks:0}; });
+  }
+
   renderDetail();
 
   document.getElementById('detailPanel').classList.add('open');
@@ -312,6 +359,37 @@ function renderDetail(){
         <button class="log-del" onclick="deleteRow('car_expenses','${e.id}')">✕</button>
       </div>
     </div>`).join('') : '<div class="empty-note">No expenses logged yet</div>';
+
+  // ── Rental history ──
+  const hl = document.getElementById('histList');
+  if(hl){
+    if(!activeHistory.length){
+      hl.innerHTML = '<div class="empty-note">No drivers have been assigned to this car yet.</div>';
+    } else {
+      const fd = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : null;
+      hl.innerHTML = activeHistory.map(h => {
+        const nm = h.drivers ? `${h.drivers.first_name} ${h.drivers.last_name}` : 'Unknown driver';
+        const active = h.status === 'Active';
+        const st = h._stats || {paid:0,owed:0,weeks:0};
+        const period = active
+            ? `${fd(h.start_date)} → present`
+            : `${fd(h.start_date)} → ${fd(h.end_date) || 'ended'}`;
+        const wk = st.weeks ? ` · ${st.weeks} week${st.weeks===1?'':'s'}` : '';
+        return `<div class="hist-row">
+          <div>
+            <div class="hist-name">${nm}
+              <span class="hist-badge ${active?'hb-active':'hb-ended'}">${active?'Current':'Ended'}</span>
+            </div>
+            <div class="hist-meta">${period}${wk} · ${money(h.weekly_rate)}/wk${h.drivers&&h.drivers.mobile?' · '+h.drivers.mobile:''}</div>
+          </div>
+          <div class="hist-right">
+            <div class="hist-amt">${money(st.paid)}</div>
+            ${st.owed>0 ? `<div class="hist-owed">${money(st.owed)} outstanding</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
 
   document.getElementById('incList').innerHTML = activeIncome.length ? activeIncome.map(i => `
     <div class="log-item">
@@ -603,6 +681,25 @@ async function exportPDF(){
       totalRow('Total Income','+$'+pdfMoney(totalIncome), CLR.green);
     }
     y += 12;
+
+    // ─────────── RENTAL HISTORY ───────────
+    if(activeHistory && activeHistory.length){
+      section('Rental History', activeHistory.length);
+      cols([{t:'DRIVER',x:M+4},{t:'PERIOD',x:M+62},{t:'WEEKS',x:M+128,a:'right'},{t:'COLLECTED',x:PW-M-4,a:'right'}]);
+      const fd = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'2-digit'}) : '-';
+      activeHistory.forEach((h,i)=>{
+        const nm = h.drivers ? (h.drivers.first_name+' '+h.drivers.last_name) : 'Unknown driver';
+        const st = h._stats || {paid:0,owed:0,weeks:0};
+        const per = fd(h.start_date)+'  to  '+(h.status==='Active' ? 'present' : fd(h.end_date));
+        row([
+          {t:nm+(h.status==='Active'?'  (current)':''), x:M+4, max:56},
+          {t:per, x:M+62, max:64},
+          {t:String(st.weeks||0), x:M+128, a:'right'},
+          {t:'$'+pdfMoney(st.paid), x:PW-M-4, a:'right', amt:true}
+        ], i, CLR.green);
+      });
+      y += 10;
+    }
 
     // ─────────── NET SUMMARY ───────────
     ensure(30);
