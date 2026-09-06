@@ -161,6 +161,7 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
       <li><a href="assignments.html"><span>🔗</span> Car Assignments</a></li>
       <li><a href="fines.html"><span>🚨</span> Fines &amp; Tolls</a></li>
       <li><a href="finance.html" class="active"><span>💰</span> Car Finance</a></li>
+      <li><a href="rent-tracker.html"><span>🗓️</span> Rent Tracker</a></li>
       <hr class="sidebar-divider">
       <li><a href="https://ozeerentals.com.au"><span>🌐</span> View Website</a></li>
     </ul>
@@ -365,51 +366,271 @@ async function deleteRow(table, id){
   await loadCars();
 }
 
-function exportPDF(){
+// ═══════════════════════════════════════════════════════════
+//  PROFESSIONAL PDF REPORT
+// ═══════════════════════════════════════════════════════════
+const CO = {
+  name:'Ozee Rentals Pty Ltd',
+  abn:'ABN 71 694 905 667',
+  email:'admin@ozeerentals.com.au',
+  phone:'0450 786 145',
+  region:'Newcastle & Hunter Region, NSW',
+  site:'ozeerentals.com.au'
+};
+// Ozee logo embedded directly so it always renders, with no network call
+// or cross-origin issue. White artwork on the header's dark background.
+const LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAACnBAMAAABZU3zpAAAAGFBMVEX////+/v6TlJULDA8KDA8KDA4JDA8JCw7LSs2oAAAS80lEQVR42u1c3W7kVnL+qtXASEasU0XNVRY7alKbIHceafwA9q5fIA+YPEHeYTf3Gc1sboIAbrI1wK69gMWq0wZiObC6cnFINsluSa2ZnnEuRGAwLYpif6xT9dXvIX2DHQ6PrAoFBCIeGQB0fBET3DbPmW+58KFjugsqxFDWlrBQngUAsNVidM3XcC+H5+gcQG1bTu4DloeyImk+l1a4bLmI7/prNjz6mO60hNeVeLNoJDUuAMCHK0YEADYEZwAwXkTbEywc/4d0muQqWrHcdaluQsU2/HuAZdcJlaRvVam+BkDdso4fnzqR0QMnPwSWh8sAAKLpH4yvmKF6l25595vJelX7J/cCK96yAiAVUWUDHBqArL29mw4Um2i2CZYne5eWOgCETMSrCgCMXoKRtabpAEjPYvvFVGy5y6TYryU6lwBAy29MJV+ZAQgR3Frm7cIBhIN8m97LlpWF7MkSDUB4riZuxR8BuHc3t+PLYIDEC5X7v1f2zFtuAIhCFBBbgAHUarKHOSlAehZ6KvPFjwCA2z/3WezlEgBW4d95X7wFAJEJABFbnyHj7VUAECb5mkh99a/Np5O1eZr8S6t4xnuERSZ9yk631rBlCTs14m08S3taRFv1v4S456Fdvo2+sYQ95nzo5J3Hw9zWhCG8xSXHOi1hlseHb7NvV51u6ENHawxouGQFxF6pDImu062Pt4hIFLXp913m25YQmMy23GPCj5HbdEfaQohgwMO8e+S4WgQbWWFyPp+C5UHsBkf1UgG6hQGE9RIivlLokC91C4n2WH4H7Z/uwAzBABiiAP46nXNpl5Az3onQad8sn4ID55JFV9EbhTdfBANArXNcZw49wWw/KfuAFTQ2aQZAIfnHyJTCHW/kB6KvWwDtKYAmX3Us353kg4dTn12kRQEGOEmjNhTPAFCijI4baJvurGnR9r2IRPlbNkBTbAoKB0xrItONEN0fl068r7QCQvLQDar4Kt5vS7pexC3x1r54i6woo7Qs4LEI1E8x+ovIW3wbPc4Id48gAqHUZD8KKhJ9um7xruMKwAGwkYsMfNKHwCLNYOnuIpQnLR/LgLaZ/gSAxMd7bdqpNAIVtLCggo9+7BgGikKkUee7sla5I5O9J739UGmt1eYTiOoxQfMnwvOIzPtXOJ5gPcF6gvUE6wnWE6wnWI+NILbmELvGTx8blm4Jclz3DuwRsNw6QAq3pkHAJiRu/OvAcpM2q1a4DYoyJBL2HODvCMujwM0NTdGor0+KOitkv/LaEVYMZUJEA73SlAuhRnb6K0hLuazQ5j69XIa4gVYbgz81LJd5JT1DJIEAAicA0BoqWp5/cmnFlUqSUMJjDNF1ihYWZPniivnTwvIwJ49CDAEbMQReX/ZM0cB0Wp9+YmnFF1cci5kpCebVmQOgWvqKTwZx2yOp7tYUZi9CaXqmvpjMCHB/HbDWe3Pyxen2ope+l3ua7iasZXEJmojX4cQEiL+wDtmfjqn6ahui1MDSRzrPHbqvcsnIS4EfBL+kLw3wcDkabgiIkzAGJWtpCVp0sidYcXUVDlbRifP4A0+cgXi7OTgDO43gAShdWysxABEBdnPr0x3MkO38TTCeBJ8jjwx3DbZ5Zej5HxXU1i8D1gCEGCKu++hVx9VVKGpWgsRrUCDANtYQJggTPV2j8lIjF3C1fhe9BuVZO9J033HwQIfIb2qKp//9E4T+6dnbZyd0CPz8F9yMrzs6BH0vR220Uf/X938vh7CjI/7+md2k4+jo6OjZdzc38iwefiAsC2+f/eavhzc4PKG/0HJGh/BnbzdQ0c0zw2FhhynaKL8T0Z++txs1CX9rL7q5ubn5WdSIwkO4HoDlN3+l5WxxA/rfGS/8M8bNzc//c7MJC0efFeFnOgQ8hkrFq5uf5ejo6Nn3mR/2L7+RZ9/dfPYQrvt1yylchrwMhvBcro1zRtclG13oJ+zvOMVAxrVJmnEBL04XQ+IgqVHw/fHZ9O74GIB4yTEvHUShrJnqGgCib/kLuEEDoFxGVOu+mTGFYY/FVWoU4V5c063eQrrRtiugCgagVGrGWiDbUiDS3J2hMjeo6BpIjLMxmzyMa7qBSQC4ubEBvmB4CkhNsIWiZS1cL+EGqQ3K/YTNmTZITmVV3otruuEv1C1lESNxbHVrzUkARjPzOKsr6GgYMC5Pbbu8dpKWR4Frj5uJByjozghhdcXAxIzq4woQH/uJyeaYRJIXPQjLTVjVKxAbiAUA8Q7+SwCsooIyA1aXyTHrveLiyABoVT+8iEriVW0EOBUNLKCueHM8k3jYLpFarWjCBYkM1DrENRaXNb+2OJP7Yal4qUpwkQRJAeIS2bgR5iZeT/pZotTlssjbhwPon9+UlYx9xWC5qGhyJror0kk9HxWtKwqWsTTjkqIUKmwMEyixqvRQOdXlpAhqUKY0kJsVoaxG3zKrRgtP3OrI1mB72j6xsU3OhFuKUPGSCsemqGwgv7gql+f1XBtyEWPUWhTkNhRD94Bu6blrAMQiEEkxmFtPctMGVRQrMvYupJRaJ/m4bUqidSwGrMTz5XndTRYroBAvIciGsH78vG+8bqoQuCpESAQKIQG0NXf6Bir1JQWc5G7UhHeCusryTQ+j5aQYSny+KG4XMhrODZExmmVufyBOyaarplBMQcIZd4F/09r9RqW+FI/0+6Tm6Xm8jOMVFKCu6B//bgi0JI+8IdVtwWv/VsQkrHVFbAw3UC7i5YIFGTsBoD9QXZKCOOPUPnUD1OPGnQVQcRpXcti2YHiA75LbFalLEwUx3CgXni8AyXIngL5clZRmQXqwtlmt9sZp+nLhu1DpvRSsEMlCWYkCELhJ9vKyEqW8MAb94TUspfANSTZW29cLur9CuHGw9SMNHWNu1EhBudRVM4rCblleVwI9mxHo/M1k5gu/T/abj00OiN6lQzSonHR37R4hxSgQuGXipbT1WKXcK2J7BaZZFNBtHLnlB6CtzAg511eO7biIG1oe1jNbMfWKsIV3TCtuhavxwUuifPn5gs4vn7/cuix3+KzbPzlPGDLHnYsoQsJt9beHjzhzwNU6M2Jby1UFSnzCxFkVMPHJTKHEjexbnkiw2ppfJ046/SMwqzD54q33JdBfRl0jax7X3zSqUuRpmH0wvKfkgMAYbgdfTckDGRjhdeMReqWMdu3qXmoMAJNTQFTgVymYEN3gXQigStI5WZJrVmI3CiXy2JzWXsSZ7FNBkmEKEJ0aNArlbZ4+UKWGWAbCUHaPDrEXaYEKN8WW8NvrmvKkZ67qFFTYYiiRNx5QoHBSj974VGIQC6YAnAjgFotqV/6xkeza+svEnBiWV4k6hIrVH7eaCQm8RAqWVpfOUVTgMcw9Y2s3eHjlbaLABlAOlWkwJxjYBnuH9F6WZoU58SS4GQA/Ac10m/K7ggSqxCLOtryAX7J5lNKKZuVTEVtBTAGVG0gcOiVEKDGIYz+62sBlDjR13eCkRCpK7gBo+bs6+p2E24QKxBaeg9/l1mSK0oQCdYoZVVEDJPDqHJhyRCA4GQ38nYzZwntYuYIrY5XcIU+OL+OM7uM8ErjS8uJPL7+9WLABKrV6Mu1aejmVKgiqRBeL4yuOxzh4sdDt3qvzkusBUwXEvLFAOfnlKkT4/akIBTz/Zfny8uDzlG5IG/a12WIvftbJVKrMtFCjLxaDCBKNubbG38NsAMhCZBdzwMO8mM3NHuoa8fEbQcSLqzanaWxJNzRHaBrDorCgCGZd8wSU3J00pjJOZUXhItDJKRS0DMsvLbt6uNrpbECIXblV2j052pNWoqepZwvwG8CXvHq9Y8SkbSevTiBFQacPiaudWo1NpcTg1ASr//DD5Pe//GkdUsOnTFLX5CA9vZJ1Y8e3hA0DMjNAVtEBhgmFRX8wUbYRTACZgN1+az2YNUAQxr8xwOaWeJmmWLkACuOJNVl0W7jufIpSMB/v1aS6pmCA8/XvPAbqxe46sJCO7Wa+hE4ufsBIx72uAXJi8/bhp/FWKkDgeMs+T86/GTUsW9MQIPMmulu1i+VJ6Yi49PDnL96tYy8hT3HxcIMpxeItsizcdu0PVwrWpfBNCVoFTlPEgtwUIIdJ95j1yPy6TNvGdhODsNZRX7Sr2OQ22qQsumaIZU5FIMQ1FbqRczuTLOkpFMTTlDiIm5NCIeO8cxQe1xuOaKJGHsxlseaPWiACUbi2o+KE1VUhYNQ0pOymQtTFiwKBTOGlgZjXZrrVIVJojHMUvZOLNjRm/RwJCgGBpYtODbUEUFkXwyyBbXBPBtQnU+dFSm8fYEPbMM5kmMuzEnDob437/NbMxjo6TwpIKe6l9My120/bISNSkPCUnXX7hO12TzSs4xoVAYCBaZhZNtGsGyDWVXeNb1uQDBTa6noKNABiVRFxTBHBBsUOx4a0CAXl14AD2vnqIfd1ROFMAPN1uyvBQC1HZJm6KgRwFWGrq8mUtiSldzhbTt9Jze7EySoFcQQYMVZJKqJ9yx260hhUFjZLYqXQKjMJZ2KuBiqA0kDH08dtx9Zeypy+uY6BQYj89kUEQFag3Q4rI8XgA1QXgbRn2tLQKQlPsgyiqiQwmiL4290gtSq/5gjxyMrZwmFFMwYfKOMGVqcxnas+rV3l3fFGy1gaZJgbiSsIUyCy7yovAQbBIgUTCMGKWZNsxZkrQCKAthqTkMUsk289vtiY6m9Ca69rkEBFgDgFPVT2uUfpPbKB8lWRa+hHHp5qMm7qVadnOtNIGk7f+MCpS7PoJCnCVgBnU8Al4v2OVPxT51zZ22iv6Mcc4pm22fwxHRvo/Jq1HzclNl7riAox5VOAd1WuO47FVwS20Jpf2RMmAblopnCD0+K3DKh5T08l5WLeFQ2EcmL4FLvuZLyLNpxNlGTVizL7uliCGCBgEq5eKCa+cICQD4LN1dvubifiCpkC5OG9dy8BWF6wliSnkny81KQDUm1Nl1bH8cLkOm2Ik0GbLWtogzi+UhJgCnhLvO918AnrylUDIZwwN2zlNi4qqhvFQlLtyZFiubbAi+KyWdKzKLvNQTzA/HSqb75aCNx9HTM2sNrKBDVoec5NTdPX1RpJGmUKKBWnZtzAcnKBvicws8AwkItRz0mnrEZTc0B7kVRjetwxdFeyhJDk6RNN08BHteEpdjsChGsQY0Jtk6SXiJAgawM8XVvfOGvpGqXwMrUNfAqQs5BXQ0+x4xoSH0Q1OEFP6o0sqfMtbTGr+28cLFFbhwCxQGgK2C+15lSg1i0FtDs1nRo/dxLmIDauM6ONtmVvHEk6tve2cbc1EnZV4GQKYFLUJeXIsoeDVApNR6RZ8EKlNoJEVr5rxyZJj84E6NpBmmoAvqVjOQUYmWhdgoRJ1ilUelIaPk+TCBADqTES+VuODjqmurej++7QVsenMrQp/7hxpxARVa1rYh+l5txT4ZaTpamysGORaQQg/1lJdN5hf6tgl9oeTRvrFFGtY+hVPzIXhVuTxbGB2maKeZcdsAQDgWZ1Ue72hpqHq+trOk3AuIxNAkCsWdG+TsQNqNt5NfNK6lZ/AUcVIkCnVTAO2Nsx7aVHGepFWx3JitDNCWcAlzYMZzqhfk5MsB+k5Mi0d1iAQDOmVJmlIuu9fAVAptlG4qgATGRBFI9fX5QQk48ACxCVQk0BodwjD14OcDb+w1Ty9tUytyzMi5UFIXwUWBCPWZbq/KM5uU2a5cQ3MV6Ql8vz14w9qtYogqDQ5ATCD1lN03R1fnOulJdktEfVGk+70dGR3tw0M373Hj8dpQrNzyEe4qfFs8Pf0OHHktYDbDJYRKRV9Og1IEZnwMeEtWvw0DapXQBYONjnGj5iA/OGq/fL3ksNlheffnfB9geK+Zv1D78L9P9iEYGAvKP+7PRX2bmyXbuKrmbMe95/9CGZT4id1e779QIfAou6OIj2vXP+g/JE+mj7+J+2TT7BeoL1BOsJ1hOsT37s7hN1PATXP9XVc3o92qZn1WZ3dw2OfljQ7LTb6Y0T7xWJ7f4GT29ezAfzphbopiT9d+jCVAjcdCXS1cpQAjeNil3zkJ13ofuc/HmCcP3u64Ribjh52b9objiZAWkbS7q6Bq1+ZAB+yYhf71taYXmeujB+fNnuRJy8GraLaPLKm1evUt70bNqyAeGi3v1Ni7ur/PqV0dm6ZOg8igtXYRQhks6u29/9KPuHFZsZe1qF40aNTUfNItPeZFADq21vuLnvHPI/Imhu1NVuCXdJC7JqTni7UcBeXKURe6JHVDEfT6euTG2vtayG0vJyEdtPZZIYZ9UnSTGIePXn9HFV4mxQAlyVVCQVJ2lfLRfDp4DlYf4aqWmAyfn1cF0m5+3u9PU7T+U6HnxEn+jWm3htNEhGVUKSbqhC26s9t48prZYgfHKOeSIuVnk3WCJWeXc6ohMsWz6hjwCLtEQGBtWs7Yyp8agTYdzKqLk6FSg657T3RSSbpWUxEFEzZMSw2XAvHaSRXugWES6Pl9b/AQzCxyujfWH6AAAAAElFTkSuQmCC';
+const LOGO_RATIO = 1.7964;  // width / height
+const CLR = {
+  dark:[10,12,15], gold:[255,138,61], grey:[110,118,127],
+  light:[244,245,246], line:[223,226,230],
+  green:[22,128,61], red:[190,42,42], white:[255,255,255]
+};
+
+function pdfMoney(n){
+  return Number(n||0).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtDate(d){
+  if(!d) return '-';
+  const dt = new Date(d + (d.length===10 ? 'T00:00:00' : ''));
+  if(isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+async function exportPDF(){
   const car = allCars.find(c => c.id === activeCarId);
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit:'mm', format:'a4' });
-  const totalCost = activeExpenses.reduce((s,e) => s + Number(e.amount), 0);
-  const totalIncome = activeIncome.reduce((s,i) => s + Number(i.amount), 0);
-  const net = totalIncome - totalCost;
+  if(!car){ alert('Please select a car first.'); return; }
 
-  let y = 20;
-  doc.setFont('helvetica','bold'); doc.setFontSize(18);
-  doc.text('Ozee Rentals — Car Finance Report', 15, y); y += 8;
-  doc.setFontSize(12); doc.setFont('helvetica','normal');
-  doc.text(`${car.make_model} ${car.year||''}  —  Rego: ${car.rego||'-'}`, 15, y); y += 6;
-  doc.text(`Report date: ${new Date().toLocaleDateString('en-AU')}`, 15, y); y += 10;
+  const btn = document.querySelector('.detail-actions .btn-gold');
+  const btnTxt = btn ? btn.textContent : '';
+  if(btn){ btn.textContent = 'Generating...'; btn.disabled = true; }
 
-  doc.setFont('helvetica','bold'); doc.setFontSize(13);
-  doc.text(`Total Cost:   $${totalCost.toLocaleString('en-AU')}`, 15, y); y += 6;
-  doc.text(`Total Earned: $${totalIncome.toLocaleString('en-AU')}`, 15, y); y += 6;
-  doc.text(`Net Position: ${net>=0?'+':'-'}$${Math.abs(net).toLocaleString('en-AU')}`, 15, y); y += 10;
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4' });
+    const PW = 210, PH = 297, M = 14, CW = PW - M*2;
 
-  doc.setFont('helvetica','bold'); doc.setFontSize(12);
-  doc.text('Expenses', 15, y); y += 6;
-  doc.setFont('helvetica','normal'); doc.setFontSize(10);
-  if(!activeExpenses.length){ doc.text('No expenses logged.', 15, y); y += 6; }
-  activeExpenses.forEach(e => {
-    if(y > 275){ doc.addPage(); y = 20; }
-    doc.text(`${e.expense_date}   ${e.category}${e.description?' - '+e.description:''}`, 15, y);
-    doc.text(`-$${Number(e.amount).toLocaleString('en-AU')}`, 170, y, {align:'right'});
-    y += 6;
-  });
-  y += 6;
+    const totalCost   = activeExpenses.reduce((s,e)=>s+Number(e.amount),0);
+    const totalIncome = activeIncome.reduce((s,i)=>s+Number(i.amount),0);
+    const net = totalIncome - totalCost;
 
-  if(y > 260){ doc.addPage(); y = 20; }
-  doc.setFont('helvetica','bold'); doc.setFontSize(12);
-  doc.text('Rent Income', 15, y); y += 6;
-  doc.setFont('helvetica','normal'); doc.setFontSize(10);
-  if(!activeIncome.length){ doc.text('No rent payments logged.', 15, y); y += 6; }
-  activeIncome.forEach(i => {
-    if(y > 275){ doc.addPage(); y = 20; }
-    doc.text(`${i.payment_date}   ${i.driver_name || 'Rent payment'}`, 15, y);
-    doc.text(`+$${Number(i.amount).toLocaleString('en-AU')}`, 170, y, {align:'right'});
-    y += 6;
-  });
+    // ─────────── HEADER BAND ───────────
+    function header(){
+      doc.setFillColor.apply(doc, CLR.dark);
+      doc.rect(0,0,PW,34,'F');
+      doc.setFillColor.apply(doc, CLR.gold);
+      doc.rect(0,34,PW,1.2,'F');
 
-  doc.save(`${car.rego||car.make_model}_Finance_Report.pdf`);
+      try{
+        const h = 17, w = h * LOGO_RATIO;
+        doc.addImage(LOGO,'PNG',M,8.5,w,h);
+      }catch(e){ wordmark(); }
+
+      function wordmark(){
+        doc.setFont('helvetica','bold'); doc.setFontSize(19);
+        doc.setTextColor.apply(doc, CLR.white);
+        doc.text('OZEE', M, 18);
+        doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+        doc.setTextColor.apply(doc, CLR.gold);
+        doc.text('C A R   R E N T', M+0.6, 23);
+      }
+
+      doc.setFont('helvetica','bold'); doc.setFontSize(15);
+      doc.setTextColor.apply(doc, CLR.white);
+      doc.text('CAR FINANCE REPORT', PW-M, 16, {align:'right'});
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      doc.setTextColor(165,172,180);
+      doc.text('Vehicle cost & earnings statement', PW-M, 22, {align:'right'});
+      doc.text('Generated '+new Date().toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'}), PW-M, 27.5, {align:'right'});
+    }
+
+    // ─────────── FOOTER ───────────
+    function footer(pageNo, pageCount){
+      doc.setFillColor.apply(doc, CLR.gold);
+      doc.rect(M, PH-20, CW, 0.7, 'F');
+
+      doc.setFont('helvetica','bold'); doc.setFontSize(8);
+      doc.setTextColor.apply(doc, CLR.dark);
+      doc.text(CO.name, M, PH-15);
+
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+      doc.setTextColor.apply(doc, CLR.grey);
+      doc.text(CO.abn+'   ·   '+CO.region, M, PH-11);
+      doc.text(CO.email+'   ·   '+CO.phone+'   ·   '+CO.site, M, PH-7);
+
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+      doc.setTextColor.apply(doc, CLR.grey);
+      doc.text('Page '+pageNo+' of '+pageCount, PW-M, PH-7, {align:'right'});
+    }
+
+    header();
+
+    let y = 50;
+
+    // ─────────── VEHICLE BLOCK ───────────
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    doc.setTextColor.apply(doc, CLR.gold);
+    doc.text('VEHICLE', M, y);
+    doc.setFont('helvetica','bold'); doc.setFontSize(17);
+    doc.setTextColor.apply(doc, CLR.dark);
+    doc.text(String(car.make_model||'')+' '+String(car.year||''), M, y+8);
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+    doc.setTextColor.apply(doc, CLR.grey);
+    const meta = [];
+    if(car.rego) meta.push('Rego: '+car.rego);
+    if(car.category) meta.push(car.category);
+    if(car.weekly_rate) meta.push('$'+car.weekly_rate+'/week');
+    if(car.status) meta.push('Status: '+car.status);
+    doc.text(meta.join('     ·     '), M, y+14);
+
+    y += 24;
+
+    // ─────────── SUMMARY CARDS ───────────
+    const gap = 4, cardW = (CW - gap*2)/3, cardH = 25;
+    const cards = [
+      {label:'TOTAL COST',   val:'$'+pdfMoney(totalCost),   col:CLR.dark},
+      {label:'TOTAL EARNED', val:'$'+pdfMoney(totalIncome), col:CLR.dark},
+      {label:'NET POSITION', val:(net>=0?'+$':'-$')+pdfMoney(Math.abs(net)), col: net>=0?CLR.green:CLR.red}
+    ];
+    cards.forEach((c,i)=>{
+      const x = M + i*(cardW+gap);
+      doc.setFillColor(250,250,251);
+      doc.setDrawColor.apply(doc, CLR.line);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(x,y,cardW,cardH,1.5,1.5,'FD');
+      if(i===2){ doc.setFillColor.apply(doc, c.col); doc.rect(x,y,1.5,cardH,'F'); }
+      doc.setFont('helvetica','normal'); doc.setFontSize(7);
+      doc.setTextColor.apply(doc, CLR.grey);
+      doc.text(c.label, x+6, y+8);
+      doc.setFont('helvetica','bold'); doc.setFontSize(14);
+      doc.setTextColor.apply(doc, c.col);
+      doc.text(c.val, x+6, y+18);
+    });
+    y += cardH + 12;
+
+    // ─────────── TABLE RENDERER ───────────
+    function ensure(h){
+      if(y + h > PH - 30){ doc.addPage(); header(); y = 46; }
+    }
+    function section(title, count){
+      ensure(16);
+      doc.setFillColor.apply(doc, CLR.dark);
+      doc.rect(M,y,CW,8,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.setTextColor.apply(doc, CLR.white);
+      doc.text(title.toUpperCase(), M+4, y+5.6);
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+      doc.setTextColor(175,182,190);
+      doc.text(count+(count===1?' entry':' entries'), PW-M-4, y+5.6, {align:'right'});
+      y += 8;
+    }
+    function cols(headers){
+      doc.setFillColor(238,240,243);
+      doc.rect(M,y,CW,6.5,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+      doc.setTextColor.apply(doc, CLR.grey);
+      headers.forEach(h=>doc.text(h.t, h.x, y+4.5, h.a?{align:h.a}:undefined));
+      y += 6.5;
+    }
+    function row(cells, idx, amtColor){
+      ensure(7);
+      if(idx%2===1){ doc.setFillColor(250,250,251); doc.rect(M,y,CW,7,'F'); }
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      cells.forEach(c=>{
+        doc.setTextColor.apply(doc, c.amt ? amtColor : CLR.dark);
+        if(c.amt) doc.setFont('helvetica','bold');
+        let t = String(c.t==null?'':c.t);
+        if(c.max && doc.getTextWidth(t) > c.max){
+          while(t.length>3 && doc.getTextWidth(t+'...') > c.max) t = t.slice(0,-1);
+          t += '...';
+        }
+        doc.text(t, c.x, y+4.8, c.a?{align:c.a}:undefined);
+        if(c.amt) doc.setFont('helvetica','normal');
+      });
+      doc.setDrawColor(235,237,240); doc.setLineWidth(0.2);
+      doc.line(M,y+7,PW-M,y+7);
+      y += 7;
+    }
+    function totalRow(label, value, color){
+      ensure(9);
+      doc.setFillColor(238,240,243);
+      doc.rect(M,y,CW,8.5,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.setTextColor.apply(doc, CLR.dark);
+      doc.text(label, M+4, y+5.8);
+      doc.setTextColor.apply(doc, color);
+      doc.text(value, PW-M-4, y+5.8, {align:'right'});
+      y += 8.5;
+    }
+    function emptyNote(msg){
+      ensure(10);
+      doc.setFont('helvetica','italic'); doc.setFontSize(8.5);
+      doc.setTextColor.apply(doc, CLR.grey);
+      doc.text(msg, M+4, y+5.5);
+      doc.setFont('helvetica','normal');
+      y += 10;
+    }
+
+    // ─────────── EXPENSES ───────────
+    section('Expenses', activeExpenses.length);
+    if(!activeExpenses.length){ emptyNote('No expenses recorded for this vehicle.'); }
+    else {
+      cols([{t:'DATE',x:M+4},{t:'CATEGORY',x:M+32},{t:'DESCRIPTION',x:M+72},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
+      activeExpenses.slice().sort((a,b)=>String(a.expense_date).localeCompare(String(b.expense_date)))
+        .forEach((e,i)=>row([
+          {t:fmtDate(e.expense_date),x:M+4},
+          {t:e.category,x:M+32,max:36},
+          {t:e.description||'-',x:M+72,max:70},
+          {t:'-$'+pdfMoney(e.amount),x:PW-M-4,a:'right',amt:true}
+        ], i, CLR.red));
+      totalRow('Total Expenses','-$'+pdfMoney(totalCost), CLR.red);
+    }
+    y += 10;
+
+    // ─────────── INCOME ───────────
+    section('Rent Income', activeIncome.length);
+    if(!activeIncome.length){ emptyNote('No rent payments recorded for this vehicle.'); }
+    else {
+      cols([{t:'DATE',x:M+4},{t:'DRIVER',x:M+32},{t:'REFERENCE',x:M+90},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
+      activeIncome.slice().sort((a,b)=>String(a.payment_date).localeCompare(String(b.payment_date)))
+        .forEach((r,i)=>row([
+          {t:fmtDate(r.payment_date),x:M+4},
+          {t:r.driver_name||'-',x:M+32,max:54},
+          {t:r.note||'Weekly rent',x:M+90,max:52},
+          {t:'+$'+pdfMoney(r.amount),x:PW-M-4,a:'right',amt:true}
+        ], i, CLR.green));
+      totalRow('Total Income','+$'+pdfMoney(totalIncome), CLR.green);
+    }
+    y += 12;
+
+    // ─────────── NET SUMMARY ───────────
+    ensure(30);
+    doc.setFillColor.apply(doc, CLR.dark);
+    doc.roundedRect(M,y,CW,22,1.5,1.5,'F');
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.setTextColor(175,182,190);
+    doc.text('NET POSITION  (income less expenses)', M+6, y+8);
+    doc.setFont('helvetica','bold'); doc.setFontSize(17);
+    doc.setTextColor.apply(doc, net>=0?[110,220,140]:[255,140,140]);
+    doc.text((net>=0?'+$':'-$')+pdfMoney(Math.abs(net)), M+6, y+17);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.setTextColor(175,182,190);
+    doc.text(net>=0 ? 'This vehicle has covered its costs.' : 'This vehicle has not yet covered its costs.',
+             PW-M-6, y+17, {align:'right'});
+    y += 30;
+
+    // ─────────── FOOTERS ───────────
+    const pages = doc.internal.getNumberOfPages();
+    for(let p=1;p<=pages;p++){ doc.setPage(p); footer(p,pages); }
+
+    const safe = String(car.rego||car.make_model||'vehicle').replace(/[^A-Za-z0-9_-]/g,'_');
+    doc.save('Ozee_Finance_Report_'+safe+'_'+new Date().toISOString().slice(0,10)+'.pdf');
+  }catch(err){
+    alert('Could not generate the PDF: '+err.message);
+  }finally{
+    if(btn){ btn.textContent = btnTxt; btn.disabled = false; }
+  }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
