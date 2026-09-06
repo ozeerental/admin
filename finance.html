@@ -160,6 +160,10 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
   .hist-row{flex-direction:column;align-items:flex-start;}
   .hist-right{text-align:left;}
 }
+.log-lock{color:rgba(255,255,255,.25);font-size:.85rem;padding:0 .3rem;cursor:help;}
+.log-src{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3);color:#F5A623;
+  font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;
+  padding:.12rem .4rem;border-radius:100px;margin-left:.45rem;vertical-align:middle;}
 </style>
 </head>
 <body>
@@ -391,14 +395,26 @@ function renderDetail(){
     }
   }
 
-  document.getElementById('incList').innerHTML = activeIncome.length ? activeIncome.map(i => `
+  document.getElementById('incList').innerHTML = activeIncome.length ? activeIncome.map(i => {
+    // Payments created by the Rent Tracker are locked here: the weekly record
+    // is the source of truth, so they must be changed there. Deleting one from
+    // this side would leave its week still showing as Paid.
+    const fromTracker = !!i.rent_week_id;
+    const action = fromTracker
+      ? `<span class="log-lock" title="Recorded in the Rent Tracker — edit it there">&#128274;</span>`
+      : `<button class="log-del" onclick="deleteRow('rent_payments','${i.id}')">&#10005;</button>`;
+    return `
     <div class="log-item">
-      <div><div class="log-main">${i.driver_name || 'Rent payment'}</div><div class="log-sub">${i.payment_date}</div></div>
+      <div>
+        <div class="log-main">${i.driver_name || 'Rent payment'}${fromTracker ? '<span class="log-src">Rent Tracker</span>' : ''}</div>
+        <div class="log-sub">${i.payment_date}</div>
+      </div>
       <div style="display:flex;align-items:center;gap:.5rem;">
         <div class="log-amt pos">+${money(i.amount)}</div>
-        <button class="log-del" onclick="deleteRow('rent_payments','${i.id}')">✕</button>
+        ${action}
       </div>
-    </div>`).join('') : '<div class="empty-note">No rent payments logged yet</div>';
+    </div>`;
+  }).join('') : '<div class="empty-note">No rent payments logged yet</div>';
 }
 
 function closeDetail(){
