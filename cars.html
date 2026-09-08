@@ -278,6 +278,31 @@ tr:hover td{background:rgba(255,255,255,.03);}
   .modal-foot .btn{flex:1 1 100%;margin:0!important;padding:.85rem!important;min-height:48px;font-size:.95rem!important;}
 }
 @media(max-width:768px){#carsTable td:nth-child(2)::before{content:'Make & Model';}#carsTable td:nth-child(3)::before{content:'Year';}#carsTable td:nth-child(4)::before{content:'Category';}#carsTable td:nth-child(5)::before{content:'Suitable For';}#carsTable td:nth-child(6)::before{content:'Rate / Week';}#carsTable td:nth-child(7)::before{content:'Status';}}
+/* Odometer */
+.odo-hint{font-size:.78rem;color:rgba(255,255,255,.35);margin:-.4rem 0 .9rem;font-style:italic;}
+.odo-log{max-height:170px;overflow-y:auto;margin-bottom:1.25rem;}
+.odo-log:empty{display:none;}
+.odo-item{display:flex;justify-content:space-between;align-items:center;gap:.75rem;
+  padding:.5rem .75rem;border:1px solid rgba(255,255,255,.07);border-radius:6px;margin-bottom:.4rem;
+  background:rgba(255,255,255,.02);font-size:.83rem;}
+.odo-km{font-weight:800;color:#fff;}
+.odo-meta{font-size:.72rem;color:rgba(255,255,255,.4);margin-top:.1rem;}
+.odo-src{font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;
+  padding:.15rem .45rem;border-radius:100px;margin-left:.45rem;
+  background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3);color:#F5A623;}
+.odo-diff{font-size:.72rem;color:#4ade80;font-weight:700;}
+.odo-del{background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:.9rem;padding:0 .2rem;}
+.odo-del:hover{color:#f87171;}
+.odo-summary{display:flex;gap:1.25rem;flex-wrap:wrap;padding:.7rem .85rem;margin-bottom:.7rem;
+  background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.2);border-radius:6px;}
+.odo-stat{font-size:.75rem;color:rgba(255,255,255,.5);}
+.odo-stat b{display:block;font-family:"Barlow Condensed",sans-serif;font-size:1.1rem;
+  font-weight:900;color:#F5A623;margin-top:.1rem;}
+.odo-due{color:#f87171!important;}
+.own-tag{display:inline-block;font-size:.62rem;font-weight:800;text-transform:uppercase;
+  letter-spacing:.4px;padding:.22rem .55rem;border-radius:100px;white-space:nowrap;}
+.own-ext{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.45);color:#60a5fa;}
+.own-biz{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.45);}
 </style>
 </head>
 <body>
@@ -330,7 +355,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
       <table>
         <thead>
           <tr>
-            <th>Photo</th><th>Rego</th><th>Make &amp; Model</th><th>Year</th><th>Category</th>
+            <th>Photo</th><th>Rego</th><th>Make &amp; Model</th><th>Year</th><th>Owner</th><th>Category</th>
             <th>Suitable For</th><th>Rate/Week</th><th>Status</th><th>Actions</th>
           </tr>
         </thead>
@@ -447,6 +472,42 @@ tr:hover td{background:rgba(255,255,255,.03);}
           <input class="form-input" id="c_svc" type="date">
         </div>
       </div>
+      <div class="section-divider">Ownership</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Who owns this car?</label>
+          <select class="form-select" id="c_owned" onchange="toggleOwnerName()">
+            <option value="false">Owned by the business</option>
+            <option value="true">Owned by someone else (listed on their behalf)</option>
+          </select>
+        </div>
+        <div class="form-group" id="ownerNameGroup" style="display:none;">
+          <label class="form-label">Owner Reference (optional)</label>
+          <input class="form-input" id="c_owner_name" placeholder="e.g. Owner A — for your reference only">
+        </div>
+      </div>
+      <div id="ownerHint" class="odo-hint" style="display:none;">
+        Rent, expenses and payouts for this car will be shown as an owner statement in Car Finance and on its PDF report.
+      </div>
+
+      <div class="section-divider">Odometer</div>
+      <div class="form-row-3">
+        <div class="form-group">
+          <label class="form-label" id="c_odo_label">Odometer at Purchase (km) <span class="req">*</span></label>
+          <input class="form-input" id="c_odo" type="number" min="0" step="1" placeholder="e.g. 84500">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Service Interval (km)</label>
+          <input class="form-input" id="c_svc_km" type="number" min="0" step="500" placeholder="e.g. 10000" oninput="renderOdometer()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Service At (km)</label>
+          <input class="form-input" id="c_last_svc_km" type="number" min="0" step="1" placeholder="e.g. 80000" oninput="renderOdometer()">
+        </div>
+      </div>
+      <div id="odoHint" class="odo-hint">Entering a reading here adds it to this car's odometer history.</div>
+      <div id="odoLog" class="odo-log"></div>
+
       <div class="form-group">
         <label class="form-label">Notes (Internal)</label>
         <textarea class="form-textarea" id="c_notes" placeholder="Any internal notes..."></textarea>
@@ -494,6 +555,85 @@ const _db = window.supabase.createClient('https://'+PROJ+'.supabase.co','eyJhbGc
 let allCars = [];
 let editingCarId = null;
 let modalPhotoUrls = [];
+let odoReadings = [];
+
+function toggleOwnerName(){
+  const ext = document.getElementById('c_owned').value === 'true';
+  document.getElementById('ownerNameGroup').style.display = ext ? '' : 'none';
+  document.getElementById('ownerHint').style.display = ext ? '' : 'none';
+}
+
+// ═══ ODOMETER ═══
+function km(n){ return Number(n||0).toLocaleString('en-AU') + ' km'; }
+
+async function loadOdometer(carId){
+  const { data, error } = await _db.from('odometer_readings')
+    .select('*').eq('car_id', carId).order('reading_date',{ascending:false}).order('reading_km',{ascending:false});
+  if(error){ document.getElementById('odoLog').innerHTML = ''; return; }
+  odoReadings = data || [];
+  renderOdometer();
+}
+
+function renderOdometer(){
+  const el = document.getElementById('odoLog');
+  if(!el) return;
+  if(!odoReadings.length){ el.innerHTML = ''; return; }
+
+  const latest = odoReadings[0];
+  const oldest = odoReadings[odoReadings.length-1];
+  const totalKm = Number(latest.reading_km) - Number(oldest.reading_km);
+
+  // average km per week between first and last reading
+  let avg = null;
+  const d1 = new Date(oldest.reading_date+'T00:00:00'), d2 = new Date(latest.reading_date+'T00:00:00');
+  const days = (d2-d1)/86400000;
+  if(days >= 7 && totalKm > 0) avg = Math.round(totalKm / (days/7));
+
+  // service due?
+  const interval = parseFloat(document.getElementById('c_svc_km').value);
+  const lastSvc  = parseFloat(document.getElementById('c_last_svc_km').value);
+  let svcHtml = '';
+  if(!isNaN(interval) && interval > 0 && !isNaN(lastSvc)){
+    const nextAt = lastSvc + interval;
+    const remaining = nextAt - Number(latest.reading_km);
+    svcHtml = `<div class="odo-stat">Next service<b class="${remaining<=0?'odo-due':''}">${
+      remaining <= 0 ? 'OVERDUE by '+km(Math.abs(remaining)) : 'in '+km(remaining)
+    }</b></div>`;
+  }
+
+  let html = `<div class="odo-summary">
+    <div class="odo-stat">Current<b>${km(latest.reading_km)}</b></div>
+    ${odoReadings.length>1 ? `<div class="odo-stat">Driven since first reading<b>${km(totalKm)}</b></div>` : ''}
+    ${avg ? `<div class="odo-stat">Average<b>${avg.toLocaleString('en-AU')} km/wk</b></div>` : ''}
+    ${svcHtml}
+  </div>`;
+
+  html += odoReadings.map((r,i) => {
+    const prev = odoReadings[i+1];
+    const diff = prev ? Number(r.reading_km) - Number(prev.reading_km) : null;
+    const dt = new Date(r.reading_date+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+    return `<div class="odo-item">
+      <div>
+        <span class="odo-km">${km(r.reading_km)}</span>
+        <span class="odo-src">${r.source||'Check'}</span>
+        <div class="odo-meta">${dt}${r.note? ' · '+r.note : ''}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        ${diff!=null && diff>0 ? `<span class="odo-diff">+${diff.toLocaleString('en-AU')}</span>` : ''}
+        <button type="button" class="odo-del" onclick="deleteOdoReading('${r.id}')">&#10005;</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = html;
+}
+
+async function deleteOdoReading(id){
+  if(!confirm('Delete this odometer reading?')) return;
+  const { error } = await _db.from('odometer_readings').delete().eq('id', id);
+  if(error){ alert('Could not delete: '+error.message); return; }
+  if(editingCarId) await loadOdometer(editingCarId);
+}
 
 // ─── PHOTO GALLERY (inside add/edit car modal) ───
 function renderPhotoGallery(){
@@ -567,6 +707,25 @@ function openCarModal(car) {
   renderPhotoGallery();
   document.getElementById('doc_photos').value = '';
 
+  // Ownership
+  document.getElementById('c_owned').value = (car && car.externally_owned) ? 'true' : 'false';
+  document.getElementById('c_owner_name').value = (car && car.owner_name) ? car.owner_name : '';
+  toggleOwnerName();
+
+  // Odometer
+  document.getElementById('c_odo').value = '';
+  document.getElementById('c_svc_km').value = car && car.service_interval_km != null ? car.service_interval_km : '';
+  document.getElementById('c_last_svc_km').value = car && car.last_service_km != null ? car.last_service_km : '';
+  document.getElementById('c_odo_label').innerHTML = car
+    ? 'Add New Reading (km)'
+    : 'Odometer at Purchase (km) <span class="req">*</span>';
+  document.getElementById('odoHint').textContent = car
+    ? 'Leave blank to keep the existing reading. Entering a value adds a new reading to the history below.'
+    : 'Entering a reading here records the odometer at purchase.';
+  odoReadings = [];
+  document.getElementById('odoLog').innerHTML = '';
+  if(car) loadOdometer(car.id);
+
   const sf = car ? (car.suitable_for || []) : [];
   document.getElementById('sf_rideshare').checked = sf.some(s => s.includes('Rideshare'));
   document.getElementById('sf_food').checked = sf.some(s => s.includes('Food'));
@@ -609,8 +768,22 @@ async function saveCar() {
     suitable_for: suitable,
     rego_expiry: document.getElementById('c_rego_exp').value || null,
     service_due: document.getElementById('c_svc').value || null,
+    externally_owned: document.getElementById('c_owned').value === 'true',
+    owner_name: document.getElementById('c_owner_name').value.trim() || null,
+    service_interval_km: parseFloat(document.getElementById('c_svc_km').value) || null,
+    last_service_km: parseFloat(document.getElementById('c_last_svc_km').value) || null,
     notes: document.getElementById('c_notes').value || null,
   };
+
+  // Odometer reading is required when adding a new car
+  if(!editingCarId){
+    const odoCheck = parseFloat(document.getElementById('c_odo').value);
+    if(isNaN(odoCheck) || odoCheck < 0){
+      alert('Please enter the odometer reading at purchase.\n\nThis is the starting point for tracking how far this car has been driven.');
+      document.getElementById('c_odo').focus();
+      return;
+    }
+  }
 
   document.getElementById('saveCarBtn').textContent = 'Saving...';
   document.getElementById('saveCarBtn').disabled = true;
@@ -671,6 +844,22 @@ async function saveCar() {
       }
     }
   }
+  // Record an odometer reading if one was entered
+  const odoVal = parseFloat(document.getElementById('c_odo').value);
+  if (carId && !isNaN(odoVal) && odoVal >= 0) {
+    const isNewCar = !editingCarId;
+    const { error: odoErr } = await _db.from('odometer_readings').insert({
+      car_id: carId,
+      reading_km: odoVal,
+      reading_date: new Date().toISOString().slice(0,10),
+      source: isNewCar ? 'Purchase' : 'Check',
+      note: isNewCar ? 'Reading at purchase' : null
+    });
+    if (odoErr) {
+      alert('Car saved, but the odometer reading could not be recorded: ' + odoErr.message);
+    }
+  }
+
   // Save final photo list (respects deletions). First photo = cover.
   if (carId) {
     await _db.from('cars').update({
@@ -717,6 +906,9 @@ function renderCars(cars) {
       <td data-mob="Rego"><strong>${c.rego}</strong></td>
       <td data-mob="Make & Model">${c.make_model}</td>
       <td data-mob="Year">${c.year}</td>
+      <td data-mob="Owner">${c.externally_owned
+        ? `<span class="own-tag own-ext">${c.owner_name ? c.owner_name : 'Someone else'}</span>`
+        : `<span class="own-tag own-biz">Business</span>`}</td>
       <td data-mob="Category">${c.category || '—'}</td>
       <td data-mob="Suitable For">${(c.suitable_for || []).map(t => `<span class="badge badge-blue" style="margin:1px 2px;font-size:.6rem;">${t}</span>`).join('')||'—'}</td>
       <td data-mob="Rate/Week"><strong style="color:#F5A623;">$${c.weekly_rate}/wk</strong></td>
