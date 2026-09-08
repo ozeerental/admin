@@ -164,6 +164,34 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 .log-src{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3);color:#F5A623;
   font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;
   padding:.12rem .4rem;border-radius:100px;margin-left:.45rem;vertical-align:middle;}
+/* Odometer */
+.odo-strip{display:flex;flex-wrap:wrap;gap:1.5rem;padding:1rem 1.5rem;
+  border-top:1px solid rgba(255,255,255,.08);background:rgba(245,166,35,.04);}
+.odo-strip:empty{display:none;}
+.odo-stat span{display:block;font-size:.68rem;text-transform:uppercase;letter-spacing:1px;
+  color:rgba(255,255,255,.4);margin-bottom:.2rem;}
+.odo-stat b{font-family:"Barlow Condensed",sans-serif;font-size:1.25rem;font-weight:900;color:#F5A623;}
+.hist-km{font-size:.75rem;color:rgba(255,255,255,.5);margin-top:.2rem;}
+@media(max-width:900px){.odo-strip{gap:1rem;}}
+/* Owner settlement */
+.settle-pane{padding:1.5rem;border-top:1px solid rgba(255,255,255,.08);background:rgba(96,165,250,.04);}
+.settle-pane:empty{display:none;}
+.settle-grid{margin-top:.5rem;}
+.settle-line{display:flex;justify-content:space-between;align-items:center;
+  padding:.5rem 0;font-size:.9rem;color:rgba(255,255,255,.65);}
+.settle-line b{font-weight:800;color:#fff;}
+.settle-sub{border-top:1px solid rgba(255,255,255,.1);margin-top:.3rem;padding-top:.7rem;}
+.settle-final{border-top:2px solid rgba(255,255,255,.18);margin-top:.4rem;padding-top:.8rem;}
+.settle-final span{font-weight:700;color:#fff;text-transform:uppercase;font-size:.78rem;letter-spacing:1px;}
+.settle-final b{font-family:"Barlow Condensed",sans-serif;font-size:1.6rem;font-weight:900;}
+.owner-badge{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.4);color:#60a5fa;
+  font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  padding:.15rem .45rem;border-radius:100px;margin-left:.4rem;vertical-align:middle;}
+.own-pill{display:inline-block;font-family:"Barlow",sans-serif;font-size:.62rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.5px;padding:.25rem .6rem;border-radius:100px;
+  margin-left:.6rem;vertical-align:middle;}
+.own-ext{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.45);color:#60a5fa;}
+.own-biz{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);}
 </style>
 </head>
 <body>
@@ -250,6 +278,10 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
         </div>
       </div>
 
+      <div class="settle-pane" id="settlePane"></div>
+
+      <div class="odo-strip" id="odoStrip"></div>
+
       <div class="hist-pane">
         <div class="col-title">Rental History <span class="hist-sub">every driver who has had this car</span></div>
         <div id="histList"></div>
@@ -268,6 +300,41 @@ let activeCarId = null;
 let activeExpenses = [];
 let activeIncome = [];
 let activeHistory = [];
+let activeOdo = [];
+let activePayouts = [];
+
+// Owner settlement figures for the selected car
+function settlement(){
+  const car = allCars.find(c => c.id === activeCarId);
+  if(!car || !car.externally_owned) return null;
+  const income  = activeIncome.reduce((s,i)=>s+Number(i.amount),0);
+  const costs   = activeExpenses.reduce((s,e)=>s+Number(e.amount),0);
+  const dueToOwner = income - costs;
+  const paidOut = activePayouts.reduce((s,p)=>s+Number(p.amount),0);
+  return { car, income, costs, dueToOwner, paidOut, outstanding: dueToOwner - paidOut };
+}
+
+// Distance stats for the selected car
+function odoStats(){
+  if(!activeOdo.length) return null;
+  const latest = activeOdo[0], oldest = activeOdo[activeOdo.length-1];
+  const total = Number(latest.reading_km) - Number(oldest.reading_km);
+  let perWeek = null;
+  const days = (new Date(latest.reading_date+'T00:00:00') - new Date(oldest.reading_date+'T00:00:00'))/86400000;
+  if(days >= 7 && total > 0) perWeek = Math.round(total / (days/7));
+  return { current:Number(latest.reading_km), total, perWeek,
+           since:oldest.reading_date, count:activeOdo.length };
+}
+
+// km driven during a particular rental, from its handover/return readings
+function odoForAssignment(assignmentId){
+  const rs = activeOdo.filter(r => r.assignment_id === assignmentId);
+  const start = rs.find(r => r.source === 'Handover');
+  const end   = rs.find(r => r.source === 'Return');
+  if(start && end) return Number(end.reading_km) - Number(start.reading_km);
+  return null;
+}
+function kmTxt(n){ return Number(n||0).toLocaleString('en-AU') + ' km'; }
 
 function money(n){ return '$'+Number(n||0).toLocaleString('en-AU',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 
@@ -292,7 +359,7 @@ async function loadCars(){
     const income = incTotals[c.id] || 0;
     const net = income - cost;
     return `<div class="car-card" data-id="${c.id}" onclick="openDetail('${c.id}')">
-      <div class="cc-name">${c.make_model} ${c.year||''}</div>
+      <div class="cc-name">${c.make_model} ${c.year||''}${c.externally_owned ? '<span class="owner-badge">Owner</span>' : ''}</div>
       <div class="cc-rego">${c.rego||''}</div>
       <div class="cc-row"><span>Total Cost</span><b>${money(cost)}</b></div>
       <div class="cc-row"><span>Total Earned</span><b>${money(income)}</b></div>
@@ -309,15 +376,25 @@ async function openDetail(carId){
   document.querySelectorAll('.car-card').forEach(el => el.classList.toggle('active', el.dataset.id===carId));
 
   const car = allCars.find(c => c.id === carId);
-  document.getElementById('detailTitle').innerHTML = `${car.make_model} <span>${car.year||''} — ${car.rego||''}</span>`;
+  document.getElementById('detailTitle').innerHTML =
+    `${car.make_model} <span>${car.year||''} — ${car.rego||''}</span>` +
+    (car.externally_owned
+      ? `<span class="own-pill own-ext">Owned by someone else${car.owner_name ? ' · '+car.owner_name : ''}</span>`
+      : `<span class="own-pill own-biz">Owned by the business</span>`);
 
-  const [{ data: exp }, { data: inc }, { data: hist }] = await Promise.all([
+  const [{ data: exp }, { data: inc }, { data: hist }, { data: odo }, { data: pay }] = await Promise.all([
     _db.from('car_expenses').select('*').eq('car_id', carId).order('expense_date', {ascending:false}),
     _db.from('rent_payments').select('*').eq('car_id', carId).order('payment_date', {ascending:false}),
     _db.from('car_assignments')
        .select('id,start_date,end_date,status,weekly_rate,drivers(first_name,last_name,mobile)')
-       .eq('car_id', carId).order('start_date', {ascending:false})
+       .eq('car_id', carId).order('start_date', {ascending:false}),
+    _db.from('odometer_readings').select('*').eq('car_id', carId)
+       .order('reading_date',{ascending:false}).order('reading_km',{ascending:false}),
+    _db.from('owner_payouts').select('*').eq('car_id', carId)
+       .order('payout_date',{ascending:false})
   ]);
+  activeOdo = odo || [];
+  activePayouts = pay || [];
   activeExpenses = exp || [];
   activeIncome = inc || [];
   activeHistory = hist || [];
@@ -364,6 +441,72 @@ function renderDetail(){
       </div>
     </div>`).join('') : '<div class="empty-note">No expenses logged yet</div>';
 
+  // ── Owner settlement ──
+  const sp = document.getElementById('settlePane');
+  const S = settlement();
+  if(sp){
+    if(!S){
+      sp.innerHTML = '';
+    } else {
+      const owed = S.outstanding;
+      sp.innerHTML = `
+        <div class="col-title">Money owed to the car owner
+          <span class="hist-sub">${S.car.owner_name ? S.car.owner_name : 'this car belongs to someone else'}</span>
+        </div>
+        <div class="settle-grid">
+          <div class="settle-line"><span>Total rent received from this car</span><b class="pos">${money(S.income)}</b></div>
+          <div class="settle-line"><span>Money spent on this car</span><b class="neg">−${money(S.costs)}</b></div>
+          <div class="settle-line settle-sub"><span>Owner's share</span><b>${money(S.dueToOwner)}</b></div>
+          <div class="settle-line"><span>Already paid to owner</span><b class="neg">−${money(S.paidOut)}</b></div>
+          <div class="settle-line settle-final">
+            <span>${owed >= 0 ? 'Still to pay owner' : 'Paid owner too much'}</span>
+            <b class="${owed > 0 ? 'neg' : 'pos'}">${money(Math.abs(owed))}</b>
+          </div>
+        </div>
+
+        <div class="mini-form" style="margin:1rem 0 .8rem;">
+          <input class="f-amt" id="poAmt" type="number" placeholder="$ Amount">
+          <input class="f-date" id="poDate" type="date">
+          <select class="f-cat" id="poMethod">
+            <option>Bank Transfer</option><option>Cash</option><option>Other</option>
+          </select>
+          <input class="f-desc" id="poNote" placeholder="Note (optional)">
+          <button class="btn btn-gold btn-sm" onclick="addPayout()">+ Add Payment to Owner</button>
+        </div>
+        <div class="log-list" id="poList"></div>`;
+
+      const pl = document.getElementById('poList');
+      pl.innerHTML = activePayouts.length ? activePayouts.map(p => `
+        <div class="log-item">
+          <div>
+            <div class="log-main">Paid${p.method ? ' by '+p.method.toLowerCase() : ''}${p.note ? ' — '+p.note : ''}</div>
+            <div class="log-sub">${p.payout_date}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <div class="log-amt">${money(p.amount)}</div>
+            <button class="log-del" onclick="deleteRow('owner_payouts','${p.id}')">&#10005;</button>
+          </div>
+        </div>`).join('') : '<div class="empty-note">You have not paid the owner anything yet</div>';
+    }
+  }
+
+  // ── Odometer strip ──
+  const os = odoStats();
+  const odoEl = document.getElementById('odoStrip');
+  if(odoEl){
+    if(!os){
+      odoEl.innerHTML = '';
+    } else {
+      const costPerKm = os.total > 0 ? (totalCost / os.total) : null;
+      odoEl.innerHTML = `
+        <div class="odo-stat"><span>Current odometer</span><b>${kmTxt(os.current)}</b></div>
+        ${os.total>0 ? `<div class="odo-stat"><span>Driven while tracked</span><b>${kmTxt(os.total)}</b></div>` : ''}
+        ${os.perWeek ? `<div class="odo-stat"><span>Average use</span><b>${os.perWeek.toLocaleString('en-AU')} km/wk</b></div>` : ''}
+        ${costPerKm ? `<div class="odo-stat"><span>Cost per km</span><b>$${costPerKm.toFixed(2)}</b></div>` : ''}
+        <div class="odo-stat"><span>Readings logged</span><b>${os.count}</b></div>`;
+    }
+  }
+
   // ── Rental history ──
   const hl = document.getElementById('histList');
   if(hl){
@@ -379,12 +522,14 @@ function renderDetail(){
             ? `${fd(h.start_date)} → present`
             : `${fd(h.start_date)} → ${fd(h.end_date) || 'ended'}`;
         const wk = st.weeks ? ` · ${st.weeks} week${st.weeks===1?'':'s'}` : '';
+        const drivenKm = odoForAssignment(h.id);
         return `<div class="hist-row">
           <div>
             <div class="hist-name">${nm}
               <span class="hist-badge ${active?'hb-active':'hb-ended'}">${active?'Current':'Ended'}</span>
             </div>
             <div class="hist-meta">${period}${wk} · ${money(h.weekly_rate)}/wk${h.drivers&&h.drivers.mobile?' · '+h.drivers.mobile:''}</div>
+            ${drivenKm!=null ? `<div class="hist-km">🚗 ${kmTxt(drivenKm)} driven${st.weeks?' · '+Math.round(drivenKm/st.weeks).toLocaleString('en-AU')+' km/wk':''}</div>` : ''}
           </div>
           <div class="hist-right">
             <div class="hist-amt">${money(st.paid)}</div>
@@ -450,6 +595,19 @@ async function addIncome(){
   document.getElementById('incDriver').value=''; document.getElementById('incAmt').value=''; document.getElementById('incDate').value='';
   await openDetail(activeCarId);
   await loadCars();
+}
+
+async function addPayout(){
+  const amount = parseFloat(document.getElementById('poAmt').value);
+  const payout_date = document.getElementById('poDate').value || new Date().toISOString().slice(0,10);
+  const method = document.getElementById('poMethod').value;
+  const note = document.getElementById('poNote').value.trim() || null;
+  if(!amount || amount <= 0){ alert('Enter a valid payout amount.'); return; }
+
+  const { error } = await _db.from('owner_payouts')
+    .insert({ car_id: activeCarId, amount, payout_date, method, note });
+  if(error){ alert('Could not save: '+error.message); return; }
+  await openDetail(activeCarId);
 }
 
 async function deleteRow(table, id){
@@ -576,7 +734,36 @@ async function exportPDF(){
     if(car.category) meta.push(car.category);
     if(car.weekly_rate) meta.push('$'+car.weekly_rate+'/week');
     if(car.status) meta.push('Status: '+car.status);
+
     doc.text(meta.join('     ·     '), M, y+14);
+
+    // Ownership status — shown clearly, not buried in the details line
+    const ownLabel = car.externally_owned
+        ? ('OWNED BY SOMEONE ELSE' + (car.owner_name ? '  ·  ' + car.owner_name.toUpperCase() : ''))
+        : 'OWNED BY THE BUSINESS';
+    const ownCol = car.externally_owned ? [37,99,235] : CLR.grey;
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    const ownW = doc.getTextWidth(ownLabel) + 7;
+    doc.setFillColor(car.externally_owned ? 232 : 240, car.externally_owned ? 240 : 241, car.externally_owned ? 254 : 243);
+    doc.setDrawColor.apply(doc, ownCol);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(M, y+17.5, ownW, 6.2, 1.2, 1.2, 'FD');
+    doc.setTextColor.apply(doc, ownCol);
+    doc.text(ownLabel, M+3.5, y+21.8);
+    y += 8;
+
+    // Odometer summary line
+    const os = odoStats();
+    if(os){
+      const bits = ['Odometer: ' + os.current.toLocaleString('en-AU') + ' km'];
+      if(os.total > 0) bits.push(os.total.toLocaleString('en-AU') + ' km while tracked');
+      if(os.perWeek)   bits.push('avg ' + os.perWeek.toLocaleString('en-AU') + ' km/week');
+      if(os.total > 0) bits.push('$' + (totalCost/os.total).toFixed(2) + ' per km');
+      doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      doc.setTextColor.apply(doc, CLR.gold);
+      doc.text(bits.join('     ·     '), M, y+20);
+      y += 6;
+    }
 
     y += 24;
 
@@ -701,20 +888,95 @@ async function exportPDF(){
     // ─────────── RENTAL HISTORY ───────────
     if(activeHistory && activeHistory.length){
       section('Rental History', activeHistory.length);
-      cols([{t:'DRIVER',x:M+4},{t:'PERIOD',x:M+62},{t:'WEEKS',x:M+128,a:'right'},{t:'COLLECTED',x:PW-M-4,a:'right'}]);
+      cols([{t:'DRIVER',x:M+4},{t:'PERIOD',x:M+56},{t:'WEEKS',x:M+118,a:'right'},{t:'KM DRIVEN',x:M+146,a:'right'},{t:'COLLECTED',x:PW-M-4,a:'right'}]);
       const fd = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'2-digit'}) : '-';
       activeHistory.forEach((h,i)=>{
         const nm = h.drivers ? (h.drivers.first_name+' '+h.drivers.last_name) : 'Unknown driver';
         const st = h._stats || {paid:0,owed:0,weeks:0};
         const per = fd(h.start_date)+'  to  '+(h.status==='Active' ? 'present' : fd(h.end_date));
+        const dk = odoForAssignment(h.id);
         row([
-          {t:nm+(h.status==='Active'?'  (current)':''), x:M+4, max:56},
-          {t:per, x:M+62, max:64},
-          {t:String(st.weeks||0), x:M+128, a:'right'},
+          {t:nm+(h.status==='Active'?'  (current)':''), x:M+4, max:50},
+          {t:per, x:M+56, max:60},
+          {t:String(st.weeks||0), x:M+118, a:'right'},
+          {t:dk!=null ? dk.toLocaleString('en-AU') : '—', x:M+146, a:'right'},
           {t:'$'+pdfMoney(st.paid), x:PW-M-4, a:'right', amt:true}
         ], i, CLR.green);
       });
       y += 10;
+    }
+
+    // ─────────── ODOMETER HISTORY ───────────
+    if(activeOdo && activeOdo.length){
+      section('Odometer History', activeOdo.length);
+      cols([{t:'DATE',x:M+4},{t:'READING',x:M+40,a:'right'},{t:'SOURCE',x:M+70},{t:'SINCE PREVIOUS',x:PW-M-4,a:'right'}]);
+      activeOdo.forEach((r,i)=>{
+        const prev = activeOdo[i+1];
+        const diff = prev ? Number(r.reading_km) - Number(prev.reading_km) : null;
+        row([
+          {t:fmtDate(r.reading_date), x:M+4},
+          {t:Number(r.reading_km).toLocaleString('en-AU')+' km', x:M+40, a:'right'},
+          {t:r.source||'Check', x:M+70, max:40},
+          {t: diff!=null ? '+'+diff.toLocaleString('en-AU')+' km' : '—', x:PW-M-4, a:'right'}
+        ], i, CLR.dark);
+      });
+      y += 10;
+    }
+
+    // ─────────── OWNER SETTLEMENT ───────────
+    const S = settlement();
+    if(S){
+      ensure(60);
+      section('Money owed to the car owner', activePayouts.length);
+
+      const lines = [
+        ['Total rent received from this car', '$'+pdfMoney(S.income),   CLR.green],
+        ['Money spent on this car',           '-$'+pdfMoney(S.costs),   CLR.red],
+        ["Owner's share",                     '$'+pdfMoney(S.dueToOwner), CLR.dark],
+        ['Already paid to owner',             '-$'+pdfMoney(S.paidOut), CLR.red]
+      ];
+      lines.forEach((ln,i)=>{
+        ensure(8);
+        if(i===2){ doc.setFillColor(238,240,243); doc.rect(M,y,CW,7.5,'F'); }
+        else if(i%2===1){ doc.setFillColor(250,250,251); doc.rect(M,y,CW,7.5,'F'); }
+        doc.setFont('helvetica', i===2?'bold':'normal'); doc.setFontSize(9);
+        doc.setTextColor.apply(doc, CLR.dark);
+        doc.text(ln[0], M+4, y+5.2);
+        doc.setFont('helvetica','bold');
+        doc.setTextColor.apply(doc, ln[2]);
+        doc.text(ln[1], PW-M-4, y+5.2, {align:'right'});
+        doc.setDrawColor(235,237,240); doc.setLineWidth(0.2);
+        doc.line(M,y+7.5,PW-M,y+7.5);
+        y += 7.5;
+      });
+
+      // closing balance
+      ensure(16);
+      const owed = S.outstanding;
+      doc.setFillColor.apply(doc, CLR.dark);
+      doc.rect(M,y,CW,13,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.setTextColor.apply(doc, CLR.white);
+      doc.text(owed >= 0 ? 'STILL TO PAY OWNER' : 'PAID OWNER TOO MUCH', M+4, y+8.4);
+      doc.setFontSize(12);
+      doc.setTextColor.apply(doc, owed > 0 ? [255,140,140] : [110,220,140]);
+      doc.text('$'+pdfMoney(Math.abs(owed)), PW-M-4, y+8.6, {align:'right'});
+      y += 20;
+
+      // payout log
+      if(activePayouts.length){
+        ensure(20);
+        cols([{t:'DATE PAID',x:M+4},{t:'HOW',x:M+40},{t:'NOTE',x:M+80},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
+        activePayouts.slice().sort((a,b)=>String(a.payout_date).localeCompare(String(b.payout_date)))
+          .forEach((p,i)=>row([
+            {t:fmtDate(p.payout_date), x:M+4},
+            {t:p.method||'—', x:M+40, max:38},
+            {t:p.note||'—', x:M+80, max:60},
+            {t:'$'+pdfMoney(p.amount), x:PW-M-4, a:'right', amt:true}
+          ], i, CLR.dark));
+        totalRow('Total already paid to owner','$'+pdfMoney(S.paidOut), CLR.dark);
+      }
+      y += 12;
     }
 
     // ─────────── NET SUMMARY ───────────
