@@ -192,6 +192,7 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
   margin-left:.6rem;vertical-align:middle;}
 .own-ext{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.45);color:#60a5fa;}
 .own-biz{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);}
+.settle-note{font-size:.75rem;color:rgba(255,255,255,.38);font-style:italic;padding:.4rem 0 .2rem;}
 </style>
 </head>
 <body>
@@ -307,11 +308,18 @@ let activePayouts = [];
 function settlement(){
   const car = allCars.find(c => c.id === activeCarId);
   if(!car || !car.externally_owned) return null;
-  const income  = activeIncome.reduce((s,i)=>s+Number(i.amount),0);
-  const costs   = activeExpenses.reduce((s,e)=>s+Number(e.amount),0);
+  const income = activeIncome.reduce((s,i)=>s+Number(i.amount),0);
+  // Only running costs come out of the owner's share. The purchase price is
+  // excluded — on a car owned by someone else it was never your money.
+  const running = activeExpenses.filter(e => (e.category||'') !== 'Purchase Price');
+  const costs = running.reduce((s,e)=>s+Number(e.amount),0);
+  const excluded = activeExpenses
+      .filter(e => (e.category||'') === 'Purchase Price')
+      .reduce((s,e)=>s+Number(e.amount),0);
   const dueToOwner = income - costs;
   const paidOut = activePayouts.reduce((s,p)=>s+Number(p.amount),0);
-  return { car, income, costs, dueToOwner, paidOut, outstanding: dueToOwner - paidOut };
+  return { car, income, costs, excluded, runningCount: running.length,
+           dueToOwner, paidOut, outstanding: dueToOwner - paidOut };
 }
 
 // Distance stats for the selected car
@@ -455,9 +463,10 @@ function renderDetail(){
         </div>
         <div class="settle-grid">
           <div class="settle-line"><span>Total rent received from this car</span><b class="pos">${money(S.income)}</b></div>
-          <div class="settle-line"><span>Money spent on this car</span><b class="neg">−${money(S.costs)}</b></div>
-          <div class="settle-line settle-sub"><span>Owner's share</span><b>${money(S.dueToOwner)}</b></div>
+          <div class="settle-line"><span>Running costs (rego, service, repairs)</span><b class="neg">−${money(S.costs)}</b></div>
+          <div class="settle-line settle-sub"><span>Left after costs</span><b>${money(S.dueToOwner)}</b></div>
           <div class="settle-line"><span>Already paid to owner</span><b class="neg">−${money(S.paidOut)}</b></div>
+          ${S.excluded > 0 ? `<div class="settle-note">Purchase price of ${money(S.excluded)} is not counted here — this car was not bought by the business.</div>` : ''}
           <div class="settle-line settle-final">
             <span>${owed >= 0 ? 'Still to pay owner' : 'Paid owner too much'}</span>
             <b class="${owed > 0 ? 'neg' : 'pos'}">${money(Math.abs(owed))}</b>
@@ -931,8 +940,8 @@ async function exportPDF(){
 
       const lines = [
         ['Total rent received from this car', '$'+pdfMoney(S.income),   CLR.green],
-        ['Money spent on this car',           '-$'+pdfMoney(S.costs),   CLR.red],
-        ["Owner's share",                     '$'+pdfMoney(S.dueToOwner), CLR.dark],
+        ['Running costs (rego, service, repairs)', '-$'+pdfMoney(S.costs),   CLR.red],
+        ['Left after costs',                       '$'+pdfMoney(S.dueToOwner), CLR.dark],
         ['Already paid to owner',             '-$'+pdfMoney(S.paidOut), CLR.red]
       ];
       lines.forEach((ln,i)=>{
@@ -949,6 +958,14 @@ async function exportPDF(){
         doc.line(M,y+7.5,PW-M,y+7.5);
         y += 7.5;
       });
+
+      if(S.excluded > 0){
+        ensure(8);
+        doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+        doc.setTextColor.apply(doc, CLR.grey);
+        doc.text('Purchase price of $'+pdfMoney(S.excluded)+' is not included above, as this car was not bought by the business.', M+4, y+4.5);
+        y += 8;
+      }
 
       // closing balance
       ensure(16);
