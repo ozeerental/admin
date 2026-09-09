@@ -71,6 +71,9 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 .mini-form{display:flex;gap:.5rem;flex-wrap:wrap;}
 .mini-form input,.mini-form select{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:.6rem;font-size:.85rem;font-family:"Barlow",sans-serif;border-radius:4px;}
 .mini-form input:focus,.mini-form select:focus{outline:none;border-color:#F5A623;}
+/* Dropdown lists are drawn by the operating system on a light background,
+   so options need their own colours or they render white-on-white. */
+.mini-form select option,select option{background:#0d1526;color:#fff;}
 .f-amt{width:100px;} .f-date{width:130px;} .f-cat{width:130px;} .f-desc{flex:1;min-width:120px;}
 .btn{padding:.5rem 1rem;font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;font-family:"Barlow",sans-serif;transition:all .2s;border-radius:4px;}
 .btn-gold{background:linear-gradient(135deg,#F5A623,#D4880A);color:#000;}
@@ -316,10 +319,16 @@ function settlement(){
   const excluded = activeExpenses
       .filter(e => (e.category||'') === 'Purchase Price')
       .reduce((s,e)=>s+Number(e.amount),0);
-  const dueToOwner = income - costs;
+  // Running costs come off first, then our service fee is taken
+  // on what is left, not on the gross rent.
+  const afterCosts = income - costs;
+  const feePct = Number(car.service_fee_pct) || 0;
+  const fee = feePct > 0 ? (afterCosts * feePct / 100) : 0;
+  const dueToOwner = afterCosts - fee;
   const paidOut = activePayouts.reduce((s,p)=>s+Number(p.amount),0);
   return { car, income, costs, excluded, runningCount: running.length,
-           dueToOwner, paidOut, outstanding: dueToOwner - paidOut };
+           afterCosts, feePct, fee, dueToOwner, paidOut,
+           outstanding: dueToOwner - paidOut };
 }
 
 // Distance stats for the selected car
@@ -330,8 +339,12 @@ function odoStats(){
   let perWeek = null;
   const days = (new Date(latest.reading_date+'T00:00:00') - new Date(oldest.reading_date+'T00:00:00'))/86400000;
   if(days >= 7 && total > 0) perWeek = Math.round(total / (days/7));
+  const purchase = activeOdo.find(r => r.source === 'Purchase');
   return { current:Number(latest.reading_km), total, perWeek,
-           since:oldest.reading_date, count:activeOdo.length };
+           since:oldest.reading_date, count:activeOdo.length,
+           purchaseKm: purchase ? Number(purchase.reading_km) : null,
+           purchaseDate: purchase ? purchase.reading_date : null,
+           sincePurchase: purchase ? Number(latest.reading_km) - Number(purchase.reading_km) : null };
 }
 
 // km driven during a particular rental, from its handover/return readings
@@ -387,7 +400,7 @@ async function openDetail(carId){
   document.getElementById('detailTitle').innerHTML =
     `${car.make_model} <span>${car.year||''} — ${car.rego||''}</span>` +
     (car.externally_owned
-      ? `<span class="own-pill own-ext">Owned by someone else${car.owner_name ? ' · '+car.owner_name : ''}</span>`
+      ? `<span class="own-pill own-ext">Owned by someone else${car.owner_name ? ' · '+car.owner_name : ''}${car.service_fee_pct ? ' · '+car.service_fee_pct+'% fee' : ''}</span>`
       : `<span class="own-pill own-biz">Owned by the business</span>`);
 
   const [{ data: exp }, { data: inc }, { data: hist }, { data: odo }, { data: pay }] = await Promise.all([
@@ -464,7 +477,9 @@ function renderDetail(){
         <div class="settle-grid">
           <div class="settle-line"><span>Total rent received from this car</span><b class="pos">${money(S.income)}</b></div>
           <div class="settle-line"><span>Running costs (rego, service, repairs)</span><b class="neg">−${money(S.costs)}</b></div>
-          <div class="settle-line settle-sub"><span>Left after costs</span><b>${money(S.dueToOwner)}</b></div>
+          <div class="settle-line"><span>Left after costs</span><b>${money(S.afterCosts)}</b></div>
+          ${S.fee > 0 ? `<div class="settle-line"><span>Our service fee (${S.feePct}% of that)</span><b class="neg">−${money(S.fee)}</b></div>` : ''}
+          <div class="settle-line settle-sub"><span>Owner's share</span><b>${money(S.dueToOwner)}</b></div>
           <div class="settle-line"><span>Already paid to owner</span><b class="neg">−${money(S.paidOut)}</b></div>
           ${S.excluded > 0 ? `<div class="settle-note">Purchase price of ${money(S.excluded)} is not counted here — this car was not bought by the business.</div>` : ''}
           <div class="settle-line settle-final">
@@ -509,6 +524,8 @@ function renderDetail(){
       const costPerKm = os.total > 0 ? (totalCost / os.total) : null;
       odoEl.innerHTML = `
         <div class="odo-stat"><span>Current odometer</span><b>${kmTxt(os.current)}</b></div>
+        ${os.purchaseKm!=null ? `<div class="odo-stat"><span>At purchase</span><b>${kmTxt(os.purchaseKm)}</b></div>` : ''}
+        ${os.sincePurchase>0 ? `<div class="odo-stat"><span>Driven since purchase</span><b>${kmTxt(os.sincePurchase)}</b></div>` : ''}
         ${os.total>0 ? `<div class="odo-stat"><span>Driven while tracked</span><b>${kmTxt(os.total)}</b></div>` : ''}
         ${os.perWeek ? `<div class="odo-stat"><span>Average use</span><b>${os.perWeek.toLocaleString('en-AU')} km/wk</b></div>` : ''}
         ${costPerKm ? `<div class="odo-stat"><span>Cost per km</span><b>$${costPerKm.toFixed(2)}</b></div>` : ''}
@@ -748,7 +765,8 @@ async function exportPDF(){
 
     // Ownership status — shown clearly, not buried in the details line
     const ownLabel = car.externally_owned
-        ? ('OWNED BY SOMEONE ELSE' + (car.owner_name ? '  ·  ' + car.owner_name.toUpperCase() : ''))
+        ? ('OWNED BY SOMEONE ELSE' + (car.owner_name ? '  ·  ' + car.owner_name.toUpperCase() : '')
+             + (car.service_fee_pct ? '  ·  ' + car.service_fee_pct + '% SERVICE FEE' : ''))
         : 'OWNED BY THE BUSINESS';
     const ownCol = car.externally_owned ? [37,99,235] : CLR.grey;
     doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
@@ -764,8 +782,10 @@ async function exportPDF(){
     // Odometer summary line
     const os = odoStats();
     if(os){
-      const bits = ['Odometer: ' + os.current.toLocaleString('en-AU') + ' km'];
-      if(os.total > 0) bits.push(os.total.toLocaleString('en-AU') + ' km while tracked');
+      const bits = ['Odometer now: ' + os.current.toLocaleString('en-AU') + ' km'];
+      if(os.purchaseKm != null) bits.push('at purchase: ' + os.purchaseKm.toLocaleString('en-AU') + ' km');
+      if(os.sincePurchase > 0)  bits.push(os.sincePurchase.toLocaleString('en-AU') + ' km driven since');
+      else if(os.total > 0)     bits.push(os.total.toLocaleString('en-AU') + ' km while tracked');
       if(os.perWeek)   bits.push('avg ' + os.perWeek.toLocaleString('en-AU') + ' km/week');
       if(os.total > 0) bits.push('$' + (totalCost/os.total).toFixed(2) + ' per km');
       doc.setFont('helvetica','normal'); doc.setFontSize(9);
@@ -917,16 +937,17 @@ async function exportPDF(){
 
     // ─────────── ODOMETER HISTORY ───────────
     if(activeOdo && activeOdo.length){
-      section('Odometer History', activeOdo.length);
-      cols([{t:'DATE',x:M+4},{t:'READING',x:M+40,a:'right'},{t:'SOURCE',x:M+70},{t:'SINCE PREVIOUS',x:PW-M-4,a:'right'}]);
+      section('Odometer History — every reading recorded', activeOdo.length);
+      cols([{t:'DATE',x:M+4},{t:'READING',x:M+40,a:'right'},{t:'RECORDED AT',x:M+70},{t:'SINCE PREVIOUS',x:PW-M-4,a:'right'}]);
       activeOdo.forEach((r,i)=>{
         const prev = activeOdo[i+1];
         const diff = prev ? Number(r.reading_km) - Number(prev.reading_km) : null;
+        const isPurchase = r.source === 'Purchase';
         row([
           {t:fmtDate(r.reading_date), x:M+4},
           {t:Number(r.reading_km).toLocaleString('en-AU')+' km', x:M+40, a:'right'},
-          {t:r.source||'Check', x:M+70, max:40},
-          {t: diff!=null ? '+'+diff.toLocaleString('en-AU')+' km' : '—', x:PW-M-4, a:'right'}
+          {t:(isPurchase ? 'Purchase — starting reading' : (r.source||'Check')), x:M+70, max:48},
+          {t: diff!=null ? '+'+diff.toLocaleString('en-AU')+' km' : (isPurchase ? 'start' : '—'), x:PW-M-4, a:'right'}
         ], i, CLR.dark);
       });
       y += 10;
@@ -940,15 +961,18 @@ async function exportPDF(){
 
       const lines = [
         ['Total rent received from this car', '$'+pdfMoney(S.income),   CLR.green],
-        ['Running costs (rego, service, repairs)', '-$'+pdfMoney(S.costs),   CLR.red],
-        ['Left after costs',                       '$'+pdfMoney(S.dueToOwner), CLR.dark],
+        ['Running costs (rego, service, repairs)', '-$'+pdfMoney(S.costs), CLR.red],
+        ['Left after costs',                       '$'+pdfMoney(S.afterCosts), CLR.dark],
+        ...(S.fee > 0 ? [['Our service fee ('+S.feePct+'% of that)', '-$'+pdfMoney(S.fee), CLR.red]] : []),
+        ["Owner's share",                          '$'+pdfMoney(S.dueToOwner), CLR.dark],
         ['Already paid to owner',             '-$'+pdfMoney(S.paidOut), CLR.red]
       ];
+      const totalIdx = lines.findIndex(l => l[0] === "Owner's share");
       lines.forEach((ln,i)=>{
         ensure(8);
-        if(i===2){ doc.setFillColor(238,240,243); doc.rect(M,y,CW,7.5,'F'); }
+        if(i===totalIdx){ doc.setFillColor(238,240,243); doc.rect(M,y,CW,7.5,'F'); }
         else if(i%2===1){ doc.setFillColor(250,250,251); doc.rect(M,y,CW,7.5,'F'); }
-        doc.setFont('helvetica', i===2?'bold':'normal'); doc.setFontSize(9);
+        doc.setFont('helvetica', i===totalIdx?'bold':'normal'); doc.setFontSize(9);
         doc.setTextColor.apply(doc, CLR.dark);
         doc.text(ln[0], M+4, y+5.2);
         doc.setFont('helvetica','bold');
