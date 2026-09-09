@@ -486,6 +486,20 @@ tr:hover td{background:rgba(255,255,255,.03);}
           <input class="form-input" id="c_owner_name" placeholder="e.g. Owner A — for your reference only">
         </div>
       </div>
+      <div class="form-row" id="serviceFeeRow" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Service Fee We Charge the Owner</label>
+          <select class="form-select" id="c_service_fee">
+            <option value="">No service fee</option>
+            <option value="10">10%</option>
+            <option value="15">15%</option>
+            <option value="20">20%</option>
+            <option value="25">25%</option>
+            <option value="30">30%</option>
+          </select>
+        </div>
+        <div class="form-group"></div>
+      </div>
       <div id="ownerHint" class="odo-hint" style="display:none;">
         Rent, expenses and payouts for this car will be shown as an owner statement in Car Finance and on its PDF report.
       </div>
@@ -561,6 +575,8 @@ function toggleOwnerName(){
   const ext = document.getElementById('c_owned').value === 'true';
   document.getElementById('ownerNameGroup').style.display = ext ? '' : 'none';
   document.getElementById('ownerHint').style.display = ext ? '' : 'none';
+  const fr = document.getElementById('serviceFeeRow');
+  if(fr) fr.style.display = ext ? '' : 'none';
 }
 
 // ═══ ODOMETER ═══
@@ -710,6 +726,8 @@ function openCarModal(car) {
   // Ownership
   document.getElementById('c_owned').value = (car && car.externally_owned) ? 'true' : 'false';
   document.getElementById('c_owner_name').value = (car && car.owner_name) ? car.owner_name : '';
+  document.getElementById('c_service_fee').value =
+      (car && car.service_fee_pct != null) ? String(car.service_fee_pct) : '';
   toggleOwnerName();
 
   // Odometer
@@ -770,6 +788,9 @@ async function saveCar() {
     service_due: document.getElementById('c_svc').value || null,
     externally_owned: document.getElementById('c_owned').value === 'true',
     owner_name: document.getElementById('c_owner_name').value.trim() || null,
+    service_fee_pct: document.getElementById('c_owned').value === 'true'
+        ? (parseFloat(document.getElementById('c_service_fee').value) || null)
+        : null,
     service_interval_km: parseFloat(document.getElementById('c_svc_km').value) || null,
     last_service_km: parseFloat(document.getElementById('c_last_svc_km').value) || null,
     notes: document.getElementById('c_notes').value || null,
@@ -907,7 +928,7 @@ function renderCars(cars) {
       <td data-mob="Make & Model">${c.make_model}</td>
       <td data-mob="Year">${c.year}</td>
       <td data-mob="Owner">${c.externally_owned
-        ? `<span class="own-tag own-ext">${c.owner_name ? c.owner_name : 'Someone else'}</span>`
+        ? `<span class="own-tag own-ext">${c.owner_name ? c.owner_name : 'Someone else'}</span>${c.service_fee_pct ? `<div style="font-size:.62rem;color:rgba(255,255,255,.4);margin-top:.2rem;">${c.service_fee_pct}% fee</div>` : ''}`
         : `<span class="own-tag own-biz">Business</span>`}</td>
       <td data-mob="Category">${c.category || '—'}</td>
       <td data-mob="Suitable For">${(c.suitable_for || []).map(t => `<span class="badge badge-blue" style="margin:1px 2px;font-size:.6rem;">${t}</span>`).join('')||'—'}</td>
