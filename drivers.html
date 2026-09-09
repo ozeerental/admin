@@ -329,6 +329,9 @@ select option{background:#0d1526;color:#fff;}
 .actions-cell{display:flex;gap:.4rem;flex-wrap:wrap;}
 .actions-cell .btn{margin:0;}
 @media(min-width:901px){.actions-cell{flex-direction:column;}.actions-cell .btn{width:100%;}}
+.intl-badge{display:inline-block;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.4);
+  color:#60a5fa;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;
+  padding:.15rem .45rem;border-radius:100px;margin-left:.4rem;vertical-align:middle;}
 </style>
 </head>
 <body>
@@ -501,6 +504,52 @@ function calcAge(dob){
     if(m<0||(m===0&&t.getDate()<b.getDate())) a--;
     return (a>=0&&a<130)?a:null; }catch(e){ return null; }
 }
+// ═══════════════════════════════════════════════════════
+//  QUICK APPROVE / REJECT  (row buttons)
+// ═══════════════════════════════════════════════════════
+
+// Approving is not just a status change: it records the handover
+// details (car, rego, odometer, fuel, accessories, rental duration),
+// builds the rental agreement PDF and emails it to the driver. None
+// of that exists at row level, so this opens the full review screen
+// rather than approving someone with no agreement on file.
+async function quickApprove(id){
+  await viewDriver(id);
+  setTimeout(function(){
+    var el = document.getElementById('approveBtn');
+    if(el){
+      el.scrollIntoView({behavior:'smooth', block:'center'});
+      el.style.transition = 'box-shadow .3s';
+      el.style.boxShadow = '0 0 0 3px rgba(34,197,94,.55)';
+      setTimeout(function(){ el.style.boxShadow = ''; }, 2200);
+    }
+  }, 450);
+}
+
+// Rejecting needs no handover details, PDF or email, so it can be
+// done straight from the row.
+async function quickReject(id){
+  var d = allDrivers.find(function(x){ return x.id === id; });
+  var name = d ? (d.first_name + ' ' + d.last_name) : 'this driver';
+
+  if(!confirm('Reject the application from ' + name + '?\n\nTheir status changes to Rejected. No email is sent.')) return;
+
+  var reason = window.prompt('Reason for rejecting (optional — saved to their notes):', '');
+  if(reason === null) return;
+  reason = reason.trim();
+
+  var existing = (d && d.notes) ? d.notes + '\n' : '';
+  var stamp = new Date().toLocaleDateString('en-AU');
+  var notes = reason ? existing + 'Rejected ' + stamp + ': ' + reason
+                     : existing + 'Rejected ' + stamp;
+
+  var res = await window._sb.from('drivers').update({ status:'Rejected', notes:notes }).eq('id', id);
+  if(res.error){ alert('Could not reject: ' + res.error.message); return; }
+
+  await loadDrivers();
+  alert(name + ' has been rejected.');
+}
+
 async function viewDriver(id){
   viewingDriverId = id;
   const driver = allDrivers.find(d=>d.id===id);
@@ -537,7 +586,15 @@ async function viewDriver(id){
       <div class="info-block"><div class="info-label">Email</div><div class="info-val"><a href="mailto:${driver.email}" style="color:#F5A623;">${driver.email}</a></div></div>
       <div class="info-block"><div class="info-label">Address</div><div class="info-val">${driver.address||'—'}</div></div>
       <div class="info-block"><div class="info-label">Visa Status</div><div class="info-val">${driver.visa_status||'—'}</div></div>
-      <div class="info-block"><div class="info-label">Licence Number</div><div class="info-val">${driver.license_number||'—'} (${driver.license_state||'—'})</div></div>
+      <div class="info-block"><div class="info-label">Licence Number</div><div class="info-val">${driver.license_number||'—'}${
+        driver.licence_type === 'Overseas'
+          ? ` <span class="intl-badge">Overseas · ${driver.licence_country||'country not given'}</span>`
+          : ` (${driver.license_state||'—'})`
+      }</div></div>
+      ${driver.licence_type === 'Overseas' ? `
+      <div class="info-block"><div class="info-label">Name on Overseas Licence</div><div class="info-val">${driver.licence_name||'—'}</div></div>
+      <div class="info-block"><div class="info-label">City / Region</div><div class="info-val">${driver.licence_city||'—'}</div></div>
+      <div class="info-block"><div class="info-label">Address on Licence</div><div class="info-val">${driver.licence_address||'—'}</div></div>` : ''}
       <div class="info-block"><div class="info-label">Licence Expiry</div><div class="info-val">${driver.license_expiry ? new Date(driver.license_expiry).toLocaleDateString('en-AU') : '—'}</div></div>
       <div class="info-block"><div class="info-label">Licence Year Obtained</div><div class="info-val">${driver.license_year||'—'}${licExp(driver.license_year)!==null ? ' ('+licExp(driver.license_year)+' years experience)' : ''}</div></div>
       <div class="info-block"><div class="info-label">Emergency Contact</div><div class="info-val">${driver.emergency_name||'—'} (${driver.emergency_relation||'—'}) — ${driver.emergency_phone||'—'}</div></div>
@@ -866,8 +923,16 @@ async function generateApprovalPDF(d, handover, docs){
 
   // ── SECTION 2 LICENCE ──
   sectionHeader('SECTION 02 — DRIVER LICENCE');
+  field('Licence Type', d.licence_type === 'Overseas' ? 'Overseas / international' : 'Australian');
   field('Licence Number', d.license_number);
-  field('Licence State', d.license_state);
+  if(d.licence_type === 'Overseas'){
+    field('Issuing Country', d.licence_country);
+    if(d.licence_city)    field('City / Region', d.licence_city);
+    if(d.licence_name)    field('Name on Licence', d.licence_name);
+    if(d.licence_address) field('Address on Licence', d.licence_address);
+  } else {
+    field('Licence State', d.license_state);
+  }
   field('Licence Expiry', d.license_expiry);
   field('Licence Year Obtained', d.license_year ? (d.license_year + (licExp(d.license_year)!==null ? ' ('+licExp(d.license_year)+' years experience)' : '')) : d.license_year);
 
