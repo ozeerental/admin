@@ -878,7 +878,12 @@ function collectHandoverData(){
     handover_accessories: accessories || null,
     handover_comments: document.getElementById('ho_comments').value || null,
     rental_duration: (document.getElementById('ho_duration') ? document.getElementById('ho_duration').value : '') || null,
-    handover_date: new Date().toISOString()
+    handover_date: new Date().toISOString(),
+    // carried through to the agreement PDF and approval email
+    _weekly_rate: document.getElementById('ho_rate') ? document.getElementById('ho_rate').value : '',
+    _bond_amount: document.getElementById('ho_bond') ? document.getElementById('ho_bond').value : '',
+    _bond_paid:   document.getElementById('ho_bond_paid') ? (document.getElementById('ho_bond_paid').value === 'true') : false,
+    _start_date:  document.getElementById('ho_start') ? document.getElementById('ho_start').value : ''
   };
 }
 
@@ -894,7 +899,10 @@ async function updateDriverStatus(status){
   // If approving, collect and save handover details
   if(status === 'Approved'){
     handover = collectHandoverData();
-    Object.assign(updateObj, handover);
+    // keys starting with _ are for the PDF and email only, not columns
+    Object.keys(handover).forEach(function(k){
+      if(k.charAt(0) !== '_') updateObj[k] = handover[k];
+    });
   }
 
   const btn = document.getElementById(status==='Approved'?'approveBtn':'rejectBtn');
@@ -1172,6 +1180,13 @@ async function generateApprovalPDF(d, handover, docs){
   if(handover.handover_comments) field('Additional Comments', handover.handover_comments);
   field('Handover Date', new Date(handover.handover_date || now).toLocaleString('en-AU'));
 
+  sectionHeader('RENTAL TERMS');
+  if(handover._weekly_rate) field('Weekly Rent', '$' + handover._weekly_rate + ' per week');
+  if(handover.rental_duration) field('Agreed Rental Period', handover.rental_duration);
+  if(handover._start_date) field('Rental Start Date', new Date(handover._start_date + 'T00:00:00').toLocaleDateString('en-AU'));
+  if(handover._bond_amount) field('Bond Amount', '$' + handover._bond_amount);
+  field('Bond Received', handover._bond_paid ? 'Yes — received' : 'Not yet received');
+
   // ── FOOTER ──
   const pageCount = doc.internal.getNumberOfPages();
   for(let i=1;i<=pageCount;i++){
@@ -1216,6 +1231,20 @@ async function sendApprovalEmail(driver, handover, pdfBase64){
       html += '<p style="margin:12px 0 0;font-size:13px;"><strong>Notes:</strong> ' + handover.handover_comments + '</p>';
     }
     html += '</div>';
+  }
+
+  if(handover._weekly_rate || handover.rental_duration || handover._bond_amount){
+    html += '<div style="background:#fffaf0;border-left:4px solid #f8b400;padding:16px;margin:20px 0;">'
+      + '<h3 style="margin:0 0 12px;color:#070b12;">Your Rental Terms</h3>'
+      + '<table style="width:100%;font-size:14px;border-collapse:collapse;">'
+      + (handover._weekly_rate ? '<tr><td style="padding:4px 0;color:#888;">Weekly Rent:</td><td style="padding:4px 0;font-weight:bold;">$' + handover._weekly_rate + ' per week</td></tr>' : '')
+      + (handover.rental_duration ? '<tr><td style="padding:4px 0;color:#888;">Agreed Period:</td><td style="padding:4px 0;font-weight:bold;">' + handover.rental_duration + '</td></tr>' : '')
+      + (handover._start_date ? '<tr><td style="padding:4px 0;color:#888;">Start Date:</td><td style="padding:4px 0;">' + new Date(handover._start_date + 'T00:00:00').toLocaleDateString('en-AU') + '</td></tr>' : '')
+      + (handover._bond_amount ? '<tr><td style="padding:4px 0;color:#888;">Bond Amount:</td><td style="padding:4px 0;">$' + handover._bond_amount + '</td></tr>' : '')
+      + '<tr><td style="padding:4px 0;color:#888;">Bond Received:</td><td style="padding:4px 0;font-weight:bold;color:' + (handover._bond_paid ? '#16a34a' : '#c2410c') + ';">' + (handover._bond_paid ? 'Yes — thank you' : 'Not yet received') + '</td></tr>'
+      + '</table>'
+      + '<p style="margin:12px 0 0;font-size:12.5px;color:#666;">A reminder that two weeks\' notice is required before returning the vehicle, for as long as you have it. Full terms are in the attached agreement.</p>'
+      + '</div>';
   }
 
   html += '<p>Please contact us to arrange your car pickup:</p>'
