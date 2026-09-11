@@ -332,6 +332,11 @@ select option{background:#0d1526;color:#fff;}
 .intl-badge{display:inline-block;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.4);
   color:#60a5fa;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;
   padding:.15rem .45rem;border-radius:100px;margin-left:.4rem;vertical-align:middle;}
+.ho-terms{background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.25);
+  border-radius:8px;padding:1rem;margin-bottom:.9rem;}
+.ho-terms-head{font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
+  color:#F5A623;margin-bottom:.75rem;}
+.ho-terms-head span{font-weight:500;text-transform:none;letter-spacing:0;color:rgba(255,255,255,.4);}
 </style>
 </head>
 <body>
@@ -658,6 +663,31 @@ async function viewDriver(id){
           </select>
           <div style="font-size:.78rem;color:#9aa4b2;margin-top:.35rem;">Driver requested: <strong style="color:#f5a623;">${driver.requested_duration || 'Not specified'}</strong></div>
         </div>
+
+        <div class="ho-terms">
+          <div class="ho-terms-head">Rental Terms <span>— these start the rent tracking and mark the car as rented</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Weekly Rent ($) <span style="color:#f5a623;">*</span></label>
+              <input class="form-input" id="ho_rate" type="number" min="0" step="1" placeholder="e.g. 275">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Bond Amount ($)</label>
+              <input class="form-input" id="ho_bond" type="number" min="0" step="1" placeholder="e.g. 1100">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Bond Received?</label>
+              <select class="form-input" id="ho_bond_paid">
+                <option value="false">Not yet</option>
+                <option value="true">Yes — received</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin:.75rem 0 0;">
+            <label class="form-label">Rental Start Date <span style="color:#f5a623;">*</span></label>
+            <input class="form-input" id="ho_start" type="date">
+          </div>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.9rem;">
           <div class="form-group" style="margin:0;">
             <label class="form-label">Rego Number</label>
@@ -712,8 +742,10 @@ async function viewDriver(id){
 async function populateHandoverCars(selectedRego){
   var sel = document.getElementById('ho_car');
   if(!sel) return;
-  var { data: cars } = await window._sb.from('cars').select('id,rego,make_model,year').order('rego');
+  var { data: cars } = await window._sb.from('cars').select('id,rego,make_model,year,weekly_rate').order('rego');
   window._handoverCars = cars || [];
+  var sd = document.getElementById('ho_start');
+  if(sd && !sd.value) sd.value = new Date().toISOString().slice(0,10);
   var matchedListedCar = false;
   (cars||[]).forEach(function(car){
     var opt = document.createElement('option');
@@ -745,10 +777,88 @@ function onCarSelect(){
     // Listed car selected (or none) - hide manual field, auto-fill rego
     manualWrap.style.display = 'none';
     document.getElementById('ho_rego').value = val;
+
+    // Prefill the weekly rent from the car, and suggest a 4-week bond
+    var car = (window._handoverCars || []).find(function(c){ return c.rego === val; });
+    if(car && car.weekly_rate){
+      var rateEl = document.getElementById('ho_rate');
+      var bondEl = document.getElementById('ho_bond');
+      if(rateEl && !rateEl.value) rateEl.value = car.weekly_rate;
+      if(bondEl && !bondEl.value) bondEl.value = car.weekly_rate * 4;
+    }
   }
 }
 
 // Gather handover data from the form
+// ═══════════════════════════════════════════════════════════════
+//  Turn an approval into a live rental.
+//
+//  Creates the car assignment, marks the car as rented on the public
+//  website, and logs the handover odometer reading. Once the
+//  assignment exists, the Rent Tracker and Car Finance pick the
+//  driver up on their own.
+// ═══════════════════════════════════════════════════════════════
+async function startRentalFromApproval(driverId){
+  const rego  = (document.getElementById('ho_rego').value || '').trim();
+  const rate  = parseFloat(document.getElementById('ho_rate').value);
+  const bond  = parseFloat(document.getElementById('ho_bond').value);
+  const bondPaid = document.getElementById('ho_bond_paid').value === 'true';
+  const start = document.getElementById('ho_start').value;
+  const odo   = parseFloat(document.getElementById('ho_odo').value);
+  const period = document.getElementById('ho_duration') ? document.getElementById('ho_duration').value : null;
+
+  if(!rego)  return 'Driver approved. No car rego was entered, so no rental was started — assign a car on the Car Assignments page when ready.';
+  if(!rate)  return 'Driver approved, but no weekly rent was entered, so rent tracking has not started. Add the rental on the Car Assignments page.';
+  if(!start) return 'Driver approved, but no start date was entered, so rent tracking has not started. Add the rental on the Car Assignments page.';
+
+  // Match the rego to a car in the system
+  const listed = (window._handoverCars || []).find(function(c){ return c.rego === rego; });
+  if(!listed){
+    return 'Driver approved. "' + rego + '" is not a car in the system, so no rental was started.\n\nAdd the car in Car Management first, then assign it on the Car Assignments page.';
+  }
+
+  // Don't create a second rental if one is already running
+  const { data: existing } = await window._sb.from('car_assignments')
+      .select('id').eq('driver_id', driverId).eq('status','Active').limit(1);
+  if(existing && existing.length){
+    return 'Driver approved. They already have an active rental, so a second one was not created.';
+  }
+
+  const { data: created, error: aErr } = await window._sb.from('car_assignments').insert([{
+    driver_id: driverId,
+    car_id: listed.id,
+    start_date: start,
+    weekly_rate: rate,
+    bond_amount: isNaN(bond) ? null : bond,
+    bond_paid: bondPaid,
+    contract_period: period || null,
+    status: 'Active'
+  }]).select().single();
+
+  if(aErr) return 'Driver approved, but the rental could not be created: ' + aErr.message + '\n\nPlease add it on the Car Assignments page.';
+
+  // Mark the car as rented on the public website
+  const { error: cErr } = await window._sb.from('cars')
+      .update({ status: 'Rented' }).eq('id', listed.id);
+
+  // Log the handover odometer reading against this rental
+  if(!isNaN(odo) && odo >= 0){
+    await window._sb.from('odometer_readings').insert({
+      car_id: listed.id,
+      reading_km: odo,
+      reading_date: start,
+      source: 'Handover',
+      assignment_id: created.id,
+      note: 'Reading when driver collected the car'
+    });
+  }
+
+  return 'Driver approved and the rental has started.\n\n'
+       + '• ' + rego + ' is now shown as Rented on the website' + (cErr ? ' (status update failed — set it manually)' : '')
+       + '\n• Rent of $' + rate + '/week is now tracked from ' + start
+       + '\n• Earnings will appear against this car in Car Finance';
+}
+
 function collectHandoverData(){
   var accessories = Array.from(document.querySelectorAll('.ho-acc:checked')).map(function(cb){return cb.value;}).join(', ');
   var carSel = document.getElementById('ho_car');
@@ -795,6 +905,12 @@ async function updateDriverStatus(status){
     alert('Error: '+error.message); 
     if(btn){ btn.disabled=false; btn.textContent=status==='Approved'?'Approve Driver':'Reject'; }
     return; 
+  }
+
+  // ── On approval, start the rental properly ──
+  if(status === 'Approved'){
+    const assignMsg = await startRentalFromApproval(viewingDriverId);
+    if(assignMsg) alert(assignMsg);
   }
 
   // On approval: generate PDF + email the driver
