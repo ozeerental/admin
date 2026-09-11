@@ -246,6 +246,11 @@ tr:hover td{background:rgba(255,255,255,.03);}
   table th:nth-child(2),
   table td:nth-child(2){font-size:.75rem!important;}
 }
+.ret-who{font-size:.82rem;color:rgba(255,255,255,.5);margin-top:.2rem;}
+.ret-hint{font-size:.72rem;color:rgba(255,255,255,.35);margin-top:.3rem;}
+.ret-dist{font-size:.78rem;font-weight:700;margin-top:.2rem;}
+.ret-note{background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.22);border-radius:6px;
+  padding:.7rem .85rem;font-size:.8rem;color:rgba(255,255,255,.55);margin-top:.5rem;}
 </style>
 </head>
 <body>
@@ -440,17 +445,116 @@ async function lookupDriver(){
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  ENDING A RENTAL — record the car's condition on return
+// ═══════════════════════════════════════════════════════════════
+let _returnAssignment = null;
+
 async function endAssignment(id){
-  if(!confirm('Mark this rental as completed?')) return;
-  // Look up which car this assignment belongs to before closing it off
-  const {data:asg} = await window._sb.from('car_assignments').select('car_id').eq('id',id).single();
-  const {error} = await window._sb.from('car_assignments').update({status:'Completed',end_date:new Date().toISOString().split('T')[0]}).eq('id',id);
-  if(error){ alert('Error: '+error.message); return; }
-  // Auto-return the car to Available on the public website, clearing any old "available from" date
-  if(asg && asg.car_id){
-    const carStatus = await window._sb.from('cars').update({status:'Available', available_from:null}).eq('id', asg.car_id);
-    if(carStatus.error){ alert('Rental ended, but the car status could not be updated: '+carStatus.error.message+'\n\nPlease set it to Available manually in Car Management.'); }
+  const { data: asg } = await window._sb.from('car_assignments')
+      .select('*,cars(id,rego,make_model),drivers(first_name,last_name)')
+      .eq('id', id).single();
+  if(!asg){ alert('Could not load that rental.'); return; }
+  _returnAssignment = asg;
+
+  // What the odometer read when they collected it
+  let startKm = null;
+  const { data: hand } = await window._sb.from('odometer_readings')
+      .select('reading_km').eq('assignment_id', id).eq('source','Handover').limit(1);
+  if(hand && hand.length) startKm = Number(hand[0].reading_km);
+  _returnAssignment._startKm = startKm;
+
+  const nm = asg.drivers ? (asg.drivers.first_name + ' ' + asg.drivers.last_name) : 'Driver';
+  const car = asg.cars ? (asg.cars.rego + ' — ' + asg.cars.make_model) : '';
+  document.getElementById('retWho').textContent = nm + '  ·  ' + car;
+  document.getElementById('retStartHint').textContent = startKm != null
+      ? 'At handover it read ' + startKm.toLocaleString('en-AU') + ' km'
+      : 'No handover reading was recorded for this rental';
+
+  document.getElementById('ret_date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('ret_odo').value = '';
+  document.getElementById('ret_fuel').value = '';
+  document.getElementById('ret_bond').value = asg.bond_paid ? 'Yes' : 'No';
+  document.getElementById('ret_bond_amt').value = asg.bond_amount || '';
+  document.getElementById('ret_damages').value = '';
+  document.getElementById('ret_comments').value = '';
+  document.getElementById('retDistance').textContent = '';
+  toggleBondAmount();
+
+  document.getElementById('returnModal').classList.add('open');
+}
+
+function closeReturnModal(){
+  document.getElementById('returnModal').classList.remove('open');
+  _returnAssignment = null;
+}
+
+function toggleBondAmount(){
+  const v = document.getElementById('ret_bond').value;
+  document.getElementById('bondAmtWrap').style.display = (v === 'No') ? 'none' : '';
+}
+
+function calcReturnDistance(){
+  if(!_returnAssignment) return;
+  const start = _returnAssignment._startKm;
+  const end = parseFloat(document.getElementById('ret_odo').value);
+  const el = document.getElementById('retDistance');
+  if(start == null || isNaN(end)){ el.textContent = ''; return; }
+  const diff = end - start;
+  el.textContent = diff >= 0
+      ? diff.toLocaleString('en-AU') + ' km driven during this rental'
+      : 'That is lower than the handover reading — please check';
+  el.style.color = diff >= 0 ? '#4ade80' : '#f87171';
+}
+
+async function saveReturn(){
+  if(!_returnAssignment) return;
+  const id = _returnAssignment.id;
+  const carId = _returnAssignment.car_id;
+  const endDate = document.getElementById('ret_date').value || new Date().toISOString().split('T')[0];
+  const odo = parseFloat(document.getElementById('ret_odo').value);
+  const bondChoice = document.getElementById('ret_bond').value;
+  const bondAmt = parseFloat(document.getElementById('ret_bond_amt').value);
+
+  if(!isNaN(odo) && _returnAssignment._startKm != null && odo < _returnAssignment._startKm){
+    if(!confirm('The odometer reading is lower than it was at handover.\n\nSave it anyway?')) return;
   }
+
+  const upd = {
+    status: 'Completed',
+    end_date: endDate,
+    returned_at: new Date().toISOString(),
+    return_odometer: isNaN(odo) ? null : odo,
+    return_fuel: document.getElementById('ret_fuel').value || null,
+    bond_returned: bondChoice,
+    bond_returned_amount: (bondChoice === 'No' || isNaN(bondAmt)) ? null : bondAmt,
+    damages: document.getElementById('ret_damages').value.trim() || null,
+    return_comments: document.getElementById('ret_comments').value.trim() || null
+  };
+
+  const { error } = await window._sb.from('car_assignments').update(upd).eq('id', id);
+  if(error){ alert('Could not save: ' + error.message); return; }
+
+  // Log the return odometer reading against this rental
+  if(!isNaN(odo) && odo >= 0 && carId){
+    await window._sb.from('odometer_readings').insert({
+      car_id: carId,
+      reading_km: odo,
+      reading_date: endDate,
+      source: 'Return',
+      assignment_id: id,
+      note: 'Reading when the car was returned'
+    });
+  }
+
+  // Put the car back on the website as available
+  if(carId){
+    const cs = await window._sb.from('cars')
+        .update({ status:'Available', available_from:null }).eq('id', carId);
+    if(cs.error) alert('Rental ended, but the car status could not be updated: ' + cs.error.message + '\n\nPlease set it to Available in Car Management.');
+  }
+
+  closeReturnModal();
   loadAssignments();
 }
 
@@ -570,4 +674,70 @@ async function signOut() {
 })();
 </script>
 
+<!-- VEHICLE RETURN -->
+<div class="modal" id="returnModal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-head">
+      <div>
+        <h3>Vehicle Returned</h3>
+        <div class="ret-who" id="retWho"></div>
+      </div>
+      <button class="modal-close" onclick="closeReturnModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date Returned</label>
+          <input type="date" class="form-input" id="ret_date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Odometer Now (km)</label>
+          <input type="number" class="form-input" id="ret_odo" min="0" step="1" placeholder="e.g. 52140" oninput="calcReturnDistance()">
+          <div class="ret-hint" id="retStartHint"></div>
+          <div class="ret-dist" id="retDistance"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Fuel Level</label>
+        <select class="form-select" id="ret_fuel">
+          <option value="">-- Select --</option>
+          <option>Full</option><option>3/4</option><option>1/2</option>
+          <option>1/4</option><option>Near empty</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Bond Returned?</label>
+          <select class="form-select" id="ret_bond" onchange="toggleBondAmount()">
+            <option value="Yes">Yes — returned in full</option>
+            <option value="Partial">Partly returned</option>
+            <option value="No">No — kept</option>
+          </select>
+        </div>
+        <div class="form-group" id="bondAmtWrap">
+          <label class="form-label">Amount Returned ($)</label>
+          <input type="number" class="form-input" id="ret_bond_amt" min="0" step="1" placeholder="e.g. 1100">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Damage or Issues</label>
+        <textarea class="form-textarea" id="ret_damages" rows="2" placeholder="Any damage, missing items or faults — leave blank if none"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Comments</label>
+        <textarea class="form-textarea" id="ret_comments" rows="2" placeholder="Anything else worth recording about this return"></textarea>
+      </div>
+
+      <div class="ret-note">Saving this ends the rental and puts the car back on the website as available.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeReturnModal()">Cancel</button>
+      <button class="btn btn-gold" onclick="saveReturn()">Save &amp; End Rental</button>
+    </div>
+  </div>
+</div>
 </body></html>
