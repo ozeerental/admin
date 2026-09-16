@@ -190,6 +190,10 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 .owner-badge{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.4);color:#60a5fa;
   font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
   padding:.15rem .45rem;border-radius:100px;margin-left:.4rem;vertical-align:middle;}
+.retired-badge{background:rgba(148,163,184,.15);border:1px solid rgba(148,163,184,.45);color:#94a3b8;
+  font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  padding:.15rem .45rem;border-radius:100px;margin-left:.4rem;vertical-align:middle;}
+.car-card.is-retired{opacity:.72;}
 .own-pill{display:inline-block;font-family:"Barlow",sans-serif;font-size:.62rem;font-weight:800;
   text-transform:uppercase;letter-spacing:.5px;padding:.25rem .6rem;border-radius:100px;
   margin-left:.6rem;vertical-align:middle;}
@@ -379,8 +383,8 @@ async function loadCars(){
     const cost = expTotals[c.id] || 0;
     const income = incTotals[c.id] || 0;
     const net = income - cost;
-    return `<div class="car-card" data-id="${c.id}" onclick="openDetail('${c.id}')">
-      <div class="cc-name">${c.make_model} ${c.year||''}${c.externally_owned ? '<span class="owner-badge">Owner</span>' : ''}</div>
+    return `<div class="car-card${c.retired_reason ? ' is-retired' : ''}" data-id="${c.id}" onclick="openDetail('${c.id}')">
+      <div class="cc-name">${c.make_model} ${c.year||''}${c.externally_owned ? '<span class="owner-badge">Owner</span>' : ''}${c.retired_reason ? `<span class="retired-badge">${c.retired_reason}</span>` : ''}</div>
       <div class="cc-rego">${c.rego||''}</div>
       <div class="cc-row"><span>Total Cost</span><b>${money(cost)}</b></div>
       <div class="cc-row"><span>Total Earned</span><b>${money(income)}</b></div>
@@ -693,77 +697,100 @@ async function exportPDF(){
     const net = totalIncome - totalCost;
 
     // ─────────── HEADER BAND ───────────
-    function header(){
+    function header(firstPage){
+      const H = firstPage ? 30 : 14;
       doc.setFillColor.apply(doc, CLR.dark);
-      doc.rect(0,0,PW,34,'F');
+      doc.rect(0,0,PW,H,'F');
       doc.setFillColor.apply(doc, CLR.gold);
-      doc.rect(0,34,PW,1.2,'F');
-
-      try{
-        const h = 17, w = h * LOGO_RATIO;
-        doc.addImage(LOGO,'PNG',M,8.5,w,h);
-      }catch(e){ wordmark(); }
-
-      function wordmark(){
-        doc.setFont('helvetica','bold'); doc.setFontSize(19);
+      doc.rect(0,H,PW,0.9,'F');
+      if(firstPage){
+        let logoOK = false;
+        try{ const h = 11, w = h * LOGO_RATIO;
+             doc.addImage(LOGO,'PNG',(PW-w)/2,5,w,h); logoOK = true; }catch(e){}
+        if(!logoOK){ doc.setFont('helvetica','bold'); doc.setFontSize(14);
+                     doc.setTextColor.apply(doc, CLR.white);
+                     doc.text('OZEE', PW/2, 12, {align:'center'}); }
+        doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
         doc.setTextColor.apply(doc, CLR.white);
-        doc.text('OZEE', M, 18);
-        doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-        doc.setTextColor.apply(doc, CLR.gold);
-        doc.text('C A R   R E N T', M+0.6, 23);
+        doc.text('CAR FINANCE REPORT', PW/2, 23.5, {align:'center'});
+        doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+        doc.setTextColor(160,168,177);
+        doc.text('Vehicle cost & earnings statement', PW/2, 27.5, {align:'center'});
+      } else {
+        doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+        doc.setTextColor.apply(doc, CLR.white);
+        doc.text('CAR FINANCE REPORT', M, 9);
+        doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+        doc.setTextColor(160,168,177);
+        doc.text(String(car.make_model||'') + '  ·  ' + String(car.rego||''), PW-M, 9, {align:'right'});
       }
-
-      doc.setFont('helvetica','bold'); doc.setFontSize(15);
-      doc.setTextColor.apply(doc, CLR.white);
-      doc.text('CAR FINANCE REPORT', PW-M, 16, {align:'right'});
-      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-      doc.setTextColor(165,172,180);
-      doc.text('Vehicle cost & earnings statement', PW-M, 22, {align:'right'});
-      doc.text('Generated '+new Date().toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'}), PW-M, 27.5, {align:'right'});
     }
 
     // ─────────── FOOTER ───────────
     function footer(pageNo, pageCount){
-      doc.setFillColor.apply(doc, CLR.gold);
-      doc.rect(M, PH-20, CW, 0.7, 'F');
-
-      doc.setFont('helvetica','bold'); doc.setFontSize(8);
-      doc.setTextColor.apply(doc, CLR.dark);
-      doc.text(CO.name, M, PH-15);
-
-      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+      doc.setDrawColor.apply(doc, CLR.line);
+      doc.setLineWidth(0.2);
+      doc.line(M, PH-13, PW-M, PH-13);
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.6);
       doc.setTextColor.apply(doc, CLR.grey);
-      doc.text(CO.abn+'   ·   '+CO.region, M, PH-11);
-      doc.text(CO.email+'   ·   '+CO.phone+'   ·   '+CO.site, M, PH-7);
-
-      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      doc.setTextColor.apply(doc, CLR.grey);
-      doc.text('Page '+pageNo+' of '+pageCount, PW-M, PH-7, {align:'right'});
+      doc.text(CO.name+'  ·  '+CO.abn+'  ·  '+CO.email+'  ·  '+CO.phone+'  ·  '+CO.site, M, PH-9);
+      doc.text('Page '+pageNo+' of '+pageCount, PW-M, PH-9, {align:'right'});
     }
 
-    header();
+    header(true);
 
-    let y = 50;
+    let y = 42;
 
     // ─────────── VEHICLE BLOCK ───────────
-    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
-    doc.setTextColor.apply(doc, CLR.gold);
-    doc.text('VEHICLE', M, y);
-    doc.setFont('helvetica','bold'); doc.setFontSize(17);
-    doc.setTextColor.apply(doc, CLR.dark);
-    doc.text(String(car.make_model||'')+' '+String(car.year||''), M, y+8);
-
-    doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
     doc.setTextColor.apply(doc, CLR.grey);
-    const meta = [];
-    if(car.rego) meta.push('Rego: '+car.rego);
-    if(car.category) meta.push(car.category);
-    if(car.weekly_rate) meta.push('$'+car.weekly_rate+'/week');
-    if(car.status) meta.push('Status: '+car.status);
+    doc.text('GENERATED ' + new Date().toLocaleDateString('en-AU',
+      {day:'numeric',month:'long',year:'numeric'}).toUpperCase(), M, y);
+    y += 8;
 
-    doc.text(meta.join('     ·     '), M, y+14);
+    const title = String(car.make_model||'') + ' ' + String(car.year||'');
+    doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    doc.setTextColor.apply(doc, CLR.dark);
+    doc.text(title, M, y);
+    const titleW = doc.getTextWidth(title);
+    if(car.rego){
+      const sepX = M + titleW + 4;
+      doc.setFont('helvetica','normal'); doc.setFontSize(14);
+      doc.setTextColor(200,204,209);
+      doc.text('|', sepX, y);
+      doc.setFont('helvetica','bold'); doc.setFontSize(16);
+      doc.setTextColor.apply(doc, CLR.gold);
+      doc.text(String(car.rego), sepX + 4, y);
+    }
+    y += 7.5;
 
-    // Ownership status — shown clearly, not buried in the details line
+    // Key facts as label / value pairs. Retirement is merged into Status so
+    // there is one place to look for where the car stands.
+    const facts = [];
+    if(car.category)    facts.push(['Type', String(car.category), false]);
+    if(car.weekly_rate) facts.push(['Rate', '$'+car.weekly_rate+'/week', false]);
+    if(car.status){
+      let st = String(car.status);
+      if(car.retired_reason){
+        st += '  ·  ' + car.retired_reason
+            + (car.retired_date ? ' ' + new Date(car.retired_date+'T00:00:00').toLocaleDateString('en-AU') : '');
+      }
+      facts.push(['Status', st, !!car.retired_reason]);
+    }
+    let fx = M;
+    facts.forEach(function(f){
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+      doc.setTextColor.apply(doc, CLR.grey);
+      doc.text(f[0], fx, y);
+      const lw = doc.getTextWidth(f[0]);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+      doc.setTextColor.apply(doc, f[2] ? [150,60,60] : CLR.dark);
+      doc.text(f[1], fx + lw + 3, y);
+      fx += lw + 3 + doc.getTextWidth(f[1]) + 9;
+    });
+    y += 1;
+
+    // Ownership pill
     const ownLabel = car.externally_owned
         ? ('OWNED BY SOMEONE ELSE' + (car.owner_name ? '  ·  ' + car.owner_name.toUpperCase() : '')
              + (car.service_fee_pct ? '  ·  ' + car.service_fee_pct + '% SERVICE FEE' : ''))
@@ -774,27 +801,48 @@ async function exportPDF(){
     doc.setFillColor(car.externally_owned ? 232 : 240, car.externally_owned ? 240 : 241, car.externally_owned ? 254 : 243);
     doc.setDrawColor.apply(doc, ownCol);
     doc.setLineWidth(0.3);
-    doc.roundedRect(M, y+17.5, ownW, 6.2, 1.2, 1.2, 'FD');
+    doc.roundedRect(M, y+3.5, ownW, 6.2, 1.2, 1.2, 'FD');
     doc.setTextColor.apply(doc, ownCol);
-    doc.text(ownLabel, M+3.5, y+21.8);
-    y += 8;
+    doc.text(ownLabel, M+3.5, y+7.8);
+    y += 13;
 
-    // Odometer summary line
+    // Odometer summary, same label / value treatment as the facts row
     const os = odoStats();
     if(os){
-      const bits = ['Odometer now: ' + os.current.toLocaleString('en-AU') + ' km'];
-      if(os.purchaseKm != null) bits.push('at purchase: ' + os.purchaseKm.toLocaleString('en-AU') + ' km');
-      if(os.sincePurchase > 0)  bits.push(os.sincePurchase.toLocaleString('en-AU') + ' km driven since');
-      else if(os.total > 0)     bits.push(os.total.toLocaleString('en-AU') + ' km while tracked');
-      if(os.perWeek)   bits.push('avg ' + os.perWeek.toLocaleString('en-AU') + ' km/week');
-      if(os.total > 0) bits.push('$' + (totalCost/os.total).toFixed(2) + ' per km');
-      doc.setFont('helvetica','normal'); doc.setFontSize(9);
-      doc.setTextColor.apply(doc, CLR.gold);
-      doc.text(bits.join('     ·     '), M, y+20);
-      y += 6;
+      const odoPairs = [['Odometer', os.current.toLocaleString('en-AU') + ' km']];
+      if(os.purchaseKm != null) odoPairs.push(['At purchase', os.purchaseKm.toLocaleString('en-AU') + ' km']);
+      if(os.sincePurchase > 0)  odoPairs.push(['Driven since', os.sincePurchase.toLocaleString('en-AU') + ' km']);
+      else if(os.total > 0)     odoPairs.push(['Tracked', os.total.toLocaleString('en-AU') + ' km']);
+      if(os.perWeek)            odoPairs.push(['Average', os.perWeek.toLocaleString('en-AU') + ' km/wk']);
+      if(os.total > 0)          odoPairs.push(['Cost/km', '$' + (totalCost/os.total).toFixed(2)]);
+      // Measure first so a long line drops the least important pair rather than
+      // running off the page.
+      function odoWidth(pairs){
+        let w = 0;
+        pairs.forEach(function(pr){
+          doc.setFont('helvetica','normal'); doc.setFontSize(8);
+          w += doc.getTextWidth(pr[0]) + 3;
+          doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+          w += doc.getTextWidth(pr[1]) + 9;
+        });
+        return w;
+      }
+      while(odoPairs.length > 2 && odoWidth(odoPairs) > CW){ odoPairs.pop(); }
+      let ox = M;
+      odoPairs.forEach(function(pr){
+        doc.setFont('helvetica','normal'); doc.setFontSize(8);
+        doc.setTextColor.apply(doc, CLR.grey);
+        doc.text(pr[0], ox, y+7);
+        const lw2 = doc.getTextWidth(pr[0]);
+        doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+        doc.setTextColor.apply(doc, CLR.dark);
+        doc.text(pr[1], ox + lw2 + 3, y+7);
+        ox += lw2 + 3 + doc.getTextWidth(pr[1]) + 9;
+      });
+      y += 19;
+    } else {
+      y += 3;
     }
-
-    y += 24;
 
     // ─────────── SUMMARY CARDS ───────────
     const gap = 4, cardW = (CW - gap*2)/3, cardH = 25;
@@ -821,18 +869,21 @@ async function exportPDF(){
 
     // ─────────── TABLE RENDERER ───────────
     function ensure(h){
-      if(y + h > PH - 30){ doc.addPage(); header(); y = 46; }
+      if(y + h > PH - 20){ doc.addPage(); header(false); y = 26; }
     }
     function section(title, count){
       ensure(16);
+      const showCount = (count !== null && count !== undefined && count !== 0);
       doc.setFillColor.apply(doc, CLR.dark);
       doc.rect(M,y,CW,8,'F');
       doc.setFont('helvetica','bold'); doc.setFontSize(9);
       doc.setTextColor.apply(doc, CLR.white);
       doc.text(title.toUpperCase(), M+4, y+5.6);
-      doc.setFont('helvetica','normal'); doc.setFontSize(8);
-      doc.setTextColor(175,182,190);
-      doc.text(count+(count===1?' entry':' entries'), PW-M-4, y+5.6, {align:'right'});
+      if(showCount){
+        doc.setFont('helvetica','normal'); doc.setFontSize(8);
+        doc.setTextColor(175,182,190);
+        doc.text(count+(count===1?' entry':' entries'), PW-M-4, y+5.6, {align:'right'});
+      }
       y += 8;
     }
     function cols(headers){
@@ -1020,7 +1071,77 @@ async function exportPDF(){
       y += 12;
     }
 
+    // ─────────── LIFETIME POSITION (retired cars) ───────────
+    if(car.retired_reason){
+      ensure(60);
+      section('Final Position — ' + car.retired_reason, null);
+
+      const ownerCar = !!car.externally_owned;
+      const back = Number(car.retired_amount) || 0;
+      // On an owner's car the purchase was never ours, and any payout is
+      // settled between the business and the owner, so neither belongs here.
+      const purchaseCost = ownerCar ? 0 : activeExpenses
+            .filter(e => (e.category||'') === 'Purchase Price')
+            .reduce((s,e)=>s+Number(e.amount),0);
+      const runningCost = activeExpenses
+            .filter(e => (e.category||'') !== 'Purchase Price')
+            .reduce((s,e)=>s+Number(e.amount),0);
+      const moneyBack = ownerCar ? 0 : back;
+      const lifetime = totalIncome + moneyBack - purchaseCost - runningCost;
+
+      const rows = [];
+      if(!ownerCar && purchaseCost > 0) rows.push(['Purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
+      rows.push(['Running costs over its life', '-$'+pdfMoney(runningCost), CLR.red]);
+      rows.push(['Rent collected over its life', '$'+pdfMoney(totalIncome), CLR.green]);
+      if(!ownerCar && back > 0){
+        rows.push([car.retired_reason === 'Sold' ? 'Sale proceeds' : 'Insurance payout',
+                   '$'+pdfMoney(back), CLR.green]);
+      }
+
+      rows.forEach((ln,i)=>{
+        ensure(8);
+        if(i%2===1){ doc.setFillColor(250,250,251); doc.rect(M,y,CW,7.5,'F'); }
+        doc.setFont('helvetica','normal'); doc.setFontSize(9);
+        doc.setTextColor.apply(doc, CLR.dark);
+        doc.text(ln[0], M+4, y+5.2);
+        doc.setFont('helvetica','bold');
+        doc.setTextColor.apply(doc, ln[2]);
+        doc.text(ln[1], PW-M-4, y+5.2, {align:'right'});
+        doc.setDrawColor(235,237,240); doc.setLineWidth(0.2);
+        doc.line(M,y+7.5,PW-M,y+7.5);
+        y += 7.5;
+      });
+
+      ensure(18);
+      doc.setFillColor.apply(doc, CLR.dark);
+      doc.rect(M,y,CW,15,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.setTextColor.apply(doc, CLR.white);
+      doc.text(ownerCar ? 'EARNED WHILE WE MANAGED IT'
+                        : (lifetime >= 0 ? 'LIFETIME PROFIT' : 'LIFETIME LOSS'), M+4, y+9.4);
+      doc.setFontSize(13);
+      doc.setTextColor.apply(doc, lifetime >= 0 ? [110,220,140] : [255,140,140]);
+      doc.text((lifetime>=0?'$':'-$')+pdfMoney(Math.abs(lifetime)), PW-M-4, y+9.6, {align:'right'});
+      y += 21;
+
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+      doc.setTextColor.apply(doc, CLR.grey);
+      let note = car.retired_reason + ' on ' +
+        (car.retired_date ? new Date(car.retired_date+'T00:00:00').toLocaleDateString('en-AU') : 'date not recorded') + '. ';
+      if(ownerCar && back > 0){
+        note += 'An amount of $' + pdfMoney(back) + ' was recorded against this vehicle. As the car belongs to its '
+              + 'owner, this is settled between the business and the owner and is not counted above. ';
+      }
+      if(ownerCar) note += 'The purchase price is not shown, as this vehicle was not bought by the business. ';
+      if(car.retired_notes) note += car.retired_notes;
+      doc.text(doc.splitTextToSize(note, CW), M+2, y);
+      y += 14;
+    }
+
     // ─────────── NET SUMMARY ───────────
+    // Skipped for a retired car: the Final Position above already
+    // states the outcome, and showing both invites confusion.
+    if(!car.retired_reason){
     ensure(30);
     doc.setFillColor.apply(doc, CLR.dark);
     doc.roundedRect(M,y,CW,22,1.5,1.5,'F');
@@ -1035,6 +1156,7 @@ async function exportPDF(){
     doc.text(net>=0 ? 'This vehicle has covered its costs.' : 'This vehicle has not yet covered its costs.',
              PW-M-6, y+17, {align:'right'});
     y += 30;
+    }
 
     // ─────────── FOOTERS ───────────
     const pages = doc.internal.getNumberOfPages();
