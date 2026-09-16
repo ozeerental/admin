@@ -303,6 +303,11 @@ tr:hover td{background:rgba(255,255,255,.03);}
   letter-spacing:.4px;padding:.22rem .55rem;border-radius:100px;white-space:nowrap;}
 .own-ext{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.45);color:#60a5fa;}
 .own-biz{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.45);}
+.retire-intro{font-size:.82rem;color:rgba(255,255,255,.45);line-height:1.5;margin:-.3rem 0 1rem;}
+.retire-hint{font-size:.76rem;color:rgba(255,255,255,.4);margin-top:.35rem;font-style:italic;}
+.retired-tag{display:inline-block;background:rgba(148,163,184,.15);border:1px solid rgba(148,163,184,.4);
+  color:#94a3b8;font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;
+  padding:.15rem .45rem;border-radius:100px;margin-left:.4rem;vertical-align:middle;}
 </style>
 </head>
 <body>
@@ -462,6 +467,20 @@ tr:hover td{background:rgba(255,255,255,.03);}
           </div>
         </div>
       </div>
+      <div class="form-row-3">
+        <div class="form-group">
+          <label class="form-label">Insurer</label>
+          <input class="form-input" id="c_insurer" placeholder="e.g. AAMI, Allianz">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Policy Number</label>
+          <input class="form-input" id="c_policy" placeholder="Policy number">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Insurance Expiry</label>
+          <input class="form-input" id="c_ins_exp" type="date">
+        </div>
+      </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Rego Expiry</label>
@@ -526,6 +545,38 @@ tr:hover td{background:rgba(255,255,255,.03);}
         <label class="form-label">Notes (Internal)</label>
         <textarea class="form-textarea" id="c_notes" placeholder="Any internal notes..."></textarea>
       </div>
+
+      <div id="retireSection" style="display:none;">
+        <div class="section-divider">Retire This Vehicle</div>
+        <div class="retire-intro">
+          Use this when the car leaves your fleet. The record stays in the system so its full
+          history of costs and earnings is kept, and it is removed from the public website.
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Status of Vehicle</label>
+            <select class="form-select" id="c_retired" onchange="toggleRetire()">
+              <option value="">Still in the fleet</option>
+              <option value="Sold">Sold</option>
+              <option value="Written Off">Written off</option>
+              <option value="Returned to Owner">Returned to its owner</option>
+            </select>
+          </div>
+          <div class="form-group" id="retDateWrap" style="display:none;">
+            <label class="form-label" id="retDateLabel">Date</label>
+            <input class="form-input" id="c_retired_date" type="date">
+          </div>
+        </div>
+        <div class="form-group" id="retAmtWrap" style="display:none;">
+          <label class="form-label" id="retAmtLabel">Amount Received ($)</label>
+          <input class="form-input" id="c_retired_amount" type="number" min="0" step="1" placeholder="e.g. 3800">
+          <div class="retire-hint" id="retAmtHint"></div>
+        </div>
+        <div class="form-group" id="retNotesWrap" style="display:none;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-textarea" id="c_retired_notes" rows="2" placeholder="Buyer, incident details, or anything worth recording"></textarea>
+        </div>
+      </div>
       <div class="section-divider">Upload Documents</div>
       <div class="form-group">
         <label class="form-label">Registration Certificate</label>
@@ -570,6 +621,34 @@ let allCars = [];
 let editingCarId = null;
 let modalPhotoUrls = [];
 let odoReadings = [];
+
+function toggleRetire(){
+  const v = document.getElementById('c_retired').value;
+  const on = v !== '';
+  document.getElementById('retDateWrap').style.display  = on ? '' : 'none';
+  document.getElementById('retAmtWrap').style.display   = (v === 'Sold' || v === 'Written Off') ? '' : 'none';
+  document.getElementById('retNotesWrap').style.display = on ? '' : 'none';
+
+  const dl = document.getElementById('retDateLabel');
+  const al = document.getElementById('retAmtLabel');
+  const ah = document.getElementById('retAmtHint');
+
+  if(v === 'Sold'){
+    dl.textContent = 'Date Sold';
+    al.textContent = 'Sale Price ($)';
+    ah.textContent = 'Counted as money back on this car when working out whether it made a profit.';
+  } else if(v === 'Written Off'){
+    dl.textContent = 'Date Written Off';
+    al.textContent = 'Insurance Payout ($)';
+    ah.textContent = 'On a car you own this counts as money back. On an owner\'s car it is recorded only — you and the owner settle it between you.';
+  } else if(v === 'Returned to Owner'){
+    dl.textContent = 'Date Returned';
+    ah.textContent = '';
+  }
+  if(on && !document.getElementById('c_retired_date').value){
+    document.getElementById('c_retired_date').value = new Date().toISOString().slice(0,10);
+  }
+}
 
 function toggleOwnerName(){
   const ext = document.getElementById('c_owned').value === 'true';
@@ -723,6 +802,19 @@ function openCarModal(car) {
   renderPhotoGallery();
   document.getElementById('doc_photos').value = '';
 
+  // Insurance
+  document.getElementById('c_insurer').value = (car && car.insurer) ? car.insurer : '';
+  document.getElementById('c_policy').value  = (car && car.policy_number) ? car.policy_number : '';
+  document.getElementById('c_ins_exp').value = (car && car.insurance_expiry) ? car.insurance_expiry : '';
+
+  // Retire — only offered for a car that already exists
+  document.getElementById('retireSection').style.display = car ? '' : 'none';
+  document.getElementById('c_retired').value        = (car && car.retired_reason) ? car.retired_reason : '';
+  document.getElementById('c_retired_date').value   = (car && car.retired_date) ? car.retired_date : '';
+  document.getElementById('c_retired_amount').value = (car && car.retired_amount != null) ? car.retired_amount : '';
+  document.getElementById('c_retired_notes').value  = (car && car.retired_notes) ? car.retired_notes : '';
+  toggleRetire();
+
   // Ownership
   document.getElementById('c_owned').value = (car && car.externally_owned) ? 'true' : 'false';
   document.getElementById('c_owner_name').value = (car && car.owner_name) ? car.owner_name : '';
@@ -781,11 +873,18 @@ async function saveCar() {
     seats: parseInt(document.getElementById('c_seats').value),
     fuel_type: document.getElementById('c_fuel').value,
     weekly_rate: rate,
-    status: document.getElementById('c_status').value,
+    status: document.getElementById('c_retired').value ? 'Retired' : document.getElementById('c_status').value,
     available_from: document.getElementById('c_avail_from').value || null,
     suitable_for: suitable,
     rego_expiry: document.getElementById('c_rego_exp').value || null,
     service_due: document.getElementById('c_svc').value || null,
+    insurer: document.getElementById('c_insurer').value.trim() || null,
+    policy_number: document.getElementById('c_policy').value.trim() || null,
+    insurance_expiry: document.getElementById('c_ins_exp').value || null,
+    retired_reason: document.getElementById('c_retired').value || null,
+    retired_date: document.getElementById('c_retired').value ? (document.getElementById('c_retired_date').value || null) : null,
+    retired_amount: document.getElementById('c_retired').value ? (parseFloat(document.getElementById('c_retired_amount').value) || null) : null,
+    retired_notes: document.getElementById('c_retired').value ? (document.getElementById('c_retired_notes').value.trim() || null) : null,
     externally_owned: document.getElementById('c_owned').value === 'true',
     owner_name: document.getElementById('c_owner_name').value.trim() || null,
     service_fee_pct: document.getElementById('c_owned').value === 'true'
@@ -924,7 +1023,7 @@ function renderCars(cars) {
     return `
     <tr>
       <td data-mob="Photo">${thumb}${more}</td>
-      <td data-mob="Rego"><strong>${c.rego}</strong></td>
+      <td data-mob="Rego"><strong>${c.rego}</strong>${c.retired_reason ? `<span class="retired-tag">${c.retired_reason}</span>` : ''}</td>
       <td data-mob="Make & Model">${c.make_model}</td>
       <td data-mob="Year">${c.year}</td>
       <td data-mob="Owner">${c.externally_owned
@@ -952,6 +1051,27 @@ function editCar(id) {
 }
 
 async function deleteCar(id, rego) {
+  // A car with money recorded against it must never be deleted — that
+  // history is how you know whether the car was worth owning. Retire it
+  // instead, from the Edit screen.
+  const [exp, inc, asg] = await Promise.all([
+    _db.from('car_expenses').select('id').eq('car_id', id).limit(1),
+    _db.from('rent_payments').select('id').eq('car_id', id).limit(1),
+    _db.from('car_assignments').select('id').eq('car_id', id).limit(1)
+  ]);
+  if((exp.data && exp.data.length) || (inc.data && inc.data.length) || (asg.data && asg.data.length)){
+    alert('This car cannot be deleted.\n\n'
+        + rego + ' has costs, earnings or rental history recorded against it. '
+        + 'Deleting it would destroy that record.\n\n'
+        + 'If it has left your fleet, open Edit and use "Retire This Vehicle" instead — '
+        + 'sold, written off, or returned to its owner. The car comes off the website '
+        + 'but its full history is kept.');
+    return;
+  }
+  return _deleteCarConfirmed(id, rego);
+}
+
+async function _deleteCarConfirmed(id, rego) {
   if (!confirm(`Delete car ${rego}?\n\nThis permanently removes the car, its photos, documents, and any linked fines/assignments. This cannot be undone.`)) return;
   try {
     // 1. Delete storage files in car_<id>/ folder
