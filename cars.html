@@ -6,6 +6,20 @@
 <title>Car Management — Ozee Rentals Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ── Local calendar date as YYYY-MM-DD ──────────────────────────────
+// Never use toISOString() for a date-only value. It converts to UTC, so in
+// Australia (UTC+10/+11) local midnight lands on the PREVIOUS day in UTC and
+// every date comes out one day early — which is why weeks were being stored
+// as Sunday instead of Monday.
+function localISO(d){
+  return d.getFullYear() + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' +
+         String(d.getDate()).padStart(2,'0');
+}
+function todayISO(){ return localISO(new Date()); }
+</script>
+
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:100vh;display:flex;flex-direction:column;}
@@ -332,6 +346,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
       <li><a href="fines.html"><span>🚨</span> Fines &amp; Tolls</a></li>
       <li><a href="finance.html"><span>💰</span> Car Finance</a></li>
       <li><a href="rent-tracker.html"><span>🗓️</span> Rent Tracker</a></li>
+      <li><a href="invoices.html"><span>🧾</span> Invoices</a></li>
       <hr class="sidebar-divider">
       <li><a href="https://ozeerentals.com.au"><span>🌐</span> View Website</a></li>
     </ul>
@@ -508,16 +523,21 @@ tr:hover td{background:rgba(255,255,255,.03);}
       <div class="form-row" id="serviceFeeRow" style="display:none;">
         <div class="form-group">
           <label class="form-label">Service Fee We Charge the Owner</label>
-          <select class="form-select" id="c_service_fee">
+          <select class="form-select" id="c_service_fee" onchange="toggleCustomFee()">
             <option value="">No service fee</option>
             <option value="10">10%</option>
+            <option value="12.5">12.5%</option>
             <option value="15">15%</option>
             <option value="20">20%</option>
             <option value="25">25%</option>
             <option value="30">30%</option>
+            <option value="custom">Custom percentage...</option>
           </select>
         </div>
-        <div class="form-group"></div>
+        <div class="form-group" id="customFeeWrap" style="display:none;">
+          <label class="form-label">Custom Percentage (%)</label>
+          <input class="form-input" id="c_service_fee_custom" type="number" min="0" max="100" step="0.1" placeholder="e.g. 17.5">
+        </div>
       </div>
       <div id="ownerHint" class="odo-hint" style="display:none;">
         Rent, expenses and payouts for this car will be shown as an owner statement in Car Finance and on its PDF report.
@@ -646,7 +666,7 @@ function toggleRetire(){
     ah.textContent = '';
   }
   if(on && !document.getElementById('c_retired_date').value){
-    document.getElementById('c_retired_date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('c_retired_date').value = todayISO();
   }
 }
 
@@ -656,6 +676,28 @@ function toggleOwnerName(){
   document.getElementById('ownerHint').style.display = ext ? '' : 'none';
   const fr = document.getElementById('serviceFeeRow');
   if(fr) fr.style.display = ext ? '' : 'none';
+  toggleCustomFee();
+}
+
+// The dropdown carries the common rates. "Custom percentage..." reveals a
+// free-entry box so any rate can be set without a code change.
+const FEE_PRESETS = ['10','12.5','15','20','25','30'];
+function toggleCustomFee(){
+  const sel = document.getElementById('c_service_fee');
+  const wrap = document.getElementById('customFeeWrap');
+  if(!sel || !wrap) return;
+  wrap.style.display = (sel.value === 'custom') ? '' : 'none';
+}
+
+// Returns the fee to save: the preset, or whatever was typed in the custom box.
+function serviceFeeValue(){
+  const sel = document.getElementById('c_service_fee');
+  if(!sel || sel.value === '') return null;
+  if(sel.value === 'custom'){
+    const v = parseFloat(document.getElementById('c_service_fee_custom').value);
+    return (isNaN(v) || v <= 0) ? null : v;
+  }
+  return parseFloat(sel.value) || null;
 }
 
 // ═══ ODOMETER ═══
@@ -818,8 +860,18 @@ function openCarModal(car) {
   // Ownership
   document.getElementById('c_owned').value = (car && car.externally_owned) ? 'true' : 'false';
   document.getElementById('c_owner_name').value = (car && car.owner_name) ? car.owner_name : '';
-  document.getElementById('c_service_fee').value =
-      (car && car.service_fee_pct != null) ? String(car.service_fee_pct) : '';
+  // A saved rate that isn't one of the presets (e.g. 17.5) loads into the
+  // custom box rather than being silently lost from the dropdown.
+  const savedFee = (car && car.service_fee_pct != null) ? String(car.service_fee_pct) : '';
+  document.getElementById('c_service_fee_custom').value = '';
+  if(savedFee === ''){
+    document.getElementById('c_service_fee').value = '';
+  } else if(FEE_PRESETS.indexOf(savedFee) !== -1){
+    document.getElementById('c_service_fee').value = savedFee;
+  } else {
+    document.getElementById('c_service_fee').value = 'custom';
+    document.getElementById('c_service_fee_custom').value = savedFee;
+  }
   toggleOwnerName();
 
   // Odometer
@@ -846,6 +898,30 @@ function openCarModal(car) {
 }
 
 // ─── SAVE CAR ───
+
+// What is still owed to this vehicle's owner, using the same basis as the
+// Owner Settlement Statement: rental income, less operating expenses, less
+// commission, plus any disposal proceeds, less what has already been paid.
+async function outstandingToOwner(carId){
+  try{
+    const car = (allCars || []).find(c => c.id === carId);
+    if(!car || !car.externally_owned) return 0;
+    const [inc, exp, pay] = await Promise.all([
+      _db.from('rent_payments').select('amount').eq('car_id', carId),
+      _db.from('car_expenses').select('amount,category').eq('car_id', carId),
+      _db.from('owner_payouts').select('amount').eq('car_id', carId)
+    ]);
+    const income  = (inc.data||[]).reduce((s,r)=>s+Number(r.amount||0),0);
+    const costs   = (exp.data||[]).filter(e => (e.category||'') !== 'Purchase Price')
+                                  .reduce((s,r)=>s+Number(r.amount||0),0);
+    const paidOut = (pay.data||[]).reduce((s,r)=>s+Number(r.amount||0),0);
+    const afterCosts = income - costs;
+    const fee = (Number(car.service_fee_pct)||0) > 0
+              ? afterCosts * Number(car.service_fee_pct) / 100 : 0;
+    return (afterCosts - fee) - paidOut;
+  }catch(e){ return 0; }   // never block a save because this check failed
+}
+
 async function saveCar() {
   const rego = document.getElementById('c_rego').value.trim().toUpperCase();
   const make = document.getElementById('c_make').value.trim();
@@ -855,6 +931,22 @@ async function saveCar() {
   if (!rego || !make || !year || !rate) {
     alert('Please fill in all required fields (Rego, Make & Model, Year, Weekly Rate)');
     return;
+  }
+
+  // Retiring closes the record for good, including owner payments. Warn while
+  // there is still money outstanding, so it can be settled first.
+  const _retireReason = document.getElementById('c_retired').value;
+  if (_retireReason && editingCarId) {
+    const outstanding = await outstandingToOwner(editingCarId);
+    if (outstanding > 0.01) {
+      const ok = confirm(
+        'This vehicle still has $' + outstanding.toFixed(2) + ' owing to its owner.\n\n' +
+        'Once it is retired the record is closed, and owner payments can no longer ' +
+        'be recorded against it.\n\n' +
+        'Settle the balance in Car Finance first, then retire the vehicle.\n\n' +
+        'Retire it anyway?');
+      if (!ok) return;
+    }
   }
 
   const suitable = [];
@@ -888,7 +980,7 @@ async function saveCar() {
     externally_owned: document.getElementById('c_owned').value === 'true',
     owner_name: document.getElementById('c_owner_name').value.trim() || null,
     service_fee_pct: document.getElementById('c_owned').value === 'true'
-        ? (parseFloat(document.getElementById('c_service_fee').value) || null)
+        ? serviceFeeValue()
         : null,
     service_interval_km: parseFloat(document.getElementById('c_svc_km').value) || null,
     last_service_km: parseFloat(document.getElementById('c_last_svc_km').value) || null,
@@ -971,7 +1063,7 @@ async function saveCar() {
     const { error: odoErr } = await _db.from('odometer_readings').insert({
       car_id: carId,
       reading_km: odoVal,
-      reading_date: new Date().toISOString().slice(0,10),
+      reading_date: todayISO(),
       source: isNewCar ? 'Purchase' : 'Check',
       note: isNewCar ? 'Reading at purchase' : null
     });
