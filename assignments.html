@@ -3,6 +3,20 @@
 <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// ── Local calendar date as YYYY-MM-DD ──────────────────────────────
+// Never use toISOString() for a date-only value. It converts to UTC, so in
+// Australia (UTC+10/+11) local midnight lands on the PREVIOUS day in UTC and
+// every date comes out one day early — which is why weeks were being stored
+// as Sunday instead of Monday.
+function localISO(d){
+  return d.getFullYear() + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' +
+         String(d.getDate()).padStart(2,'0');
+}
+function todayISO(){ return localISO(new Date()); }
+</script>
+
+<script>
 // Initialize Supabase immediately when script loads
 var PROJ='tbhqamcuewycaqertpba';
 
@@ -271,6 +285,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
       <li><a href="fines.html" class=""><span class="s-icon">🚨</span> Fines &amp; Tolls</a></li>
       <li><a href="finance.html" class=""><span class="s-icon">💰</span> Car Finance</a></li>
       <li><a href="rent-tracker.html" class=""><span class="s-icon">🗓️</span> Rent Tracker</a></li>
+      <li><a href="invoices.html" class=""><span class="s-icon">🧾</span> Invoices</a></li>
       <hr class="sidebar-divider">
       <li><a href="https://ozeerentals.com.au"><span class="s-icon">🌐</span> View Website</a></li>
     </ul>
@@ -471,7 +486,7 @@ async function endAssignment(id){
       ? 'At handover it read ' + startKm.toLocaleString('en-AU') + ' km'
       : 'No handover reading was recorded for this rental';
 
-  document.getElementById('ret_date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('ret_date').value = todayISO();
   document.getElementById('ret_odo').value = '';
   document.getElementById('ret_fuel').value = '';
   document.getElementById('ret_bond').value = asg.bond_paid ? 'Yes' : 'No';
@@ -511,7 +526,7 @@ async function saveReturn(){
   if(!_returnAssignment) return;
   const id = _returnAssignment.id;
   const carId = _returnAssignment.car_id;
-  const endDate = document.getElementById('ret_date').value || new Date().toISOString().split('T')[0];
+  const endDate = document.getElementById('ret_date').value || todayISO();
   const odo = parseFloat(document.getElementById('ret_odo').value);
   const bondChoice = document.getElementById('ret_bond').value;
   const bondAmt = parseFloat(document.getElementById('ret_bond_amt').value);
@@ -565,7 +580,7 @@ async function openAssignModal(){
   ]);
   document.getElementById('a_driver').innerHTML = '<option value="">Select driver...</option>' + (drivers||[]).map(d=>`<option value="${d.id}">${d.first_name} ${d.last_name}</option>`).join('');
   document.getElementById('a_car').innerHTML = '<option value="">Select car...</option>' + (cars||[]).map(c=>`<option value="${c.id}" data-rate="${c.weekly_rate}">${c.rego} — ${c.make_model} ($${c.weekly_rate}/wk)</option>`).join('');
-  document.getElementById('a_start').value = new Date().toISOString().split('T')[0];
+  document.getElementById('a_start').value = todayISO();
   document.getElementById('assignModal').classList.add('open');
 }
 
