@@ -6,6 +6,20 @@
 <title>Car Finance — Ozee Rentals Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ── Local calendar date as YYYY-MM-DD ──────────────────────────────
+// Never use toISOString() for a date-only value. It converts to UTC, so in
+// Australia (UTC+10/+11) local midnight lands on the PREVIOUS day in UTC and
+// every date comes out one day early — which is why weeks were being stored
+// as Sunday instead of Monday.
+function localISO(d){
+  return d.getFullYear() + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' +
+         String(d.getDate()).padStart(2,'0');
+}
+function todayISO(){ return localISO(new Date()); }
+</script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -163,6 +177,10 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
   .hist-row{flex-direction:column;align-items:flex-start;}
   .hist-right{text-align:left;}
 }
+.retired-banner{display:flex;align-items:flex-start;gap:.7rem;background:rgba(148,163,184,.1);
+  border:1px solid rgba(148,163,184,.35);border-radius:10px;padding:.9rem 1.1rem;margin-bottom:1.2rem;}
+.retired-banner b{color:#cbd5e1;display:block;margin-bottom:.15rem;font-size:.92rem;}
+.retired-banner span.rb-text{color:rgba(255,255,255,.55);font-size:.82rem;line-height:1.5;}
 .log-lock{color:rgba(255,255,255,.25);font-size:.85rem;padding:0 .3rem;cursor:help;}
 .log-src{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3);color:#F5A623;
   font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;
@@ -222,6 +240,7 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
       <li><a href="fines.html"><span>🚨</span> Fines &amp; Tolls</a></li>
       <li><a href="finance.html" class="active"><span>💰</span> Car Finance</a></li>
       <li><a href="rent-tracker.html"><span>🗓️</span> Rent Tracker</a></li>
+      <li><a href="invoices.html"><span>🧾</span> Invoices</a></li>
       <hr class="sidebar-divider">
       <li><a href="https://ozeerentals.com.au"><span>🌐</span> View Website</a></li>
     </ul>
@@ -259,10 +278,12 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
         </div>
       </div>
 
+      <div id="retiredBanner"></div>
+
       <div class="two-col">
         <div class="col-pane">
           <div class="col-title">Expenses</div>
-          <div class="mini-form" style="margin-bottom:1rem;">
+          <div class="mini-form" id="expForm" style="margin-bottom:1rem;">
             <select class="f-cat" id="expCat">
               <option>Purchase Price</option><option>Rego</option><option>Service</option>
               <option>Insurance</option><option>Repair</option><option>Other</option>
@@ -276,7 +297,7 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
         </div>
         <div class="col-pane">
           <div class="col-title">Rent Income</div>
-          <div class="mini-form" style="margin-bottom:1rem;">
+          <div class="mini-form" id="incForm" style="margin-bottom:1rem;">
             <input class="f-desc" id="incDriver" placeholder="Driver name (optional)">
             <input class="f-amt" id="incAmt" type="number" placeholder="$ Amount">
             <input class="f-date" id="incDate" type="date">
@@ -310,6 +331,19 @@ let activeIncome = [];
 let activeHistory = [];
 let activeOdo = [];
 let activePayouts = [];
+let activeWeekById = {};
+
+// "Mon 21 Sep - Sun 27 Sep 2026" for a week beginning on the given Monday.
+function cycleLabel(weekStart){
+  if(!weekStart) return null;
+  const a = new Date(weekStart + 'T00:00:00');
+  if(isNaN(a)) return null;
+  const b = new Date(a); b.setDate(b.getDate() + 6);
+  const DAY = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const d = (x) => DAY[x.getDay()] + ' ' + x.getDate() + ' ' + MON[x.getMonth()];
+  return d(a) + ' - ' + d(b) + ' ' + b.getFullYear();
+}
 
 // Owner settlement figures for the selected car
 function settlement(){
@@ -328,17 +362,33 @@ function settlement(){
   const afterCosts = income - costs;
   const feePct = Number(car.service_fee_pct) || 0;
   const fee = feePct > 0 ? (afterCosts * feePct / 100) : 0;
-  const dueToOwner = afterCosts - fee;
+  const rentalDue = afterCosts - fee;
+
+  // Where the business has disposed of the vehicle for its owner, the money
+  // received belongs to the owner in full. No commission is taken on a sale.
+  const disposal = (car.retired_reason === 'Sold' || car.retired_reason === 'Written Off')
+        ? (Number(car.retired_amount) || 0) : 0;
+  const disposalLabel = car.retired_reason === 'Sold'
+        ? 'Sale proceeds held on owner\'s behalf'
+        : 'Insurance settlement received';
+
+  const dueToOwner = rentalDue + disposal;
   const paidOut = activePayouts.reduce((s,p)=>s+Number(p.amount),0);
   return { car, income, costs, excluded, runningCount: running.length,
-           afterCosts, feePct, fee, dueToOwner, paidOut,
+           afterCosts, feePct, fee, rentalDue, disposal, disposalLabel,
+           dueToOwner, paidOut,
            outstanding: dueToOwner - paidOut };
 }
 
 // Distance stats for the selected car
 function odoStats(){
   if(!activeOdo.length) return null;
-  const latest = activeOdo[0], oldest = activeOdo[activeOdo.length-1];
+  // Chosen by value, never by position in the array, so the sort order the
+  // rows arrive in can change without silently inverting these figures.
+  const byDate = activeOdo.slice().sort((a,b) =>
+        String(a.reading_date).localeCompare(String(b.reading_date)) ||
+        (Number(a.reading_km) - Number(b.reading_km)));
+  const oldest = byDate[0], latest = byDate[byDate.length-1];
   const total = Number(latest.reading_km) - Number(oldest.reading_km);
   let perWeek = null;
   const days = (new Date(latest.reading_date+'T00:00:00') - new Date(oldest.reading_date+'T00:00:00'))/86400000;
@@ -408,18 +458,19 @@ async function openDetail(carId){
       : `<span class="own-pill own-biz">Owned by the business</span>`);
 
   const [{ data: exp }, { data: inc }, { data: hist }, { data: odo }, { data: pay }] = await Promise.all([
-    _db.from('car_expenses').select('*').eq('car_id', carId).order('expense_date', {ascending:false}),
-    _db.from('rent_payments').select('*').eq('car_id', carId).order('payment_date', {ascending:false}),
+    _db.from('car_expenses').select('*').eq('car_id', carId).order('expense_date', {ascending:true}),
+    _db.from('rent_payments').select('*').eq('car_id', carId).order('payment_date', {ascending:true}),
     _db.from('car_assignments')
        .select('id,start_date,end_date,status,weekly_rate,drivers(first_name,last_name,mobile)')
-       .eq('car_id', carId).order('start_date', {ascending:false}),
+       .eq('car_id', carId).order('start_date', {ascending:true}),
     _db.from('odometer_readings').select('*').eq('car_id', carId)
-       .order('reading_date',{ascending:false}).order('reading_km',{ascending:false}),
+       .order('reading_date',{ascending:true}).order('reading_km',{ascending:true}),
     _db.from('owner_payouts').select('*').eq('car_id', carId)
-       .order('payout_date',{ascending:false})
+       .order('payout_date',{ascending:true})
   ]);
   activeOdo = odo || [];
   activePayouts = pay || [];
+  activeWeekById = {};
   activeExpenses = exp || [];
   activeIncome = inc || [];
   activeHistory = hist || [];
@@ -429,7 +480,10 @@ async function openDetail(carId){
   if(activeHistory.length){
     const ids = activeHistory.map(h => h.id);
     const { data: wks } = await _db.from('rent_weeks')
-      .select('assignment_id,amount_paid,amount_due,status').in('assignment_id', ids);
+      .select('id,assignment_id,week_start,amount_paid,amount_due,status').in('assignment_id', ids);
+    // Keyed by week id so a payment can name the exact rental cycle it covers
+    // rather than relying on the free-text note saved alongside it.
+    (wks||[]).forEach(w => { activeWeekById[w.id] = w; });
     const byA = {};
     (wks||[]).forEach(w => {
       if(!byA[w.assignment_id]) byA[w.assignment_id] = {paid:0, owed:0, weeks:0};
@@ -441,9 +495,34 @@ async function openDetail(carId){
   }
 
   renderDetail();
+  applyRetiredLock();
 
   document.getElementById('detailPanel').classList.add('open');
   document.getElementById('detailPanel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// A retired vehicle is a closed record: nothing further may be added to it.
+// Only the report remains available.
+function applyRetiredLock(){
+  const car = allCars.find(c => c.id === activeCarId);
+  const retired = !!(car && car.retired_reason);
+  ['expForm','incForm','poForm'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = retired ? 'none' : '';
+  });
+  const banner = document.getElementById('retiredBanner');
+  if(banner){
+    if(!retired){ banner.innerHTML = ''; return; }
+    const when = car.retired_date
+        ? new Date(car.retired_date+'T00:00:00').toLocaleDateString('en-AU')
+        : 'date not recorded';
+    banner.innerHTML =
+      '<div class="retired-banner"><span>&#128274;</span><div>' +
+      '<b>This vehicle is retired &mdash; ' + car.retired_reason + ' on ' + when + '</b>' +
+      '<span class="rb-text">Its records are closed. Expenses, rental income and owner payments ' +
+      'can no longer be added or changed. The PDF report remains available.</span>' +
+      '</div></div>';
+  }
 }
 
 function renderDetail(){
@@ -479,20 +558,22 @@ function renderDetail(){
           <span class="hist-sub">${S.car.owner_name ? S.car.owner_name : 'this car belongs to someone else'}</span>
         </div>
         <div class="settle-grid">
-          <div class="settle-line"><span>Total rent received from this car</span><b class="pos">${money(S.income)}</b></div>
-          <div class="settle-line"><span>Running costs (rego, service, repairs)</span><b class="neg">−${money(S.costs)}</b></div>
-          <div class="settle-line"><span>Left after costs</span><b>${money(S.afterCosts)}</b></div>
-          ${S.fee > 0 ? `<div class="settle-line"><span>Our service fee (${S.feePct}% of that)</span><b class="neg">−${money(S.fee)}</b></div>` : ''}
-          <div class="settle-line settle-sub"><span>Owner's share</span><b>${money(S.dueToOwner)}</b></div>
-          <div class="settle-line"><span>Already paid to owner</span><b class="neg">−${money(S.paidOut)}</b></div>
-          ${S.excluded > 0 ? `<div class="settle-note">Purchase price of ${money(S.excluded)} is not counted here — this car was not bought by the business.</div>` : ''}
+          <div class="settle-line"><span>Gross rental income</span><b class="pos">${money(S.income)}</b></div>
+          <div class="settle-line"><span>Less: operating expenses</span><b class="neg">−${money(S.costs)}</b></div>
+          <div class="settle-line"><span>Net rental income</span><b>${money(S.afterCosts)}</b></div>
+          ${S.fee > 0 ? `<div class="settle-line"><span>Management commission (${S.feePct}%)</span><b class="neg">−${money(S.fee)}</b></div>` : ''}
+          ${S.disposal > 0 ? `<div class="settle-line"><span>Net rental proceeds due to owner</span><b>${money(S.rentalDue)}</b></div>
+          <div class="settle-line"><span>Add: ${S.disposalLabel}</span><b class="pos">${money(S.disposal)}</b></div>` : ''}
+          <div class="settle-line settle-sub"><span>Total due to owner</span><b>${money(S.dueToOwner)}</b></div>
+          <div class="settle-line"><span>Less: payments already remitted</span><b class="neg">−${money(S.paidOut)}</b></div>
+          ${S.excluded > 0 ? `<div class="settle-note">The vehicle purchase price of ${money(S.excluded)} is excluded — this vehicle was not acquired by the business.</div>` : ''}
           <div class="settle-line settle-final">
-            <span>${owed >= 0 ? 'Still to pay owner' : 'Paid owner too much'}</span>
+            <span>${owed >= 0 ? 'Balance due to owner' : 'Overpaid — recoverable from owner'}</span>
             <b class="${owed > 0 ? 'neg' : 'pos'}">${money(Math.abs(owed))}</b>
           </div>
         </div>
 
-        <div class="mini-form" style="margin:1rem 0 .8rem;">
+        <div class="mini-form" id="poForm" style="margin:1rem 0 .8rem;">
           <input class="f-amt" id="poAmt" type="number" placeholder="$ Amount">
           <input class="f-date" id="poDate" type="date">
           <select class="f-cat" id="poMethod">
@@ -599,10 +680,17 @@ function closeDetail(){
 }
 
 async function addExpense(){
+  const _c = allCars.find(c => c.id === activeCarId);
+  if(_c && _c.retired_reason){
+    alert('This vehicle is retired and its records are closed.\n\n'
+        + _c.rego + ' was ' + String(_c.retired_reason).toLowerCase()
+        + '. Nothing further can be added to it. You can still export the PDF report.');
+    return;
+  }
   const category = document.getElementById('expCat').value;
   const description = document.getElementById('expDesc').value.trim();
   const amount = parseFloat(document.getElementById('expAmt').value);
-  const expense_date = document.getElementById('expDate').value || new Date().toISOString().slice(0,10);
+  const expense_date = document.getElementById('expDate').value || todayISO();
   if(!amount || amount<=0){ alert('Enter a valid amount'); return; }
 
   const { error } = await _db.from('car_expenses').insert({ car_id: activeCarId, category, description, amount, expense_date });
@@ -614,9 +702,16 @@ async function addExpense(){
 }
 
 async function addIncome(){
+  const _c = allCars.find(c => c.id === activeCarId);
+  if(_c && _c.retired_reason){
+    alert('This vehicle is retired and its records are closed.\n\n'
+        + _c.rego + ' was ' + String(_c.retired_reason).toLowerCase()
+        + '. Nothing further can be added to it. You can still export the PDF report.');
+    return;
+  }
   const driver_name = document.getElementById('incDriver').value.trim();
   const amount = parseFloat(document.getElementById('incAmt').value);
-  const payment_date = document.getElementById('incDate').value || new Date().toISOString().slice(0,10);
+  const payment_date = document.getElementById('incDate').value || todayISO();
   if(!amount || amount<=0){ alert('Enter a valid amount'); return; }
 
   const { error } = await _db.from('rent_payments').insert({ car_id: activeCarId, driver_name, amount, payment_date });
@@ -628,8 +723,15 @@ async function addIncome(){
 }
 
 async function addPayout(){
+  const _c = allCars.find(c => c.id === activeCarId);
+  if(_c && _c.retired_reason){
+    alert('This vehicle is retired and its records are closed.\n\n'
+        + _c.rego + ' was ' + String(_c.retired_reason).toLowerCase()
+        + '. Nothing further can be added to it. You can still export the PDF report.');
+    return;
+  }
   const amount = parseFloat(document.getElementById('poAmt').value);
-  const payout_date = document.getElementById('poDate').value || new Date().toISOString().slice(0,10);
+  const payout_date = document.getElementById('poDate').value || todayISO();
   const method = document.getElementById('poMethod').value;
   const note = document.getElementById('poNote').value.trim() || null;
   if(!amount || amount <= 0){ alert('Enter a valid payout amount.'); return; }
@@ -715,7 +817,7 @@ async function exportPDF(){
         doc.text('CAR FINANCE REPORT', PW/2, 23.5, {align:'center'});
         doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
         doc.setTextColor(160,168,177);
-        doc.text('Vehicle cost & earnings statement', PW/2, 27.5, {align:'center'});
+        doc.text('Statement of vehicle costs and earnings', PW/2, 27.5, {align:'center'});
       } else {
         doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
         doc.setTextColor.apply(doc, CLR.white);
@@ -814,7 +916,14 @@ async function exportPDF(){
       if(os.sincePurchase > 0)  odoPairs.push(['Driven since', os.sincePurchase.toLocaleString('en-AU') + ' km']);
       else if(os.total > 0)     odoPairs.push(['Tracked', os.total.toLocaleString('en-AU') + ' km']);
       if(os.perWeek)            odoPairs.push(['Average', os.perWeek.toLocaleString('en-AU') + ' km/wk']);
-      if(os.total > 0)          odoPairs.push(['Cost/km', '$' + (totalCost/os.total).toFixed(2)]);
+      if(os.total > 0){
+        // Running costs only where the vehicle belongs to its owner.
+        const kmBase = car.externally_owned
+              ? activeExpenses.filter(e => (e.category||'') !== 'Purchase Price')
+                              .reduce((a,e)=>a+Number(e.amount),0)
+              : totalCost;
+        odoPairs.push(['Cost/km', '$' + (kmBase/os.total).toFixed(2)]);
+      }
       // Measure first so a long line drops the least important pair rather than
       // running off the page.
       function odoWidth(pairs){
@@ -846,11 +955,22 @@ async function exportPDF(){
 
     // ─────────── SUMMARY CARDS ───────────
     const gap = 4, cardW = (CW - gap*2)/3, cardH = 25;
-    const cards = [
-      {label:'TOTAL COST',   val:'$'+pdfMoney(totalCost),   col:CLR.dark},
-      {label:'TOTAL EARNED', val:'$'+pdfMoney(totalIncome), col:CLR.dark},
-      {label:'NET POSITION', val:(net>=0?'+$':'-$')+pdfMoney(Math.abs(net)), col: net>=0?CLR.green:CLR.red}
-    ];
+    // On a vehicle owned by someone else the purchase price and the rental
+    // income belong to the owner, not the business. Showing them as the
+    // business's own cost and net position would report a loss on a car the
+    // business never bought, and contradict the settlement statement below.
+    const _S0 = settlement();
+    const cards = _S0
+      ? [
+          {label:'OPERATING EXPENSES', val:'$'+pdfMoney(_S0.costs),  col:CLR.dark},
+          {label:'RENTAL INCOME COLLECTED', val:'$'+pdfMoney(_S0.income), col:CLR.dark},
+          {label:'COMMISSION EARNED', val:'$'+pdfMoney(_S0.fee), col: CLR.green}
+        ]
+      : [
+          {label:'TOTAL COST',   val:'$'+pdfMoney(totalCost),   col:CLR.dark},
+          {label:'TOTAL EARNED', val:'$'+pdfMoney(totalIncome), col:CLR.dark},
+          {label:'NET POSITION', val:(net>=0?'+$':'-$')+pdfMoney(Math.abs(net)), col: net>=0?CLR.green:CLR.red}
+        ];
     cards.forEach((c,i)=>{
       const x = M + i*(cardW+gap);
       doc.setFillColor(250,250,251);
@@ -934,7 +1054,7 @@ async function exportPDF(){
     }
 
     // ─────────── EXPENSES ───────────
-    section('Expenses', activeExpenses.length);
+    section('Operating Expenses', activeExpenses.length);
     if(!activeExpenses.length){ emptyNote('No expenses recorded for this vehicle.'); }
     else {
       cols([{t:'DATE',x:M+4},{t:'CATEGORY',x:M+32},{t:'DESCRIPTION',x:M+72},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
@@ -945,23 +1065,44 @@ async function exportPDF(){
           {t:e.description||'-',x:M+72,max:70},
           {t:'-$'+pdfMoney(e.amount),x:PW-M-4,a:'right',amt:true}
         ], i, CLR.red));
-      totalRow('Total Expenses','-$'+pdfMoney(totalCost), CLR.red);
+      totalRow('Total Operating Expenses','-$'+pdfMoney(totalCost), CLR.red);
+      // Reconcile the total with the summary card above, which excludes a
+      // purchase the owner funded.
+      if(car.externally_owned){
+        const _pp = activeExpenses.filter(e => (e.category||'') === 'Purchase Price')
+                                  .reduce((a,e)=>a+Number(e.amount),0);
+        if(_pp > 0){
+          ensure(8);
+          doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+          doc.setTextColor.apply(doc, CLR.grey);
+          doc.text('Includes the vehicle purchase price of $'+pdfMoney(_pp)
+            +', which was funded by the owner and is not a business expense.', M+4, y+4.5);
+          y += 8;
+        }
+      }
     }
     y += 10;
 
     // ─────────── INCOME ───────────
-    section('Rent Income', activeIncome.length);
-    if(!activeIncome.length){ emptyNote('No rent payments recorded for this vehicle.'); }
+    section('Rental Income', activeIncome.length);
+    if(!activeIncome.length){ emptyNote('No rental income has been recorded for this vehicle.'); }
     else {
-      cols([{t:'DATE',x:M+4},{t:'DRIVER',x:M+32},{t:'REFERENCE',x:M+90},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
+      cols([{t:'DATE RECEIVED',x:M+4},{t:'DRIVER',x:M+32},{t:'RENTAL CYCLE',x:M+78},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
       activeIncome.slice().sort((a,b)=>String(a.payment_date).localeCompare(String(b.payment_date)))
         .forEach((r,i)=>row([
           {t:fmtDate(r.payment_date),x:M+4},
           {t:r.driver_name||'-',x:M+32,max:54},
-          {t:r.note||'Weekly rent',x:M+90,max:52},
+          {t:(function(){
+               const w = r.rent_week_id ? activeWeekById[r.rent_week_id] : null;
+               const cyc = w ? cycleLabel(w.week_start) : null;
+               if(!cyc) return r.note || 'Weekly rent';
+               // The section already says Rental Income, so only a part
+               // payment needs calling out by name.
+               return (Number(r.amount) < Number(w.amount_due) ? 'Part payment - ' : '') + cyc;
+             })(), x:M+78, max:74},
           {t:'+$'+pdfMoney(r.amount),x:PW-M-4,a:'right',amt:true}
         ], i, CLR.green));
-      totalRow('Total Income','+$'+pdfMoney(totalIncome), CLR.green);
+      totalRow('Total Rental Income','+$'+pdfMoney(totalIncome), CLR.green);
     }
     y += 12;
 
@@ -988,16 +1129,16 @@ async function exportPDF(){
 
     // ─────────── ODOMETER HISTORY ───────────
     if(activeOdo && activeOdo.length){
-      section('Odometer History — every reading recorded', activeOdo.length);
+      section('Odometer Record', activeOdo.length);
       cols([{t:'DATE',x:M+4},{t:'READING',x:M+40,a:'right'},{t:'RECORDED AT',x:M+70},{t:'SINCE PREVIOUS',x:PW-M-4,a:'right'}]);
       activeOdo.forEach((r,i)=>{
-        const prev = activeOdo[i+1];
+        const prev = activeOdo[i-1];
         const diff = prev ? Number(r.reading_km) - Number(prev.reading_km) : null;
         const isPurchase = r.source === 'Purchase';
         row([
           {t:fmtDate(r.reading_date), x:M+4},
           {t:Number(r.reading_km).toLocaleString('en-AU')+' km', x:M+40, a:'right'},
-          {t:(isPurchase ? 'Purchase — starting reading' : (r.source||'Check')), x:M+70, max:48},
+          {t:(isPurchase ? 'At purchase - opening reading' : (r.source||'Periodic check')), x:M+70, max:48},
           {t: diff!=null ? '+'+diff.toLocaleString('en-AU')+' km' : (isPurchase ? 'start' : '—'), x:PW-M-4, a:'right'}
         ], i, CLR.dark);
       });
@@ -1008,17 +1149,21 @@ async function exportPDF(){
     const S = settlement();
     if(S){
       ensure(60);
-      section('Money owed to the car owner', activePayouts.length);
+      section('Owner Settlement Statement', activePayouts.length);
 
       const lines = [
-        ['Total rent received from this car', '$'+pdfMoney(S.income),   CLR.green],
-        ['Running costs (rego, service, repairs)', '-$'+pdfMoney(S.costs), CLR.red],
-        ['Left after costs',                       '$'+pdfMoney(S.afterCosts), CLR.dark],
-        ...(S.fee > 0 ? [['Our service fee ('+S.feePct+'% of that)', '-$'+pdfMoney(S.fee), CLR.red]] : []),
-        ["Owner's share",                          '$'+pdfMoney(S.dueToOwner), CLR.dark],
-        ['Already paid to owner',             '-$'+pdfMoney(S.paidOut), CLR.red]
+        ['Gross rental income',                    '$'+pdfMoney(S.income),   CLR.green],
+        ['Less: operating expenses',               '-$'+pdfMoney(S.costs),   CLR.red],
+        ['Net rental income',                      '$'+pdfMoney(S.afterCosts), CLR.dark],
+        ...(S.fee > 0 ? [['Less: management commission ('+S.feePct+'%)', '-$'+pdfMoney(S.fee), CLR.red]] : []),
+        ...(S.disposal > 0 ? [
+              ['Net rental proceeds due to owner', '$'+pdfMoney(S.rentalDue), CLR.dark],
+              ['Add: ' + S.disposalLabel,          '$'+pdfMoney(S.disposal),  CLR.green]
+            ] : []),
+        ['Total due to owner',                     '$'+pdfMoney(S.dueToOwner), CLR.dark],
+        ['Less: payments already remitted',        '-$'+pdfMoney(S.paidOut), CLR.red]
       ];
-      const totalIdx = lines.findIndex(l => l[0] === "Owner's share");
+      const totalIdx = lines.findIndex(l => l[0] === 'Total due to owner');
       lines.forEach((ln,i)=>{
         ensure(8);
         if(i===totalIdx){ doc.setFillColor(238,240,243); doc.rect(M,y,CW,7.5,'F'); }
@@ -1038,7 +1183,7 @@ async function exportPDF(){
         ensure(8);
         doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
         doc.setTextColor.apply(doc, CLR.grey);
-        doc.text('Purchase price of $'+pdfMoney(S.excluded)+' is not included above, as this car was not bought by the business.', M+4, y+4.5);
+        doc.text('The vehicle purchase price of $'+pdfMoney(S.excluded)+' is excluded from this statement, as the vehicle was not acquired by the business.', M+4, y+4.5);
         y += 8;
       }
 
@@ -1049,7 +1194,7 @@ async function exportPDF(){
       doc.rect(M,y,CW,13,'F');
       doc.setFont('helvetica','bold'); doc.setFontSize(9);
       doc.setTextColor.apply(doc, CLR.white);
-      doc.text(owed >= 0 ? 'STILL TO PAY OWNER' : 'PAID OWNER TOO MUCH', M+4, y+8.4);
+      doc.text(owed >= 0 ? 'BALANCE DUE TO OWNER' : 'OVERPAID - RECOVERABLE FROM OWNER', M+4, y+8.4);
       doc.setFontSize(12);
       doc.setTextColor.apply(doc, owed > 0 ? [255,140,140] : [110,220,140]);
       doc.text('$'+pdfMoney(Math.abs(owed)), PW-M-4, y+8.6, {align:'right'});
@@ -1071,37 +1216,70 @@ async function exportPDF(){
       y += 12;
     }
 
-    // ─────────── LIFETIME POSITION (retired cars) ───────────
+    // ─────────── FINAL POSITION (retired vehicles) ───────────
     if(car.retired_reason){
-      ensure(60);
-      section('Final Position — ' + car.retired_reason, null);
-
+      ensure(70);
       const ownerCar = !!car.externally_owned;
-      const back = Number(car.retired_amount) || 0;
-      // On an owner's car the purchase was never ours, and any payout is
-      // settled between the business and the owner, so neither belongs here.
-      const purchaseCost = ownerCar ? 0 : activeExpenses
+      const disposal = Number(car.retired_amount) || 0;
+
+      const purchaseCost = activeExpenses
             .filter(e => (e.category||'') === 'Purchase Price')
             .reduce((s,e)=>s+Number(e.amount),0);
       const runningCost = activeExpenses
             .filter(e => (e.category||'') !== 'Purchase Price')
             .reduce((s,e)=>s+Number(e.amount),0);
-      const moneyBack = ownerCar ? 0 : back;
-      const lifetime = totalIncome + moneyBack - purchaseCost - runningCost;
+
+      const disposalLabel = car.retired_reason === 'Sold' ? 'Sale price achieved'
+                          : car.retired_reason === 'Written Off' ? 'Insurance settlement received'
+                          : null;
+
+      const heading = ownerCar && car.retired_reason === 'Sold'
+            ? 'Final Position - Sold on Behalf of Owner'
+            : 'Final Position - ' + car.retired_reason;
+      section(heading, null);
 
       const rows = [];
-      if(!ownerCar && purchaseCost > 0) rows.push(['Purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
-      rows.push(['Running costs over its life', '-$'+pdfMoney(runningCost), CLR.red]);
-      rows.push(['Rent collected over its life', '$'+pdfMoney(totalIncome), CLR.green]);
-      if(!ownerCar && back > 0){
-        rows.push([car.retired_reason === 'Sold' ? 'Sale proceeds' : 'Insurance payout',
-                   '$'+pdfMoney(back), CLR.green]);
+      let bottomLabel, bottomValue;
+
+      if(ownerCar){
+        // The owner funded the vehicle and receives the disposal proceeds in
+        // full. The commission the business retained is shown so the owner can
+        // see the complete picture in one place.
+        const commission = (activeIncome.reduce((s,i)=>s+Number(i.amount),0) - runningCost)
+                           * (Number(car.service_fee_pct)||0) / 100;
+        const rentalToOwner = totalIncome - runningCost - commission;
+        const ownerPosition = -purchaseCost + rentalToOwner + disposal;
+
+        if(purchaseCost > 0) rows.push(['Vehicle purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
+        rows.push(['Gross rental income', '$'+pdfMoney(totalIncome), CLR.green]);
+        rows.push(['Less: operating expenses', '-$'+pdfMoney(runningCost), CLR.red]);
+        if(commission > 0)
+          rows.push(['Less: management commission (' + (Number(car.service_fee_pct)||0) + '%)',
+                     '-$'+pdfMoney(commission), CLR.red]);
+        rows.push(['Net rental earnings to owner', '$'+pdfMoney(rentalToOwner), CLR.dark, true]);
+        if(disposalLabel && disposal > 0)
+          rows.push([disposalLabel, '$'+pdfMoney(disposal), CLR.green]);
+
+        bottomLabel = purchaseCost > 0
+              ? (ownerPosition >= 0 ? 'NET POSITION - OWNER GAIN' : 'NET POSITION - OWNER LOSS')
+              : 'NET PROCEEDS TO OWNER';
+        bottomValue = ownerPosition;
+      } else {
+        const lifetime = totalIncome + disposal - purchaseCost - runningCost;
+        if(purchaseCost > 0) rows.push(['Vehicle purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
+        rows.push(['Gross rental income', '$'+pdfMoney(totalIncome), CLR.green]);
+        rows.push(['Less: operating expenses', '-$'+pdfMoney(runningCost), CLR.red]);
+        if(disposalLabel && disposal > 0)
+          rows.push([disposalLabel, '$'+pdfMoney(disposal), CLR.green]);
+        bottomLabel = lifetime >= 0 ? 'NET POSITION - LIFETIME PROFIT' : 'NET POSITION - LIFETIME LOSS';
+        bottomValue = lifetime;
       }
 
       rows.forEach((ln,i)=>{
         ensure(8);
-        if(i%2===1){ doc.setFillColor(250,250,251); doc.rect(M,y,CW,7.5,'F'); }
-        doc.setFont('helvetica','normal'); doc.setFontSize(9);
+        if(ln[3]){ doc.setFillColor(238,240,243); doc.rect(M,y,CW,7.5,'F'); }
+        else if(i%2===1){ doc.setFillColor(250,250,251); doc.rect(M,y,CW,7.5,'F'); }
+        doc.setFont('helvetica', ln[3] ? 'bold' : 'normal'); doc.setFontSize(9);
         doc.setTextColor.apply(doc, CLR.dark);
         doc.text(ln[0], M+4, y+5.2);
         doc.setFont('helvetica','bold');
@@ -1117,22 +1295,24 @@ async function exportPDF(){
       doc.rect(M,y,CW,15,'F');
       doc.setFont('helvetica','bold'); doc.setFontSize(9);
       doc.setTextColor.apply(doc, CLR.white);
-      doc.text(ownerCar ? 'EARNED WHILE WE MANAGED IT'
-                        : (lifetime >= 0 ? 'LIFETIME PROFIT' : 'LIFETIME LOSS'), M+4, y+9.4);
+      doc.text(bottomLabel, M+4, y+9.4);
       doc.setFontSize(13);
-      doc.setTextColor.apply(doc, lifetime >= 0 ? [110,220,140] : [255,140,140]);
-      doc.text((lifetime>=0?'$':'-$')+pdfMoney(Math.abs(lifetime)), PW-M-4, y+9.6, {align:'right'});
+      doc.setTextColor.apply(doc, bottomValue >= 0 ? [110,220,140] : [255,140,140]);
+      doc.text((bottomValue>=0?'$':'-$')+pdfMoney(Math.abs(bottomValue)), PW-M-4, y+9.6, {align:'right'});
       y += 21;
 
       doc.setFont('helvetica','normal'); doc.setFontSize(8);
       doc.setTextColor.apply(doc, CLR.grey);
-      let note = car.retired_reason + ' on ' +
-        (car.retired_date ? new Date(car.retired_date+'T00:00:00').toLocaleDateString('en-AU') : 'date not recorded') + '. ';
-      if(ownerCar && back > 0){
-        note += 'An amount of $' + pdfMoney(back) + ' was recorded against this vehicle. As the car belongs to its '
-              + 'owner, this is settled between the business and the owner and is not counted above. ';
+      let note = 'This vehicle was ' + String(car.retired_reason).toLowerCase() + ' on '
+        + (car.retired_date ? new Date(car.retired_date+'T00:00:00').toLocaleDateString('en-AU')
+                            : 'a date not recorded') + '. ';
+      if(ownerCar && car.retired_reason === 'Sold'){
+        note += 'The vehicle was sold by the business on behalf of its owner. The full sale price is '
+              + 'credited to the owner; no commission has been applied to the sale. ';
       }
-      if(ownerCar) note += 'The purchase price is not shown, as this vehicle was not bought by the business. ';
+      if(ownerCar && purchaseCost > 0){
+        note += 'The purchase price shown was funded by the owner, not by the business. ';
+      }
       if(car.retired_notes) note += car.retired_notes;
       doc.text(doc.splitTextToSize(note, CW), M+2, y);
       y += 14;
@@ -1163,7 +1343,7 @@ async function exportPDF(){
     for(let p=1;p<=pages;p++){ doc.setPage(p); footer(p,pages); }
 
     const safe = String(car.rego||car.make_model||'vehicle').replace(/[^A-Za-z0-9_-]/g,'_');
-    doc.save('Ozee_Finance_Report_'+safe+'_'+new Date().toISOString().slice(0,10)+'.pdf');
+    doc.save('Ozee_Finance_Report_'+safe+'_'+todayISO()+'.pdf');
   }catch(err){
     alert('Could not generate the PDF: '+err.message);
   }finally{
