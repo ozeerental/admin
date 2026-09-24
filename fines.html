@@ -3,6 +3,20 @@
 <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// ── Local calendar date as YYYY-MM-DD ──────────────────────────────
+// Never use toISOString() for a date-only value. It converts to UTC, so in
+// Australia (UTC+10/+11) local midnight lands on the PREVIOUS day in UTC and
+// every date comes out one day early — which is why weeks were being stored
+// as Sunday instead of Monday.
+function localISO(d){
+  return d.getFullYear() + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' +
+         String(d.getDate()).padStart(2,'0');
+}
+function todayISO(){ return localISO(new Date()); }
+</script>
+
+<script>
 // Initialize Supabase immediately when script loads
 var PROJ='tbhqamcuewycaqertpba';
 
@@ -266,6 +280,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
       <li><a href="fines.html" class="active"><span class="s-icon">🚨</span> Fines &amp; Tolls</a></li>
       <li><a href="finance.html" class=""><span class="s-icon">💰</span> Car Finance</a></li>
       <li><a href="rent-tracker.html" class=""><span class="s-icon">🗓️</span> Rent Tracker</a></li>
+      <li><a href="invoices.html" class=""><span class="s-icon">🧾</span> Invoices</a></li>
       <hr class="sidebar-divider">
       <li><a href="https://ozeerentals.com.au"><span class="s-icon">🌐</span> View Website</a></li>
     </ul>
@@ -376,7 +391,7 @@ function renderFines(fines){
 function filterFines(s){ renderFines(s ? allFines.filter(f=>f.status===s) : allFines); }
 
 async function updateFineStatus(id, status){
-  await window._sb.from('fines_tolls').update({status, transferred_date: status==='Transferred'?new Date().toISOString().split('T')[0]:null}).eq('id',id);
+  await window._sb.from('fines_tolls').update({status, transferred_date: status==='Transferred'?todayISO():null}).eq('id',id);
   loadFines();
 }
 
@@ -384,7 +399,7 @@ async function openFineModal(){
   const {data:cars} = await window._sb.from('cars').select('id,rego,make_model').order('rego');
   document.getElementById('f_car').innerHTML = '<option value="">Select car...</option>' + (cars||[]).map(c=>`<option value="${c.id}">${c.rego} — ${c.make_model}</option>`).join('');
   document.getElementById('f_incident').value = '';
-  document.getElementById('f_received').value = new Date().toISOString().split('T')[0];
+  document.getElementById('f_received').value = todayISO();
   document.getElementById('fineModal').classList.add('open');
 }
 function closeFineModal(){ document.getElementById('fineModal').classList.remove('open'); }
@@ -394,7 +409,7 @@ async function saveFine(){
     car_id: document.getElementById('f_car').value,
     type: document.getElementById('f_type').value,
     incident_date: document.getElementById('f_incident').value,
-    notice_received: document.getElementById('f_received').value || new Date().toISOString().split('T')[0],
+    notice_received: document.getElementById('f_received').value || todayISO(),
     amount: parseFloat(document.getElementById('f_amount').value),
     authority: document.getElementById('f_authority').value || null,
     description: document.getElementById('f_desc').value,
