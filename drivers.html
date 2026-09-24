@@ -2,6 +2,20 @@
 <html lang="en">
 <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ── Local calendar date as YYYY-MM-DD ──────────────────────────────
+// Never use toISOString() for a date-only value. It converts to UTC, so in
+// Australia (UTC+10/+11) local midnight lands on the PREVIOUS day in UTC and
+// every date comes out one day early — which is why weeks were being stored
+// as Sunday instead of Monday.
+function localISO(d){
+  return d.getFullYear() + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' +
+         String(d.getDate()).padStart(2,'0');
+}
+function todayISO(){ return localISO(new Date()); }
+</script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 function openAddDriverModal(){
@@ -20,7 +34,7 @@ async function saveNewDriver(){
   if(!first_name || !last_name || !mobile){ alert('First name, last name and mobile are required.'); return; }
   if(!dob){ alert('Date of birth is required.'); return; }
 
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayISO();
   const licYear = parseInt(v('nd_licyear'));
 
   const payload = {
@@ -357,6 +371,7 @@ select option{background:#0d1526;color:#fff;}
       <li><a href="fines.html" class=""><span class="s-icon">🚨</span> Fines &amp; Tolls</a></li>
       <li><a href="finance.html" class=""><span class="s-icon">💰</span> Car Finance</a></li>
       <li><a href="rent-tracker.html" class=""><span class="s-icon">🗓️</span> Rent Tracker</a></li>
+      <li><a href="invoices.html" class=""><span class="s-icon">🧾</span> Invoices</a></li>
       <hr class="sidebar-divider">
       <li><a href="https://ozeerentals.com.au"><span class="s-icon">🌐</span> View Website</a></li>
     </ul>
@@ -745,7 +760,7 @@ async function populateHandoverCars(selectedRego){
   var { data: cars } = await window._sb.from('cars').select('id,rego,make_model,year,weekly_rate').order('rego');
   window._handoverCars = cars || [];
   var sd = document.getElementById('ho_start');
-  if(sd && !sd.value) sd.value = new Date().toISOString().slice(0,10);
+  if(sd && !sd.value) sd.value = todayISO();
   var matchedListedCar = false;
   (cars||[]).forEach(function(car){
     var opt = document.createElement('option');
