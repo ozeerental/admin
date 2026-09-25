@@ -63,6 +63,8 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 .detail-title span{color:#F5A623;}
 .detail-actions{display:flex;gap:.6rem;flex-wrap:wrap;}
 .summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);}
+.summary-row.four{grid-template-columns:repeat(4,1fr);}
+@media(max-width:1100px){.summary-row.four{grid-template-columns:repeat(2,1fr);}}
 .summary-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:1rem;text-align:center;}
 .summary-label{font-size:.68rem;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.4);margin-bottom:.4rem;}
 .summary-val{font-family:"Barlow Condensed",sans-serif;font-size:1.7rem;font-weight:900;}
@@ -259,21 +261,27 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
         <div class="detail-title" id="detailTitle">Car <span>Name</span></div>
         <div class="detail-actions">
           <button class="btn btn-outline btn-sm" onclick="closeDetail()">Close</button>
-          <button class="btn btn-gold btn-sm" onclick="exportPDF()">⬇ Export PDF</button>
+          <button class="btn btn-gold btn-sm" onclick="exportPDF('download')">⬇ Download PDF</button>
+          <button class="btn btn-outline btn-sm" onclick="exportPDF('email')">✉ Email Owner</button>
+          <button class="btn btn-outline btn-sm" onclick="exportPDF('whatsapp')">WhatsApp Owner</button>
         </div>
       </div>
 
-      <div class="summary-row">
+      <div class="summary-row" id="summaryRow">
         <div class="summary-box">
-          <div class="summary-label">Total Cost</div>
+          <div class="summary-label">Total Expenses</div>
           <div class="summary-val" id="sumCost">$0</div>
         </div>
         <div class="summary-box">
-          <div class="summary-label">Total Earned</div>
+          <div class="summary-label">Rent Collected</div>
           <div class="summary-val" id="sumIncome">$0</div>
         </div>
+        <div class="summary-box" id="sumFeeBox" style="display:none;">
+          <div class="summary-label">Commission Earned</div>
+          <div class="summary-val pos" id="sumFee">$0</div>
+        </div>
         <div class="summary-box">
-          <div class="summary-label">Net Position</div>
+          <div class="summary-label" id="sumNetLabel">Net Position</div>
           <div class="summary-val" id="sumNet">$0</div>
         </div>
       </div>
@@ -530,11 +538,34 @@ function renderDetail(){
   const totalIncome = activeIncome.reduce((s,i) => s + Number(i.amount), 0);
   const net = totalIncome - totalCost;
 
+  // Mirrors the PDF exactly: expenses always include the purchase price, and
+  // the last box is the same figure the report finishes on.
+  const _car = allCars.find(c => c.id === activeCarId);
+  const _S = settlement();
+  const _disp = Number(_car && _car.retired_amount) || 0;
+  const _final = _S ? (totalIncome + _disp - totalCost - _S.fee)
+                    : (totalIncome + _disp - totalCost);
+
   document.getElementById('sumCost').textContent = money(totalCost);
   document.getElementById('sumIncome').textContent = money(totalIncome);
+
+  const feeBox = document.getElementById('sumFeeBox');
+  const row = document.getElementById('summaryRow');
+  if(_S){
+    feeBox.style.display = '';
+    row.classList.add('four');
+    document.getElementById('sumFee').textContent = money(_S.fee);
+  } else {
+    feeBox.style.display = 'none';
+    row.classList.remove('four');
+  }
+  document.getElementById('sumNetLabel').textContent =
+    (_car && _car.retired_reason) ? 'Final Position'
+                                  : (_S ? 'Position to Date' : 'Net Position');
+
   const netEl = document.getElementById('sumNet');
-  netEl.textContent = (net>=0?'+':'-') + money(Math.abs(net));
-  netEl.className = 'summary-val ' + (net>=0?'pos':'neg');
+  netEl.textContent = (_final>=0?'+':'-') + money(Math.abs(_final));
+  netEl.className = 'summary-val ' + (_final>=0?'pos':'neg');
 
   document.getElementById('expList').innerHTML = activeExpenses.length ? activeExpenses.map(e => `
     <div class="log-item">
@@ -781,9 +812,72 @@ function fmtDate(d){
   return dt.toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'});
 }
 
-async function exportPDF(){
+// ═══════════════════════════════════════════════════════════
+//  SENDING A REPORT: download, email, or a WhatsApp link
+// ═══════════════════════════════════════════════════════════
+
+// jsPDF hands back a data URI; the API wants just the base64 payload.
+function pdfBase64(doc){
+  const uri = doc.output('datauristring');
+  return uri.substring(uri.indexOf(',') + 1);
+}
+
+// Sends through the same Edge Function already used for approval emails.
+async function emailPdf(doc, fileName, to, subject, html){
+  const res = await fetch('https://'+PROJ+'.supabase.co/functions/v1/send-driver-email', {
+    method:'POST',
+    headers:{'Content-Type':'application/json',
+             'Authorization':'Bearer '+_db.supabaseKey, 'apikey':_db.supabaseKey},
+    body: JSON.stringify({ to, subject, html,
+                           pdfBase64: pdfBase64(doc), pdfFileName: fileName })
+  });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok || data.error) throw new Error(data.error || 'The email could not be sent.');
+  return data;
+}
+
+// WhatsApp cannot carry a file, so the document is stored and a private,
+// time-limited link is sent instead. The link is unguessable and stops
+// working after 30 days.
+async function uploadPdfForSharing(doc, bucket, path){
+  const blob = doc.output('blob');
+  const { error: upErr } = await _db.storage.from(bucket)
+        .upload(path, blob, { contentType:'application/pdf', upsert:true });
+  if(upErr) throw new Error('Could not store the report: ' + upErr.message);
+  const { data, error } = await _db.storage.from(bucket).createSignedUrl(path, 60*60*24*30);
+  if(error || !data) throw new Error('Could not create a share link: ' + (error ? error.message : 'no link returned'));
+  return data.signedUrl;
+}
+
+// Australian numbers are stored locally (0412...) but wa.me needs the
+// country code and digits only.
+function waNumber(raw){
+  let n = String(raw||'').replace(/[^0-9+]/g,'');
+  if(n.startsWith('+')) return n.slice(1);
+  if(n.startsWith('0'))  return '61' + n.slice(1);
+  if(n.startsWith('61')) return n;
+  return '61' + n;
+}
+function openWhatsApp(mobile, message){
+  window.open('https://wa.me/' + waNumber(mobile) + '?text=' + encodeURIComponent(message), '_blank');
+}
+
+async function exportPDF(mode){
+  mode = mode || 'download';
   const car = allCars.find(c => c.id === activeCarId);
   if(!car){ alert('Please select a car first.'); return; }
+
+  // Check we can reach the owner before spending time building the document.
+  if(mode === 'email' && !car.owner_email){
+    alert('No email address is recorded for this vehicle\'s owner.\n\n'
+        + 'Add one in Car Management, under the ownership section.');
+    return;
+  }
+  if(mode === 'whatsapp' && !car.owner_mobile){
+    alert('No mobile number is recorded for this vehicle\'s owner.\n\n'
+        + 'Add one in Car Management, under the ownership section.');
+    return;
+  }
 
   const btn = document.querySelector('.detail-actions .btn-gold');
   const btnTxt = btn ? btn.textContent : '';
@@ -954,36 +1048,51 @@ async function exportPDF(){
     }
 
     // ─────────── SUMMARY CARDS ───────────
-    const gap = 4, cardW = (CW - gap*2)/3, cardH = 25;
-    // On a vehicle owned by someone else the purchase price and the rental
-    // income belong to the owner, not the business. Showing them as the
-    // business's own cost and net position would report a loss on a car the
-    // business never bought, and contradict the settlement statement below.
+    // Both cases carry the vehicle purchase price inside total expenses, and
+    // both finish on the same figure as the position block further down, so
+    // the top of the report and the bottom can never disagree.
     const _S0 = settlement();
-    const cards = _S0
-      ? [
-          {label:'OPERATING EXPENSES', val:'$'+pdfMoney(_S0.costs),  col:CLR.dark},
-          {label:'RENTAL INCOME COLLECTED', val:'$'+pdfMoney(_S0.income), col:CLR.dark},
-          {label:'COMMISSION EARNED', val:'$'+pdfMoney(_S0.fee), col: CLR.green}
-        ]
-      : [
-          {label:'TOTAL COST',   val:'$'+pdfMoney(totalCost),   col:CLR.dark},
-          {label:'TOTAL EARNED', val:'$'+pdfMoney(totalIncome), col:CLR.dark},
-          {label:'NET POSITION', val:(net>=0?'+$':'-$')+pdfMoney(Math.abs(net)), col: net>=0?CLR.green:CLR.red}
-        ];
+    const _disposal = Number(car.retired_amount) || 0;
+    let cards;
+
+    if(_S0){
+      // Owned by someone else: expenses, what the driver paid, what we kept,
+      // and where the vehicle finishes once both come out.
+      const ownerFinal = totalIncome + _disposal - totalCost - _S0.fee;
+      cards = [
+        {label:'TOTAL EXPENSES',   val:'$'+pdfMoney(totalCost),    col:CLR.dark},
+        {label:'RENT COLLECTED',   val:'$'+pdfMoney(totalIncome),  col:CLR.dark},
+        {label:'COMMISSION EARNED',val:'$'+pdfMoney(_S0.fee),      col:CLR.green},
+        {label: car.retired_reason ? 'FINAL POSITION' : 'POSITION TO DATE',
+         val:(ownerFinal>=0?'+$':'-$')+pdfMoney(Math.abs(ownerFinal)),
+         col: ownerFinal>=0?CLR.green:CLR.red, accent:true}
+      ];
+    } else {
+      const bizNet = totalIncome + _disposal - totalCost;
+      cards = [
+        {label:'TOTAL EXPENSES', val:'$'+pdfMoney(totalCost),   col:CLR.dark},
+        {label:'RENT COLLECTED', val:'$'+pdfMoney(totalIncome), col:CLR.dark},
+        {label: car.retired_reason ? 'FINAL POSITION' : 'NET POSITION',
+         val:(bizNet>=0?'+$':'-$')+pdfMoney(Math.abs(bizNet)),
+         col: bizNet>=0?CLR.green:CLR.red, accent:true}
+      ];
+    }
+
+    const gap = 4, cardH = 25, cardW = (CW - gap*(cards.length-1))/cards.length;
+    const valSize = cards.length > 3 ? 12 : 14;
     cards.forEach((c,i)=>{
       const x = M + i*(cardW+gap);
       doc.setFillColor(250,250,251);
       doc.setDrawColor.apply(doc, CLR.line);
       doc.setLineWidth(0.3);
       doc.roundedRect(x,y,cardW,cardH,1.5,1.5,'FD');
-      if(i===2){ doc.setFillColor.apply(doc, c.col); doc.rect(x,y,1.5,cardH,'F'); }
-      doc.setFont('helvetica','normal'); doc.setFontSize(7);
+      if(c.accent){ doc.setFillColor.apply(doc, c.col); doc.rect(x,y,1.5,cardH,'F'); }
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.6);
       doc.setTextColor.apply(doc, CLR.grey);
-      doc.text(c.label, x+6, y+8);
-      doc.setFont('helvetica','bold'); doc.setFontSize(14);
+      doc.text(c.label, x+5, y+8);
+      doc.setFont('helvetica','bold'); doc.setFontSize(valSize);
       doc.setTextColor.apply(doc, c.col);
-      doc.text(c.val, x+6, y+18);
+      doc.text(c.val, x+5, y+18);
     });
     y += cardH + 12;
 
@@ -1076,7 +1185,7 @@ async function exportPDF(){
           doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
           doc.setTextColor.apply(doc, CLR.grey);
           doc.text('Includes the vehicle purchase price of $'+pdfMoney(_pp)
-            +', which was funded by the owner and is not a business expense.', M+4, y+4.5);
+            +', which was funded by the owner.', M+4, y+4.5);
           y += 8;
         }
       }
@@ -1183,7 +1292,7 @@ async function exportPDF(){
         ensure(8);
         doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
         doc.setTextColor.apply(doc, CLR.grey);
-        doc.text('The vehicle purchase price of $'+pdfMoney(S.excluded)+' is excluded from this statement, as the vehicle was not acquired by the business.', M+4, y+4.5);
+        doc.text('This statement covers rental settlement only. The vehicle purchase price of $'+pdfMoney(S.excluded)+' is accounted for in the vehicle position below.', M+4, y+4.5);
         y += 8;
       }
 
@@ -1217,7 +1326,10 @@ async function exportPDF(){
     }
 
     // ─────────── FINAL POSITION (retired vehicles) ───────────
-    if(car.retired_reason){
+    // Shown for every retired vehicle, and for every vehicle owned by someone
+    // else even while it is still on the road -- its owner needs the full
+    // picture of their position at any time, not only once it has gone.
+    if(car.retired_reason || car.externally_owned){
       ensure(70);
       const ownerCar = !!car.externally_owned;
       const disposal = Number(car.retired_amount) || 0;
@@ -1233,9 +1345,11 @@ async function exportPDF(){
                           : car.retired_reason === 'Written Off' ? 'Insurance settlement received'
                           : null;
 
-      const heading = ownerCar && car.retired_reason === 'Sold'
-            ? 'Final Position - Sold on Behalf of Owner'
-            : 'Final Position - ' + car.retired_reason;
+      const heading = !car.retired_reason
+            ? 'Vehicle Position to Date'
+            : (ownerCar && car.retired_reason === 'Sold'
+                 ? 'Final Position - Sold on Behalf of Owner'
+                 : 'Final Position - ' + car.retired_reason);
       section(heading, null);
 
       const rows = [];
@@ -1303,9 +1417,15 @@ async function exportPDF(){
 
       doc.setFont('helvetica','normal'); doc.setFontSize(8);
       doc.setTextColor.apply(doc, CLR.grey);
-      let note = 'This vehicle was ' + String(car.retired_reason).toLowerCase() + ' on '
-        + (car.retired_date ? new Date(car.retired_date+'T00:00:00').toLocaleDateString('en-AU')
-                            : 'a date not recorded') + '. ';
+      let note = '';
+      if(car.retired_reason){
+        note += 'This vehicle was ' + String(car.retired_reason).toLowerCase() + ' on '
+             + (car.retired_date ? new Date(car.retired_date+'T00:00:00').toLocaleDateString('en-AU')
+                                 : 'a date not recorded') + '. ';
+      } else {
+        note += 'This vehicle remains in service. The position above covers everything recorded up to '
+             + new Date().toLocaleDateString('en-AU') + '. ';
+      }
       if(ownerCar && car.retired_reason === 'Sold'){
         note += 'The vehicle was sold by the business on behalf of its owner. The full sale price is '
               + 'credited to the owner; no commission has been applied to the sale. ';
@@ -1319,9 +1439,12 @@ async function exportPDF(){
     }
 
     // ─────────── NET SUMMARY ───────────
-    // Skipped for a retired car: the Final Position above already
-    // states the outcome, and showing both invites confusion.
-    if(!car.retired_reason){
+    // Skipped wherever the vehicle position block above already states the
+    // outcome -- that is every retired vehicle, and every vehicle owned by
+    // someone else. Two different bottom lines on one report invites doubt,
+    // and on an owner's vehicle this figure would wrongly treat their
+    // purchase as a business cost.
+    if(!car.retired_reason && !car.externally_owned){
     ensure(30);
     doc.setFillColor.apply(doc, CLR.dark);
     doc.roundedRect(M,y,CW,22,1.5,1.5,'F');
@@ -1343,7 +1466,25 @@ async function exportPDF(){
     for(let p=1;p<=pages;p++){ doc.setPage(p); footer(p,pages); }
 
     const safe = String(car.rego||car.make_model||'vehicle').replace(/[^A-Za-z0-9_-]/g,'_');
-    doc.save('Ozee_Finance_Report_'+safe+'_'+todayISO()+'.pdf');
+    const fileName = 'Ozee_Finance_Report_'+safe+'_'+todayISO()+'.pdf';
+    const vehicleLabel = String(car.make_model||'Vehicle') + (car.rego ? ' ('+car.rego+')' : '');
+
+    if(mode === 'email'){
+      await emailPdf(doc, fileName, car.owner_email,
+        'Finance report - ' + vehicleLabel,
+        '<p>Hello' + (car.owner_name ? ' ' + car.owner_name : '') + ',</p>'
+        + '<p>Please find attached the current finance report for <strong>' + vehicleLabel + '</strong>, '
+        + 'covering rental income, operating expenses, commission and the overall position of the vehicle.</p>'
+        + '<p>Kind regards,<br>Ozee Rentals</p>');
+      alert('The finance report has been emailed to ' + car.owner_email + '.');
+    } else if(mode === 'whatsapp'){
+      const link = await uploadPdfForSharing(doc, 'car-documents', 'reports/'+safe+'/'+fileName);
+      openWhatsApp(car.owner_mobile,
+        'Hello' + (car.owner_name ? ' ' + car.owner_name : '') + ', here is the finance report for '
+        + vehicleLabel + ':\n' + link + '\n\nOzee Rentals');
+    } else {
+      doc.save(fileName);
+    }
   }catch(err){
     alert('Could not generate the PDF: '+err.message);
   }finally{
