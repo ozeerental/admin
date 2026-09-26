@@ -775,15 +775,36 @@ async function viewDriver(id){
 async function populateHandoverCars(selectedRego){
   var sel = document.getElementById('ho_car');
   if(!sel) return;
-  var { data: cars } = await window._sb.from('cars').select('id,rego,make_model,year,weekly_rate').order('rego');
+  var { data: cars } = await window._sb.from('cars')
+        .select('id,rego,make_model,year,weekly_rate,status,retired_reason').order('rego');
+  // The full list is kept for validating a manually typed rego later.
   window._handoverCars = cars || [];
   var sd = document.getElementById('ho_start');
   if(sd && !sd.value) sd.value = todayISO();
+
+  // Start from the two fixed options, so reopening the form cannot stack
+  // duplicate cars into the list.
+  sel.innerHTML = '<option value="">— Select a car —</option>'
+                + '<option value="__manual__">✏️ Enter manually (not listed)</option>';
+
+  // A retired car has left the fleet and a rented one is already out with
+  // another driver, so neither can be handed over. The car already saved
+  // against this application always stays listed whatever its state —
+  // otherwise reopening an approval would silently lose the selection.
+  var offer = (cars||[]).filter(function(car){
+    if(selectedRego && car.rego === selectedRego) return true;
+    return !car.retired_reason && car.status !== 'Rented';
+  });
+
   var matchedListedCar = false;
-  (cars||[]).forEach(function(car){
+  offer.forEach(function(car){
     var opt = document.createElement('option');
     opt.value = car.rego;
-    opt.textContent = car.rego + ' — ' + car.make_model + ' ' + car.year;
+    var note = car.retired_reason        ? '  (retired)'
+             : car.status === 'Rented'   ? '  (already rented)'
+             : car.status === 'Maintenance' ? '  (in maintenance)'
+             : '';
+    opt.textContent = car.rego + ' — ' + car.make_model + ' ' + car.year + note;
     if(selectedRego && car.rego===selectedRego){ opt.selected = true; matchedListedCar = true; }
     sel.appendChild(opt);
   });
@@ -851,6 +872,15 @@ async function startRentalFromApproval(driverId){
   }
 
   // Don't create a second rental if one is already running
+  // Filtering the dropdown covers the normal path, but a rego can still be
+  // typed in by hand, so the same check is made before anything is created.
+  const { data: carBusy } = await window._sb.from('car_assignments')
+      .select('id').eq('car_id', listed.id).eq('status','Active').limit(1);
+  if(carBusy && carBusy.length){
+    return 'Driver approved, but ' + rego + ' is already rented to another driver, '
+         + 'so no rental was created. End that rental first, or choose a different car.';
+  }
+
   const { data: existing } = await window._sb.from('car_assignments')
       .select('id').eq('driver_id', driverId).eq('status','Active').limit(1);
   if(existing && existing.length){
