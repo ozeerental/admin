@@ -74,6 +74,14 @@ async function saveNewDriver(){
 // Initialize Supabase immediately when script loads
 var PROJ='tbhqamcuewycaqertpba';
 
+// ── Bank accounts the business collects rent into ────────────────
+// Rename the `label` values to whatever you call these accounts; they are
+// what appears in the approval dropdown and in the driver's email.
+const PAY_ACCOUNTS = {
+  A: { label:'Account A', name:'Ozee Rentals Pty Ltd', bsb:'012493', acc:'806166675' },
+  B: { label:'Account B', name:'Ozee Rentals Pty Ltd', bsb:'012493', acc:'818483811' }
+};
+
 window._sb = window.supabase.createClient('https://'+PROJ+'.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U');
 </script>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -699,6 +707,16 @@ async function viewDriver(id){
             </div>
           </div>
           <div class="form-group" style="margin:.75rem 0 0;">
+            <label class="form-label">Pay Weekly Rent Into <span style="color:#f5a623;">*</span></label>
+            <select class="form-input" id="ho_pay_acc">
+              <option value="A">Account A &mdash; BSB 012493 &middot; 806166675</option>
+              <option value="B">Account B &mdash; BSB 012493 &middot; 818483811</option>
+            </select>
+            <div style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:.35rem;">
+              These details are sent to the driver in their approval email and agreement.
+            </div>
+          </div>
+          <div class="form-group" style="margin:.75rem 0 0;">
             <label class="form-label">Rental Start Date <span style="color:#f5a623;">*</span></label>
             <input class="form-input" id="ho_start" type="date">
           </div>
@@ -898,8 +916,15 @@ function collectHandoverData(){
     _weekly_rate: document.getElementById('ho_rate') ? document.getElementById('ho_rate').value : '',
     _bond_amount: document.getElementById('ho_bond') ? document.getElementById('ho_bond').value : '',
     _bond_paid:   document.getElementById('ho_bond_paid') ? (document.getElementById('ho_bond_paid').value === 'true') : false,
-    _start_date:  document.getElementById('ho_start') ? document.getElementById('ho_start').value : ''
+    _start_date:  document.getElementById('ho_start') ? document.getElementById('ho_start').value : '',
+    // saved on the driver record, so it can be looked up later
+    payment_account: document.getElementById('ho_pay_acc') ? document.getElementById('ho_pay_acc').value : 'A'
   };
+}
+
+// The account a driver was told to pay into, ready for the email and PDF.
+function payAccountFor(handover){
+  return PAY_ACCOUNTS[(handover && handover.payment_account) || 'A'] || PAY_ACCOUNTS.A;
 }
 
 async function updateDriverStatus(status){
@@ -1202,6 +1227,13 @@ async function generateApprovalPDF(d, handover, docs){
   if(handover._bond_amount) field('Bond Amount', '$' + handover._bond_amount);
   field('Bond Received', handover._bond_paid ? 'Yes — received' : 'Not yet received');
 
+  const _pa = payAccountFor(handover);
+  sectionHeader('WHERE TO PAY YOUR RENT');
+  field('Account Name', _pa.name);
+  field('BSB', _pa.bsb);
+  field('Account Number', _pa.acc);
+  field('Payment Reference', 'Your full name');
+
   // ── FOOTER ──
   const pageCount = doc.internal.getNumberOfPages();
   for(let i=1;i<=pageCount;i++){
@@ -1261,6 +1293,20 @@ async function sendApprovalEmail(driver, handover, pdfBase64){
       + '<p style="margin:12px 0 0;font-size:12.5px;color:#666;">A reminder that two weeks\' notice is required before returning the vehicle, for as long as you have it. Full terms are in the attached agreement.</p>'
       + '</div>';
   }
+
+  // Where the weekly rent goes. Chosen at approval and repeated here so the
+  // driver has it in writing from day one.
+  var payAcc = payAccountFor(handover);
+  html += '<div style="background:#f8f8f8;border-left:4px solid #16a34a;padding:16px;margin:20px 0;">'
+    + '<h3 style="margin:0 0 12px;color:#070b12;">Where to Pay Your Weekly Rent</h3>'
+    + '<table style="width:100%;font-size:14px;border-collapse:collapse;">'
+    + '<tr><td style="padding:4px 0;color:#888;">Account Name:</td><td style="padding:4px 0;font-weight:bold;">' + payAcc.name + '</td></tr>'
+    + '<tr><td style="padding:4px 0;color:#888;">BSB:</td><td style="padding:4px 0;font-weight:bold;">' + payAcc.bsb + '</td></tr>'
+    + '<tr><td style="padding:4px 0;color:#888;">Account Number:</td><td style="padding:4px 0;font-weight:bold;">' + payAcc.acc + '</td></tr>'
+    + '<tr><td style="padding:4px 0;color:#888;">Reference:</td><td style="padding:4px 0;">Your full name</td></tr>'
+    + '</table>'
+    + '<p style="margin:12px 0 0;font-size:12.5px;color:#666;">Please keep these details. Rent is due weekly and always goes to this account.</p>'
+    + '</div>';
 
   html += '<p>Please contact us to arrange your car pickup:</p>'
     + '<p style="font-size:15px;"><strong>📞 0450 786 145</strong><br>'
