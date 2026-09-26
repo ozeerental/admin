@@ -620,7 +620,49 @@ function setInvoiceMode(mode){
   if(r) r.checked = true;
 }
 
-async function generateInvoice(){
+// ═══════════════════════════════════════════════════════════
+//  SENDING AN INVOICE: download, email, or a WhatsApp link
+// ═══════════════════════════════════════════════════════════
+function pdfBase64(doc){
+  const uri = doc.output('datauristring');
+  return uri.substring(uri.indexOf(',') + 1);
+}
+async function emailPdf(doc, fileName, to, subject, html){
+  const res = await fetch('https://'+PROJ+'.supabase.co/functions/v1/send-driver-email', {
+    method:'POST',
+    headers:{'Content-Type':'application/json',
+             'Authorization':'Bearer '+_db.supabaseKey, 'apikey':_db.supabaseKey},
+    body: JSON.stringify({ to, subject, html,
+                           pdfBase64: pdfBase64(doc), pdfFileName: fileName })
+  });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok || data.error) throw new Error(data.error || 'The email could not be sent.');
+  return data;
+}
+// WhatsApp cannot carry a file, so the invoice is stored and a private,
+// time-limited link is sent instead. It stops working after 30 days.
+async function uploadPdfForSharing(doc, bucket, path){
+  const blob = doc.output('blob');
+  const { error: upErr } = await _db.storage.from(bucket)
+        .upload(path, blob, { contentType:'application/pdf', upsert:true });
+  if(upErr) throw new Error('Could not store the invoice: ' + upErr.message);
+  const { data, error } = await _db.storage.from(bucket).createSignedUrl(path, 60*60*24*30);
+  if(error || !data) throw new Error('Could not create a share link: ' + (error ? error.message : 'no link returned'));
+  return data.signedUrl;
+}
+function waNumber(raw){
+  let n = String(raw||'').replace(/[^0-9+]/g,'');
+  if(n.startsWith('+')) return n.slice(1);
+  if(n.startsWith('0'))  return '61' + n.slice(1);
+  if(n.startsWith('61')) return n;
+  return '61' + n;
+}
+function openWhatsApp(mobile, message){
+  window.open('https://wa.me/' + waNumber(mobile) + '?text=' + encodeURIComponent(message), '_blank');
+}
+
+async function generateInvoice(mode){
+  mode = mode || 'download';
   const a = _invAssignment;
   if(!a) return;
   const btn = document.getElementById('invBtn');
@@ -663,7 +705,13 @@ async function generateInvoice(){
       if(all && all.length) asgs = all;
     }
     const carByAsg = {};
-    asgs.forEach(x => { carByAsg[x.id] = x.cars ? x.cars.rego : ''; });
+    // Held apart so the invoice can column them separately
+    asgs.forEach(x => {
+      carByAsg[x.id] = {
+        make: (x.cars && x.cars.make_model) ? x.cars.make_model : '',
+        rego: (x.cars && x.cars.rego) ? x.cars.rego : ''
+      };
+    });
 
     const { data: wks } = await _db.from('rent_weeks')
       .select('*')
@@ -690,7 +738,8 @@ async function generateInvoice(){
       amount_due: Number(w.amount_due||0),
       amount_paid: Number(w.amount_paid||0),
       status: w.status || 'Unpaid',
-      car_rego: carByAsg[w.assignment_id] || ''
+      car_make: (carByAsg[w.assignment_id] || {}).make || '',
+      car_rego: (carByAsg[w.assignment_id] || {}).rego || ''
     }));
 
     // ── Take an invoice number. Done only once the figures are in
@@ -714,8 +763,8 @@ async function generateInvoice(){
     }
     invNo = no;
 
-    buildInvoicePDF({ invNo, driver, driverName, from, to, weeks, carByAsg,
-                      totalDue, totalPaid, owing });
+    await buildInvoicePDF({ invNo, driver, driverName, from, to, weeks, carByAsg,
+                      totalDue, totalPaid, owing }, mode);
     closeInvoice();
 
   }catch(err){
@@ -725,7 +774,8 @@ async function generateInvoice(){
   }
 }
 
-function buildInvoicePDF(d){
+async function buildInvoicePDF(d, mode){
+  mode = mode || 'download';
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'mm', format:'a4' });
   const PW = 210, PH = 297, M = 14, CW = PW - M*2;
@@ -745,20 +795,19 @@ function buildInvoicePDF(d){
                    doc.text('OZEE', PW/2, 12, {align:'center'}); }
       doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
       doc.setTextColor.apply(doc, INV_CLR.white);
-      doc.text('INVOICE', PW/2, 23.5, {align:'center'});
+      doc.text('VEHICLE RENTAL INVOICE', PW/2, 23.5, {align:'center'});
       doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
       doc.setTextColor(160,168,177);
-      doc.text('Vehicle rental statement', PW/2, 27.5, {align:'center'});
+      doc.text('Statement of weekly vehicle rental charges', PW/2, 27.5, {align:'center'});
     } else {
       doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
       doc.setTextColor.apply(doc, INV_CLR.white);
-      doc.text('INVOICE', M, 9);
+      doc.text('VEHICLE RENTAL INVOICE', M, 9);
       doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
       doc.setTextColor(160,168,177);
       doc.text(d.invNo + '  ·  ' + d.driverName, PW-M, 9, {align:'right'});
     }
   }
-
   function footer(pageNo, pageCount){
     doc.setDrawColor.apply(doc, INV_CLR.line);
     doc.setLineWidth(0.2);
@@ -772,65 +821,121 @@ function buildInvoicePDF(d){
   header(true);
   let y = 42;
 
-  // ── Invoice number and dates, right ──
-  const metaX = PW - M;
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-  doc.setTextColor.apply(doc, INV_CLR.grey);
-  doc.text('INVOICE NUMBER', metaX, y, {align:'right'});
-  doc.setFont('helvetica','bold'); doc.setFontSize(12);
-  doc.setTextColor.apply(doc, INV_CLR.gold);
-  doc.text(d.invNo, metaX, y+6, {align:'right'});
+  // ─────────── KEY FACTS STRIP ───────────
+  // Invoice number, dates and period read together in one band, so the
+  // essentials are found without hunting through the page.
+  const facts = [
+    ['INVOICE NUMBER', d.invNo, true],
+    ['ISSUED', new Date().toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'}), false],
+    ['RENTAL PERIOD', invDate(d.from) + ' - ' + invDate(d.to), false]
+  ];
+  const stripH = 16, cellW = CW/facts.length;
+  doc.setFillColor(247,248,249);
+  doc.setDrawColor.apply(doc, INV_CLR.line);
+  doc.setLineWidth(0.3);
+  doc.rect(M, y, CW, stripH, 'FD');
+  facts.forEach(function(f,i){
+    const cx = M + i*cellW;
+    if(i > 0){
+      doc.setDrawColor.apply(doc, INV_CLR.line); doc.setLineWidth(0.3);
+      doc.line(cx, y+3, cx, y+stripH-3);
+    }
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.2);
+    doc.setTextColor.apply(doc, INV_CLR.grey);
+    doc.text(f[0], cx+4, y+5.8);
+    doc.setFont('helvetica','bold'); doc.setFontSize(f[2] ? 10 : 8.2);
+    doc.setTextColor.apply(doc, f[2] ? INV_CLR.gold : INV_CLR.dark);
+    doc.text(String(f[1]), cx+4, y+11.8);
+  });
+  y += stripH + 9;
 
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-  doc.setTextColor.apply(doc, INV_CLR.grey);
-  doc.text('ISSUED', metaX, y+13, {align:'right'});
-  doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
-  doc.setTextColor.apply(doc, INV_CLR.dark);
-  doc.text(new Date().toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'}), metaX, y+17.5, {align:'right'});
-
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-  doc.setTextColor.apply(doc, INV_CLR.grey);
-  doc.text('PERIOD', metaX, y+24, {align:'right'});
-  doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
-  doc.setTextColor.apply(doc, INV_CLR.dark);
-  doc.text(invDate(d.from) + '  to  ' + invDate(d.to), metaX, y+28.5, {align:'right'});
-
-  // ── Billed to, left ──
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-  doc.setTextColor.apply(doc, INV_CLR.grey);
-  doc.text('BILLED TO', M, y);
-  doc.setFont('helvetica','bold'); doc.setFontSize(14);
-  doc.setTextColor.apply(doc, INV_CLR.dark);
-  doc.text(d.driverName, M, y+7);
-
-  let by = y + 13;
-  doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-  doc.setTextColor.apply(doc, INV_CLR.grey);
-  if(d.driver && d.driver.address){
-    const lines = doc.splitTextToSize(String(d.driver.address), 95);
-    lines.slice(0,3).forEach(function(ln){ doc.text(ln, M, by); by += 4.6; });
+  // ─────────── BILL TO  /  FROM ───────────
+  // The invoice names both parties. The business identity and ABN sit on the
+  // face of the document, not only in the footer.
+  const colR = M + CW/2 + 6;
+  function partyLabel(txt, x){
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.4);
+    doc.setTextColor.apply(doc, INV_CLR.grey);
+    doc.text(txt, x, y);
   }
-  if(d.driver && d.driver.mobile){ doc.text(String(d.driver.mobile), M, by); by += 4.6; }
-  if(d.driver && d.driver.email){ doc.text(String(d.driver.email), M, by); by += 4.6; }
+  partyLabel('BILL TO', M);
+  partyLabel('FROM', colR);
 
-  y = Math.max(by, y + 34) + 6;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.setTextColor.apply(doc, INV_CLR.dark);
+  doc.text(String(d.driverName || 'Driver'), M, y+6.5);
+  doc.text(INV_CO.name, colR, y+6.5);
 
-  // ── Table ──
-  const colCar  = M + 40;
-  const colRent = M + 112;
-  const colPaid = M + 144;
-  const colStat = PW - M;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  doc.setTextColor.apply(doc, INV_CLR.grey);
+
+  let ly = y + 12;
+  if(d.driver && d.driver.address){
+    doc.splitTextToSize(String(d.driver.address), CW/2 - 10).slice(0,2)
+       .forEach(function(ln){ doc.text(ln, M, ly); ly += 4.4; });
+  }
+  if(d.driver && d.driver.mobile){ doc.text(String(d.driver.mobile), M, ly); ly += 4.4; }
+  if(d.driver && d.driver.email){ doc.text(String(d.driver.email), M, ly); ly += 4.4; }
+
+  let ry = y + 12;
+  [INV_CO.abn, INV_CO.region, INV_CO.phone, INV_CO.email].forEach(function(ln){
+    doc.text(String(ln), colR, ry); ry += 4.4;
+  });
+
+  y = Math.max(ly, ry) + 5;
+
+  // ─────────── ACCOUNT SUMMARY ───────────
+  // The answer to "what do I owe" before any detail is read.
+  const sumH = 17;
+  doc.setFillColor(247,248,249);
+  doc.setDrawColor.apply(doc, INV_CLR.line); doc.setLineWidth(0.3);
+  doc.rect(M, y, CW, sumH, 'FD');
+
+  const status = d.owing > 0
+        ? (d.totalPaid > 0 ? 'PART PAID' : 'UNPAID')
+        : 'PAID IN FULL';
+  const statusCol = d.owing > 0
+        ? (d.totalPaid > 0 ? [180,120,20] : INV_CLR.red)
+        : INV_CLR.green;
+
+  const sums = [
+    ['Rental charges', '$'+invMoney(d.totalDue),  INV_CLR.dark],
+    ['Payments received', '$'+invMoney(d.totalPaid), INV_CLR.green],
+    ['Outstanding', '$'+invMoney(d.owing), d.owing > 0 ? INV_CLR.red : INV_CLR.green]
+  ];
+  sums.forEach(function(s,i){
+    const cx = M + 4 + i*((CW-40)/3);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.6);
+    doc.setTextColor.apply(doc, INV_CLR.grey);
+    doc.text(s[0], cx, y+6.5);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.setTextColor.apply(doc, s[2]);
+    doc.text(s[1], cx, y+12.8);
+  });
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.2);
+  const stW = doc.getTextWidth(status) + 8;
+  doc.setFillColor.apply(doc, statusCol);
+  doc.roundedRect(PW-M-stW-4, y+5.2, stW, 6.6, 1.2, 1.2, 'F');
+  doc.setTextColor.apply(doc, INV_CLR.white);
+  doc.text(status, PW-M-4-stW/2, y+9.7, {align:'center'});
+
+  y += sumH + 9;
+
+  // ─────────── CHARGES TABLE ───────────
+  const cVeh = M + 36, cReg = M + 68, cRent = M + 116, cPaid = M + 138, cBal = M + 160, cStat = PW - M - 3;
 
   function tableHead(){
     doc.setFillColor.apply(doc, INV_CLR.dark);
     doc.rect(M,y,CW,8,'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(7.2);
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.8);
     doc.setTextColor.apply(doc, INV_CLR.white);
-    doc.text('WEEK STARTING', M+3, y+5.3);
-    doc.text('VEHICLE', colCar, y+5.3);
-    doc.text('RENT', colRent, y+5.3, {align:'right'});
-    doc.text('PAID', colPaid, y+5.3, {align:'right'});
-    doc.text('STATUS', colStat-3, y+5.3, {align:'right'});
+    doc.text('WEEK COMMENCING', M+3, y+5.3);
+    doc.text('VEHICLE', cVeh, y+5.3);
+    doc.text('REGISTRATION', cReg, y+5.3);
+    doc.text('RENT', cRent, y+5.3, {align:'right'});
+    doc.text('PAID', cPaid, y+5.3, {align:'right'});
+    doc.text('BALANCE', cBal, y+5.3, {align:'right'});
+    doc.text('STATUS', cStat, y+5.3, {align:'right'});
     y += 8;
   }
   tableHead();
@@ -841,72 +946,138 @@ function buildInvoicePDF(d){
       doc.addPage(); header(false); y = 26; tableHead();
       doc.setFont('helvetica','normal'); doc.setFontSize(8);
     }
-    if(i % 2 === 1){
-      doc.setFillColor(248,248,249);
-      doc.rect(M,y,CW,7,'F');
-    }
+    if(i % 2 === 1){ doc.setFillColor(249,250,251); doc.rect(M,y,CW,7,'F'); }
     const due  = Number(w.amount_due||0);
     const paid = Number(w.amount_paid||0);
+    const bal  = Math.max(0, due - paid);
     const st   = w.status || 'Unpaid';
 
     doc.setTextColor.apply(doc, INV_CLR.dark);
     doc.text(invDate(w.week_start), M+3, y+4.8);
+    // Either the live lookup or, on a reissued invoice, the frozen copy
+    const veh = d.carByAsg[w.assignment_id] || {};
+    const vMake = veh.make || w.car_make || '';
+    const vRego = veh.rego || w.car_rego || '';
     doc.setTextColor.apply(doc, INV_CLR.grey);
-    doc.text(String(d.carByAsg[w.assignment_id] || '-'), colCar, y+4.8);
+    doc.text(String(vMake || '-'), cVeh, y+4.8);
     doc.setTextColor.apply(doc, INV_CLR.dark);
-    doc.text('$'+invMoney(due), colRent, y+4.8, {align:'right'});
-    doc.text('$'+invMoney(paid), colPaid, y+4.8, {align:'right'});
+    doc.text(String(vRego || '-'), cReg, y+4.8);
+    doc.text('$'+invMoney(due),  cRent, y+4.8, {align:'right'});
+    doc.text('$'+invMoney(paid), cPaid, y+4.8, {align:'right'});
 
     doc.setFont('helvetica','bold');
+    doc.setTextColor.apply(doc, bal > 0 ? INV_CLR.red : INV_CLR.grey);
+    doc.text('$'+invMoney(bal), cBal, y+4.8, {align:'right'});
+
     if(st === 'Paid')          doc.setTextColor.apply(doc, INV_CLR.green);
     else if(st === 'Partial')  doc.setTextColor(180,120,20);
     else                       doc.setTextColor.apply(doc, INV_CLR.red);
-    doc.text(st, colStat-3, y+4.8, {align:'right'});
+    doc.text(st, cStat, y+4.8, {align:'right'});
     doc.setFont('helvetica','normal');
     y += 7;
   });
 
-  // ── Totals ──
-  if(y + 46 > PH - 20){ doc.addPage(); header(false); y = 26; }
-  y += 6;
+  doc.setDrawColor.apply(doc, INV_CLR.line); doc.setLineWidth(0.3);
+  doc.line(M, y, PW-M, y);
+  y += 5;
+  doc.setFont('helvetica','italic'); doc.setFontSize(7);
+  doc.setTextColor.apply(doc, INV_CLR.grey);
+  doc.text('Each rental week runs Monday to Sunday.', M+1, y);
+  y += 7;
+
+  // ─────────── TOTALS ───────────
+  if(y + 60 > PH - 20){ doc.addPage(); header(false); y = 26; }
 
   function totalRow(label, value, strong){
     doc.setFont('helvetica', strong ? 'bold' : 'normal'); doc.setFontSize(9);
     doc.setTextColor.apply(doc, strong ? INV_CLR.dark : INV_CLR.grey);
-    doc.text(label, colRent, y, {align:'right'});
+    doc.text(label, cPaid + 14, y, {align:'right'});
     doc.setFont('helvetica','bold');
     doc.setTextColor.apply(doc, INV_CLR.dark);
-    doc.text('$'+invMoney(value), colStat, y, {align:'right'});
+    doc.text('$'+invMoney(value), PW-M-3, y, {align:'right'});
     y += 6;
   }
-  totalRow('Total rent for this period', d.totalDue, false);
-  totalRow('Total paid', d.totalPaid, false);
+  totalRow('Total rental charges', d.totalDue, false);
+  totalRow('Less: payments received', d.totalPaid, false);
 
-  y += 2;
-  const owing = d.owing > 0;
+  // Sits directly beneath both figures, so it reads as covering the charges
+  // and the payments received, not just one of them.
+  doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+  doc.setTextColor(150,158,168);
+  doc.text('GST Exclusive', PW-M-3, y-1.2, {align:'right'});
+  y += 3;
   doc.setFillColor.apply(doc, INV_CLR.dark);
-  doc.rect(M, y, CW, 13, 'F');
+  doc.rect(M, y, CW, 17, 'F');
   doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
   doc.setTextColor.apply(doc, INV_CLR.white);
-  doc.text(owing ? 'STILL OWING' : 'PAID IN FULL', M+5, y+8.4);
-  doc.setFontSize(13);
-  doc.setTextColor.apply(doc, owing ? [248,113,113] : [74,222,128]);
-  doc.text('$'+invMoney(owing ? d.owing : d.totalPaid), PW-M-5, y+8.8, {align:'right'});
-  y += 19;
+  doc.text(d.owing > 0 ? 'AMOUNT DUE' : 'PAID IN FULL', M+5, y+9.5);
+  doc.setFontSize(14);
+  doc.setTextColor.apply(doc, d.owing > 0 ? [255,140,140] : [110,220,140]);
+  doc.text('$'+invMoney(d.owing > 0 ? d.owing : d.totalPaid), PW-M-5, y+9.2, {align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+  doc.setTextColor(150,158,168);
+  doc.text('GST Exclusive', PW-M-5, y+14, {align:'right'});
+  y += 24;
 
-  // ── GST position, stated plainly ──
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.6);
-  doc.setTextColor.apply(doc, INV_CLR.grey);
-  doc.text('No GST has been charged on this invoice. Amounts shown are the weekly rent only.', M, y);
-  y += 4.6;
-  doc.text(INV_CO.name + '  ·  ' + INV_CO.abn + '  ·  ' + INV_CO.region, M, y);
+  // ─────────── PAYMENT REFERENCE ───────────
+  // The bank details are given to the driver when their application is
+  // approved. All the invoice needs is something to quote, so a payment can
+  // be matched back to it.
+  if(d.owing > 0){
+    const refH = 15;
+    doc.setFillColor(247,248,249);
+    doc.setDrawColor.apply(doc, INV_CLR.line); doc.setLineWidth(0.3);
+    doc.rect(M, y, CW, refH, 'FD');
+    doc.setFillColor.apply(doc, INV_CLR.gold);
+    doc.rect(M, y, 1.2, refH, 'F');
 
-  // ── Footers ──
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+    doc.setTextColor.apply(doc, INV_CLR.grey);
+    doc.text('WHEN PAYING, PLEASE QUOTE', M+6, y+6);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.4);
+    doc.text('Pay into the account provided when your rental was approved.', M+6, y+11.5);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.setTextColor.apply(doc, INV_CLR.gold);
+    doc.text(d.invNo, PW-M-6, y+9.8, {align:'right'});
+    y += refH + 7;
+  }
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(8);
+  doc.setTextColor.apply(doc, INV_CLR.dark);
+  doc.text('Thank you for renting with ' + INV_CO.name.replace(' Pty Ltd','') + '.', M+1, y);
+
   const pages = doc.internal.getNumberOfPages();
   for(let p = 1; p <= pages; p++){ doc.setPage(p); footer(p, pages); }
 
   const safe = String(d.driverName).replace(/[^A-Za-z0-9_-]/g,'_');
-  doc.save(d.invNo + '_' + safe + '.pdf');
+  const fileName = d.invNo + '_' + safe + '.pdf';
+
+  if(mode === 'email'){
+    const to = d.driver && d.driver.email;
+    if(!to){ alert('Invoice ' + d.invNo + ' was created, but this driver has no email address on file.\n\nUse "Create & download" and send it manually.'); return; }
+    await emailPdf(doc, fileName, to, 'Your Ozee Rentals invoice ' + d.invNo,
+      '<p>Hi ' + d.driverName + ',</p>'
+      + '<p>Please find attached your rental invoice <strong>' + d.invNo + '</strong>, covering '
+      + invDate(d.from) + ' to ' + invDate(d.to) + '.</p>'
+      + (d.owing > 0 ? '<p>Outstanding balance: <strong>$' + invMoney(d.owing) + '</strong><br>'
+                     + 'Please quote <strong>' + d.invNo + '</strong> as the payment reference.</p>'
+                     : '<p>This invoice is paid in full. Thank you.</p>')
+      + '<p>Kind regards,<br>Ozee Rentals</p>');
+    alert('Invoice ' + d.invNo + ' has been emailed to ' + to + '.');
+  } else if(mode === 'whatsapp'){
+    const mob = d.driver && d.driver.mobile;
+    if(!mob){ alert('Invoice ' + d.invNo + ' was created, but this driver has no mobile number on file.\n\nUse "Create & download" and send it manually.'); return; }
+    const link = await uploadPdfForSharing(doc, 'driver-documents', 'invoices/' + safe + '/' + fileName);
+    openWhatsApp(mob,
+      'Hi ' + d.driverName + ', here is your Ozee Rentals invoice ' + d.invNo + ' ('
+      + invDate(d.from) + ' to ' + invDate(d.to) + '):\n' + link
+      + (d.owing > 0 ? '\n\nOutstanding balance: $' + invMoney(d.owing)
+                     + '\nPayment reference: ' + d.invNo
+                     : '\n\nPaid in full - thank you.'));
+  } else {
+    doc.save(fileName);
+  }
 }
 
 let _partialWeek = null, _partialAssignment = null;
@@ -1045,7 +1216,9 @@ async function signOut() {
     </div>
     <div class="pm-foot">
       <button class="btn btn-outline" onclick="closeInvoice()">Cancel</button>
-      <button class="btn btn-paid" id="invBtn" onclick="generateInvoice()">Create invoice</button>
+      <button class="btn btn-paid" id="invBtn" onclick="generateInvoice('download')">Create &amp; download</button>
+      <button class="btn btn-outline" onclick="generateInvoice('email')">Create &amp; email</button>
+      <button class="btn btn-outline" onclick="generateInvoice('whatsapp')">Create &amp; WhatsApp</button>
     </div>
   </div>
 </div>
