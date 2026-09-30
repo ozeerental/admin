@@ -1192,49 +1192,154 @@ function editCar(id) {
   if (car) openCarModal(car);
 }
 
-async function deleteCar(id, rego) {
-  // A car with money recorded against it must never be deleted — that
-  // history is how you know whether the car was worth owning. Retire it
-  // instead, from the Edit screen.
-  const [exp, inc, asg] = await Promise.all([
-    _db.from('car_expenses').select('id').eq('car_id', id).limit(1),
-    _db.from('rent_payments').select('id').eq('car_id', id).limit(1),
-    _db.from('car_assignments').select('id').eq('car_id', id).limit(1)
-  ]);
-  if((exp.data && exp.data.length) || (inc.data && inc.data.length) || (asg.data && asg.data.length)){
-    alert('This car cannot be deleted.\n\n'
-        + rego + ' has costs, earnings or rental history recorded against it. '
-        + 'Deleting it would destroy that record.\n\n'
-        + 'If it has left your fleet, open Edit and use "Retire This Vehicle" instead — '
-        + 'sold, written off, or returned to its owner. The car comes off the website '
-        + 'but its full history is kept.');
-    return;
-  }
-  return _deleteCarConfirmed(id, rego);
+// ─── DELETING A CAR ─────────────────────────────────────────────────
+// A car can be removed even after it has earned money, but never by
+// accident. Everything that would go is counted and shown first, and a
+// car with history has to be confirmed by typing its rego.
+//
+// If the car has simply left the fleet, Retire is still the right
+// choice — it keeps the full history and the reports. Delete is for a
+// car that should never have been in the system.
+
+// Any step that fails stops the whole delete, so a record is never
+// left half removed.
+async function _step(label, run){
+  const res = await run();
+  if (res && res.error) throw new Error(label + ': ' + res.error.message);
+  return res;
 }
 
-async function _deleteCarConfirmed(id, rego) {
-  if (!confirm(`Delete car ${rego}?\n\nThis permanently removes the car, its photos, documents, and any linked fines/assignments. This cannot be undone.`)) return;
+async function _carFootprint(id){
+  const asg  = await _db.from('car_assignments').select('id').eq('car_id', id);
+  const asgIds = (asg.data || []).map(a => a.id);
+
+  let weekIds = [];
+  if (asgIds.length){
+    const w = await _db.from('rent_weeks').select('id').in('assignment_id', asgIds);
+    weekIds = (w.data || []).map(x => x.id);
+  }
+
+  const countOf = async (table, col, val) => {
+    const { count } = await _db.from(table)
+      .select('id', { count: 'exact', head: true }).eq(col, val);
+    return count || 0;
+  };
+
+  const [expenses, payments, fines, odo, payouts] = await Promise.all([
+    countOf('car_expenses',      'car_id', id),
+    countOf('rent_payments',     'car_id', id),
+    countOf('fines_tolls',       'car_id', id),
+    countOf('odometer_readings', 'car_id', id),
+    countOf('owner_payouts',     'car_id', id)
+  ]);
+
+  const docs = await _db.from('documents')
+    .select('id', { count:'exact', head:true })
+    .eq('entity_type','car').eq('entity_id', id);
+
+  return {
+    asgIds, weekIds,
+    rentals:  asgIds.length,
+    weeks:    weekIds.length,
+    expenses, payments, fines, odo, payouts,
+    docs: docs.count || 0
+  };
+}
+
+async function deleteCar(id, rego) {
+  let f;
   try {
-    // 1. Delete storage files in car_<id>/ folder
+    f = await _carFootprint(id);
+  } catch(e){
+    alert('Could not check what is attached to ' + rego + ', so nothing was deleted.\n\n' + e.message);
+    return;
+  }
+
+  const lines = [];
+  if (f.rentals)  lines.push('• ' + f.rentals  + (f.rentals === 1 ? ' rental' : ' rentals'));
+  if (f.weeks)    lines.push('• ' + f.weeks    + (f.weeks === 1 ? ' rent week' : ' rent weeks'));
+  if (f.payments) lines.push('• ' + f.payments + (f.payments === 1 ? ' rent payment' : ' rent payments'));
+  if (f.expenses) lines.push('• ' + f.expenses + (f.expenses === 1 ? ' expense' : ' expenses'));
+  if (f.payouts)  lines.push('• ' + f.payouts  + (f.payouts === 1 ? ' owner payout' : ' owner payouts'));
+  if (f.fines)    lines.push('• ' + f.fines    + (f.fines === 1 ? ' fine or toll' : ' fines and tolls'));
+  if (f.odo)      lines.push('• ' + f.odo      + (f.odo === 1 ? ' odometer reading' : ' odometer readings'));
+  if (f.docs)     lines.push('• ' + f.docs     + (f.docs === 1 ? ' document' : ' documents'));
+
+  // Only money and rental history make a delete serious. Photos and
+  // papers are part of the car record itself, so a car added by mistake
+  // stays a one-click job even after something was uploaded to it.
+  const history = f.rentals + f.weeks + f.payments + f.expenses + f.payouts + f.fines;
+
+  if (!history){
+    if (!confirm('Delete ' + rego + '?\n\n'
+               + 'No rentals, costs or earnings are recorded against this car, '
+               + 'so only the car itself and anything uploaded to it will be '
+               + 'removed.\n\nThis cannot be undone.')) return;
+    return _deleteCarNow(id, rego, f);
+  }
+
+  // History exists, so make it deliberate.
+  const typed = prompt(
+      'DELETE ' + rego + ' AND ITS WHOLE HISTORY\n\n'
+    + 'This will permanently destroy:\n'
+    + lines.join('\n') + '\n'
+    + '• the car, its photos and documents\n\n'
+    + 'Its earnings and costs disappear from the finance reports. '
+    + 'This cannot be undone.\n\n'
+    + 'If the car has just left your fleet, cancel and use Retire instead — '
+    + 'that keeps everything.\n\n'
+    + 'To go ahead, type the rego exactly:  ' + rego);
+
+  if (typed === null) return;                         // cancelled
+  if (typed.trim().toUpperCase() !== String(rego).trim().toUpperCase()){
+    alert('That did not match ' + rego + ', so nothing was deleted.');
+    return;
+  }
+  return _deleteCarNow(id, rego, f);
+}
+
+async function _deleteCarNow(id, rego, f) {
+  try {
+    // Children first, in an order that never leaves a dangling link.
+    if (f.weekIds.length){
+      await _step('rent payments', () =>
+        _db.from('rent_payments').delete().in('rent_week_id', f.weekIds));
+    }
+    await _step('rent payments', () =>
+      _db.from('rent_payments').delete().eq('car_id', id));
+
+    if (f.asgIds.length){
+      await _step('rent weeks', () =>
+        _db.from('rent_weeks').delete().in('assignment_id', f.asgIds));
+      await _step('odometer readings', () =>
+        _db.from('odometer_readings').delete().in('assignment_id', f.asgIds));
+    }
+
+    await _step('expenses',          () => _db.from('car_expenses').delete().eq('car_id', id));
+    await _step('owner payouts',     () => _db.from('owner_payouts').delete().eq('car_id', id));
+    await _step('odometer readings', () => _db.from('odometer_readings').delete().eq('car_id', id));
+    await _step('fines and tolls',   () => _db.from('fines_tolls').delete().eq('car_id', id));
+    await _step('documents',         () =>
+      _db.from('documents').delete().eq('entity_type','car').eq('entity_id', id));
+
+    // Uploaded photos and papers.
     const folder = 'car_' + id;
     const { data: files } = await _db.storage.from('car-documents').list(folder, {limit:1000});
-    if (files && files.length) {
-      const paths = files.map(f => folder + '/' + f.name);
-      await _db.storage.from('car-documents').remove(paths);
+    if (files && files.length){
+      await _db.storage.from('car-documents')
+        .remove(files.map(file => folder + '/' + file.name));
     }
-    // 2. Delete document records for this car
-    await _db.from('documents').delete().eq('entity_type','car').eq('entity_id', id);
-    // 3. Delete linked fines/tolls (FK constraint) then assignments (FK constraint)
-    await _db.from('fines_tolls').delete().eq('car_id', id);
-    await _db.from('car_assignments').delete().eq('car_id', id);
-    // 4. Delete the car record
-    const { error } = await _db.from('cars').delete().eq('id', id);
-    if (error) { alert('Error: ' + error.message); return; }
+
+    await _step('rentals', () => _db.from('car_assignments').delete().eq('car_id', id));
+    await _step('the car', () => _db.from('cars').delete().eq('id', id));
+
     await loadCars();
-    alert(`Car ${rego} deleted successfully.`);
+    alert(rego + ' and everything recorded against it has been deleted.');
   } catch(e) {
-    alert('Error: ' + e.message);
+    await loadCars();
+    alert('The delete stopped partway through and ' + rego + ' is still here.\n\n'
+        + 'Could not remove ' + e.message + '\n\n'
+        + 'Nothing further was touched. Try again, or use delete-test-data.sql.');
   }
 }
 
