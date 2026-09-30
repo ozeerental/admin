@@ -62,6 +62,8 @@ tbody tr:hover{background:rgba(255,255,255,.02);}
 .dl-btn{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.35);color:#F5A623;font-size:.72rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:.45rem .8rem;border-radius:6px;cursor:pointer;font-family:"Barlow",sans-serif;white-space:nowrap;}
 .dl-btn:hover{background:rgba(245,166,35,.18);}
 .dl-btn:disabled{opacity:.5;cursor:default;}
+.dl-btn.del-btn{background:rgba(231,76,60,.1);border-color:rgba(231,76,60,.35);color:#E74C3C;}
+.dl-btn.del-btn:hover{background:rgba(231,76,60,.2);}
 .empty-msg{padding:3rem 1.5rem;text-align:center;color:rgba(255,255,255,.35);font-size:.9rem;}
 .loading-cell{padding:2rem;text-align:center;color:rgba(255,255,255,.35);}
 
@@ -237,9 +239,42 @@ function renderTable(list){
         <button class="dl-btn" onclick='redownload(${JSON.stringify(inv.id)},"download")' ${hasSnap ? '' : 'disabled title="No stored copy for this invoice — issued before the snapshot feature was added."'}>⬇ PDF</button>
         <button class="dl-btn" onclick='redownload(${JSON.stringify(inv.id)},"email")' ${hasSnap ? '' : 'disabled'} title="Email this invoice to the driver">✉</button>
         <button class="dl-btn" onclick='redownload(${JSON.stringify(inv.id)},"whatsapp")' ${hasSnap ? '' : 'disabled'} title="Send the driver a WhatsApp link">WA</button>
+        <button class="dl-btn del-btn" onclick='deleteInvoice(${JSON.stringify(inv.id)},${JSON.stringify(inv.invoice_no)})' title="Remove this invoice from the register">🗑</button>
       </td>
     </tr>`;
   }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DELETING AN INVOICE
+//
+//  An issued invoice is a record of what a driver was billed, so
+//  removing one is deliberate: the invoice number has to be typed.
+//  The rent weeks themselves are not touched — the driver still owes
+//  what they owe in the Rent Tracker, and can be invoiced again.
+// ═══════════════════════════════════════════════════════════
+async function deleteInvoice(id, no){
+  const typed = prompt(
+      'DELETE INVOICE ' + no + '\n\n'
+    + 'This removes it from the register for good. The stored copy goes '
+    + 'with it, so it can never be downloaded or re-sent again.\n\n'
+    + 'The rent weeks are not touched. The driver still owes whatever the '
+    + 'Rent Tracker says, and can be invoiced again — under a new number, '
+    + 'because numbering never goes backwards.\n\n'
+    + 'Any copy already emailed or sent on WhatsApp stays with the driver.\n\n'
+    + 'To go ahead, type the invoice number exactly:  ' + no);
+
+  if(typed === null) return;                              // cancelled
+  if(typed.trim().toUpperCase() !== String(no).trim().toUpperCase()){
+    alert('That did not match ' + no + ', so nothing was deleted.');
+    return;
+  }
+
+  const { error } = await _db.from('driver_invoices').delete().eq('id', id);
+  if(error){ alert('Could not delete ' + no + ':\n\n' + error.message); return; }
+
+  await loadInvoices();
+  alert('Invoice ' + no + ' has been deleted.');
 }
 
 // ═══════════════════════════════════════════════════════════
