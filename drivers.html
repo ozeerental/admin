@@ -461,33 +461,181 @@ async function loadDrivers(){
 }
 
 
-// Delete a driver + their documents + storage files
-async function deleteDriver(id){
-  var driver = allDrivers.find(function(d){return d.id===id;});
-  var name = driver ? (driver.first_name+' '+driver.last_name) : 'this driver';
-  if(!confirm('Delete '+name+'?\n\nThis permanently removes the driver, their documents, and uploaded files. This cannot be undone.')) return;
+// ─── DELETING A DRIVER ──────────────────────────────────────────────
+// A driver can be removed even after they have rented and paid, but
+// never by accident. Everything that would go is counted and shown
+// first, and a driver with history has to be confirmed by typing their
+// name. A rejected applicant who never rented needs only a plain OK.
 
-  try {
-    // 1. Delete storage files in driver_<id>/ folder
-    var folder = 'driver_'+id;
-    var { data: files } = await window._sb.storage.from('driver-documents').list(folder, {limit:1000});
-    if(files && files.length){
-      var paths = files.map(function(f){ return folder+'/'+f.name; });
-      await window._sb.storage.from('driver-documents').remove(paths);
+// Any step that fails stops the whole delete, so a driver is never
+// left half removed.
+async function _step(label, run){
+  var res = await run();
+  if(res && res.error) throw new Error(label + ': ' + res.error.message);
+  return res;
+}
+
+async function _driverFootprint(id){
+  var asg = await window._sb.from('car_assignments')
+                  .select('id, car_id, status').eq('driver_id', id);
+  var rows   = asg.data || [];
+  var asgIds = rows.map(function(a){ return a.id; });
+
+  // Cars this driver is still out in. Removing the rental has to hand
+  // the car back, or it stays marked Rented with nobody in it.
+  var freeCarIds = rows.filter(function(a){ return a.status === 'Active'; })
+                       .map(function(a){ return a.car_id; })
+                       .filter(function(v,i,arr){ return v && arr.indexOf(v) === i; });
+
+  // Which cars this driver's records are attached to — deleting them
+  // changes those cars' finance reports, so they are worth naming.
+  var carIds = rows.map(function(a){ return a.car_id; })
+                   .filter(function(v,i,arr){ return v && arr.indexOf(v) === i; });
+  var regos = [];
+  if(carIds.length){
+    var cr = await window._sb.from('cars').select('rego').in('id', carIds);
+    regos = (cr.data || []).map(function(c){ return c.rego; });
+  }
+
+  var weekIds = [];
+  var payments = 0;
+  if(asgIds.length){
+    var w = await window._sb.from('rent_weeks').select('id').in('assignment_id', asgIds);
+    weekIds = (w.data || []).map(function(x){ return x.id; });
+    if(weekIds.length){
+      var p = await window._sb.from('rent_payments')
+                    .select('id', {count:'exact', head:true}).in('rent_week_id', weekIds);
+      payments = p.count || 0;
     }
-    // 2. Delete document records
-    await window._sb.from('documents').delete().eq('entity_type','driver').eq('entity_id',id);
-    // 3. Delete linked fines/tolls then assignments (FK constraints)
-    await window._sb.from('fines_tolls').delete().eq('driver_id', id);
-    await window._sb.from('car_assignments').delete().eq('driver_id', id);
-    // 4. Delete the driver record
-    var { error } = await window._sb.from('drivers').delete().eq('id', id);
-    if(error){ alert('Error deleting driver: '+error.message); return; }
-    // 4. Reload
-    loadDrivers();
-    alert(name+' deleted successfully.');
+  }
+
+  var inv = await window._sb.from('driver_invoices')
+                  .select('id', {count:'exact', head:true}).eq('driver_id', id);
+  var fin = await window._sb.from('fines_tolls')
+                  .select('id', {count:'exact', head:true}).eq('driver_id', id);
+  var doc = await window._sb.from('documents')
+                  .select('id', {count:'exact', head:true})
+                  .eq('entity_type','driver').eq('entity_id', id);
+
+  return {
+    asgIds: asgIds, weekIds: weekIds, regos: regos, freeCarIds: freeCarIds,
+    rentals: asgIds.length,
+    weeks: weekIds.length,
+    payments: payments,
+    invoices: inv.count || 0,
+    fines: fin.count || 0,
+    docs: doc.count || 0
+  };
+}
+
+async function deleteDriver(id){
+  var driver = allDrivers.find(function(d){ return d.id === id; });
+  var name = driver ? (driver.first_name + ' ' + (driver.last_name || '')).trim() : 'this driver';
+
+  var f;
+  try {
+    f = await _driverFootprint(id);
   } catch(e){
-    alert('Error: '+e.message);
+    alert('Could not check what is attached to ' + name + ', so nothing was deleted.\n\n' + e.message);
+    return;
+  }
+
+  var lines = [];
+  if(f.rentals)  lines.push('• ' + f.rentals  + (f.rentals === 1 ? ' rental' : ' rentals'));
+  if(f.weeks)    lines.push('• ' + f.weeks    + (f.weeks === 1 ? ' rent week' : ' rent weeks'));
+  if(f.payments) lines.push('• ' + f.payments + (f.payments === 1 ? ' rent payment' : ' rent payments'));
+  if(f.invoices) lines.push('• ' + f.invoices + (f.invoices === 1 ? ' invoice' : ' invoices'));
+  if(f.fines)    lines.push('• ' + f.fines    + (f.fines === 1 ? ' fine or toll' : ' fines and tolls'));
+  if(f.docs)     lines.push('• ' + f.docs     + (f.docs === 1 ? ' document' : ' documents'));
+
+  // Only money and rental history make a delete serious. Every applicant
+  // uploads a licence and an ID, so those alone must not turn removing a
+  // rejected application into a typing exercise.
+  var history = f.rentals + f.weeks + f.payments + f.invoices + f.fines;
+
+  if(!history){
+    if(!confirm('Delete ' + name + '?\n\n'
+              + 'They have never rented and have no invoices, so only their '
+              + 'application and uploaded files will be removed.\n\n'
+              + 'This cannot be undone.')) return;
+    return _deleteDriverNow(id, name, f);
+  }
+
+  var warn = '';
+  if(f.regos.length){
+    warn = '\nThe rent they paid comes off ' + f.regos.join(', ')
+         + ', so those finance reports will change.\n';
+  }
+
+  var typed = prompt(
+      'DELETE ' + name + ' AND THEIR WHOLE HISTORY\n\n'
+    + 'This will permanently destroy:\n'
+    + lines.join('\n') + '\n'
+    + '• their application, licence, ID and other uploads\n'
+    + warn
+    + '\nThis cannot be undone.\n\n'
+    + 'To go ahead, type their first name exactly:  ' + (driver ? driver.first_name : ''));
+
+  if(typed === null) return;                            // cancelled
+  if(!driver || typed.trim().toLowerCase() !== String(driver.first_name).trim().toLowerCase()){
+    alert('That did not match, so nothing was deleted.');
+    return;
+  }
+  return _deleteDriverNow(id, name, f);
+}
+
+async function _deleteDriverNow(id, name, f){
+  try {
+    // Children first, in an order that never leaves a dangling link.
+    if(f.weekIds.length){
+      await _step('rent payments', function(){
+        return window._sb.from('rent_payments').delete().in('rent_week_id', f.weekIds); });
+    }
+    if(f.asgIds.length){
+      await _step('rent weeks', function(){
+        return window._sb.from('rent_weeks').delete().in('assignment_id', f.asgIds); });
+      await _step('odometer readings', function(){
+        return window._sb.from('odometer_readings').delete().in('assignment_id', f.asgIds); });
+    }
+
+    await _step('invoices', function(){
+      return window._sb.from('driver_invoices').delete().eq('driver_id', id); });
+    await _step('fines and tolls', function(){
+      return window._sb.from('fines_tolls').delete().eq('driver_id', id); });
+    await _step('documents', function(){
+      return window._sb.from('documents').delete()
+               .eq('entity_type','driver').eq('entity_id', id); });
+
+    // Uploaded licence, ID, visa and so on.
+    var folder = 'driver_' + id;
+    var listed = await window._sb.storage.from('driver-documents').list(folder, {limit:1000});
+    var files = listed.data;
+    if(files && files.length){
+      await window._sb.storage.from('driver-documents')
+        .remove(files.map(function(file){ return folder + '/' + file.name; }));
+    }
+
+    await _step('rentals', function(){
+      return window._sb.from('car_assignments').delete().eq('driver_id', id); });
+
+    // Hand back any car they were still out in, so it does not sit
+    // marked Rented with nobody driving it. A retired car stays retired.
+    if(f.freeCarIds && f.freeCarIds.length){
+      await _step('car status', function(){
+        return window._sb.from('cars').update({ status: 'Available' })
+                 .in('id', f.freeCarIds).is('retired_reason', null); });
+    }
+
+    await _step('the driver', function(){
+      return window._sb.from('drivers').delete().eq('id', id); });
+
+    await loadDrivers();
+    alert(name + ' and everything recorded against them has been deleted.');
+  } catch(e){
+    await loadDrivers();
+    alert('The delete stopped partway through and ' + name + ' is still here.\n\n'
+        + 'Could not remove ' + e.message + '\n\n'
+        + 'Nothing further was touched. Try again, or use delete-test-data.sql.');
   }
 }
 
