@@ -1114,9 +1114,32 @@ async function saveCar() {
     }).eq('id', carId);
   }
 
+  // Work out the message BEFORE closing: closeModal() clears editingCarId,
+  // so reading it afterwards always said "added" — even on an edit or a
+  // retirement.
+  const wasEdit    = !!editingCarId;
+  const wasRetired = !!document.getElementById('c_retired').value;
+  const regoSaved  = document.getElementById('c_rego').value.trim() || 'The car';
+  // allCars still holds the state from before this save, so this tells us
+  // whether the car has just been retired or was already out of the fleet.
+  const alreadyRetired = wasEdit &&
+        !!(allCars.find(c => c.id === editingCarId) || {}).retired_reason;
+
   closeModal();
   await loadCars();
-  alert(editingCarId ? '✅ Car updated successfully!' : '✅ Car added! It is now live on your public website.');
+
+  if (wasRetired && alreadyRetired) {
+    alert('✅ Retired vehicle updated.');
+  } else if (wasRetired) {
+    alert('✅ ' + regoSaved + ' has been retired.\n\n'
+        + 'It is no longer available for rent and has been removed from your '
+        + 'public website. Its full history is kept, and you can still open '
+        + 'its finance report at any time.');
+  } else if (wasEdit) {
+    alert('✅ Car updated successfully!');
+  } else {
+    alert('✅ Car added! It is now live on your public website.');
+  }
   document.getElementById('saveCarBtn').textContent = 'Save Car';
   document.getElementById('saveCarBtn').disabled = false;
 }

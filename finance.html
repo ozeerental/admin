@@ -486,16 +486,19 @@ async function openDetail(carId){
       ? `<span class="own-pill own-ext">Owned by someone else${car.owner_name ? ' · '+car.owner_name : ''}${car.service_fee_pct ? ' · '+car.service_fee_pct+'% fee' : ''}</span>`
       : `<span class="own-pill own-biz">Owned by the business</span>`);
 
+  // Money lists read newest first, so the most recent month is the first
+  // thing anyone sees. The odometer stays oldest first, because its
+  // "since previous" column only makes sense read forwards.
   const [{ data: exp }, { data: inc }, { data: hist }, { data: odo }, { data: pay }] = await Promise.all([
-    _db.from('car_expenses').select('*').eq('car_id', carId).order('expense_date', {ascending:true}),
-    _db.from('rent_payments').select('*').eq('car_id', carId).order('payment_date', {ascending:true}),
+    _db.from('car_expenses').select('*').eq('car_id', carId).order('expense_date', {ascending:false}),
+    _db.from('rent_payments').select('*').eq('car_id', carId).order('payment_date', {ascending:false}),
     _db.from('car_assignments')
        .select('id,start_date,end_date,status,weekly_rate,drivers(first_name,last_name,mobile)')
-       .eq('car_id', carId).order('start_date', {ascending:true}),
+       .eq('car_id', carId).order('start_date', {ascending:false}),
     _db.from('odometer_readings').select('*').eq('car_id', carId)
        .order('reading_date',{ascending:true}).order('reading_km',{ascending:true}),
     _db.from('owner_payouts').select('*').eq('car_id', carId)
-       .order('payout_date',{ascending:true})
+       .order('payout_date',{ascending:false})
   ]);
   activeOdo = odo || [];
   activePayouts = pay || [];
@@ -1188,7 +1191,7 @@ async function exportPDF(mode){
     if(!activeExpenses.length){ emptyNote('No expenses recorded for this vehicle.'); }
     else {
       cols([{t:'DATE',x:M+4},{t:'CATEGORY',x:M+32},{t:'DESCRIPTION',x:M+72},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
-      activeExpenses.slice().sort((a,b)=>String(a.expense_date).localeCompare(String(b.expense_date)))
+      activeExpenses.slice().sort((a,b)=>String(b.expense_date).localeCompare(String(a.expense_date)))
         .forEach((e,i)=>row([
           {t:fmtDate(e.expense_date),x:M+4},
           {t:e.category,x:M+32,max:36},
@@ -1218,7 +1221,7 @@ async function exportPDF(mode){
     if(!activeIncome.length){ emptyNote('No rental income has been recorded for this vehicle.'); }
     else {
       cols([{t:'DATE RECEIVED',x:M+4},{t:'DRIVER',x:M+32},{t:'RENTAL CYCLE',x:M+78},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
-      activeIncome.slice().sort((a,b)=>String(a.payment_date).localeCompare(String(b.payment_date)))
+      activeIncome.slice().sort((a,b)=>String(b.payment_date).localeCompare(String(a.payment_date)))
         .forEach((r,i)=>row([
           {t:fmtDate(r.payment_date),x:M+4},
           {t:r.driver_name||'-',x:M+32,max:54},
@@ -1334,7 +1337,7 @@ async function exportPDF(mode){
       if(activePayouts.length){
         ensure(20);
         cols([{t:'DATE PAID',x:M+4},{t:'HOW',x:M+40},{t:'NOTE',x:M+80},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
-        activePayouts.slice().sort((a,b)=>String(a.payout_date).localeCompare(String(b.payout_date)))
+        activePayouts.slice().sort((a,b)=>String(b.payout_date).localeCompare(String(a.payout_date)))
           .forEach((p,i)=>row([
             {t:fmtDate(p.payout_date), x:M+4},
             {t:p.method||'—', x:M+40, max:38},

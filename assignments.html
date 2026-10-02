@@ -574,12 +574,25 @@ async function saveReturn(){
 }
 
 async function openAssignModal(){
-  const [{data:drivers},{data:cars}] = await Promise.all([
+  // Only cars that can genuinely be rented out today. Three filters, because
+  // one is not enough: status catches the ordinary case, retired_reason
+  // catches a car retired while it was sitting Available, and the live list
+  // of active rentals catches a car whose status drifted out of step with
+  // reality — which is how the same car ends up rented to two drivers.
+  const [{data:drivers},{data:cars},{data:busy}] = await Promise.all([
     window._sb.from('drivers').select('id,first_name,last_name').eq('status','Approved').order('first_name'),
-    window._sb.from('cars').select('id,rego,make_model,weekly_rate').eq('status','Available').order('rego'),
+    window._sb.from('cars').select('id,rego,make_model,weekly_rate,status,retired_reason').order('rego'),
+    window._sb.from('car_assignments').select('car_id').eq('status','Active')
   ]);
+
+  const onRent = new Set((busy||[]).map(a => a.car_id));
+  const free = (cars||[]).filter(c =>
+        c.status === 'Available' && !c.retired_reason && !onRent.has(c.id));
+
   document.getElementById('a_driver').innerHTML = '<option value="">Select driver...</option>' + (drivers||[]).map(d=>`<option value="${d.id}">${d.first_name} ${d.last_name}</option>`).join('');
-  document.getElementById('a_car').innerHTML = '<option value="">Select car...</option>' + (cars||[]).map(c=>`<option value="${c.id}" data-rate="${c.weekly_rate}">${c.rego} — ${c.make_model} ($${c.weekly_rate}/wk)</option>`).join('');
+  document.getElementById('a_car').innerHTML = free.length
+      ? '<option value="">Select car...</option>' + free.map(c=>`<option value="${c.id}" data-rate="${c.weekly_rate}">${c.rego} — ${c.make_model} ($${c.weekly_rate}/wk)</option>`).join('')
+      : '<option value="">No cars are free to rent out right now</option>';
   document.getElementById('a_start').value = todayISO();
   document.getElementById('assignModal').classList.add('open');
 }
