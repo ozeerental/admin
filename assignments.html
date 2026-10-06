@@ -344,13 +344,25 @@ tr:hover td{background:rgba(255,255,255,.03);}
         <div class="form-group"><label class="form-label">Car <span class="req">*</span></label><select class="form-select" id="a_car"><option value="">Select car...</option></select></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Start Date <span class="req">*</span></label><input type="date" class="form-input" id="a_start"></div>
-        <div class="form-group"><label class="form-label">End Date</label><input type="date" class="form-input" id="a_end"></div>
+        <div class="form-group"><label class="form-label">Start Date <span class="req">*</span></label><input type="date" class="form-input" id="a_start" onchange="updatePartWeek()"></div>
+        <div class="form-group"><label class="form-label">Agreed End Date <span style="font-weight:400;opacity:.5;">(optional)</span></label><input type="date" class="form-input" id="a_end"><div style="font-size:.7rem;color:rgba(255,255,255,.35);margin-top:.3rem;">A note of what was agreed. Rent keeps running until you end the rental by hand.</div></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Contract Period</label><select class="form-select" id="a_contract"><option>3 Months</option><option>6 Months</option><option>Monthly</option><option>Weekly</option></select></div>
-        <div class="form-group"><label class="form-label">Weekly Rate (AUD) <span class="req">*</span></label><input type="number" class="form-input" id="a_rate" placeholder="250"></div>
+        <div class="form-group"><label class="form-label">Weekly Rate (AUD) <span class="req">*</span></label><input type="number" class="form-input" id="a_rate" placeholder="250" oninput="updatePartWeek()"></div>
       </div>
+
+      <!-- Shown only when the car goes out mid-week, since that first week is
+           charged by the day rather than as a whole week. -->
+      <div class="form-group" id="a_partWrap" style="display:none;">
+        <label class="form-label">First Week — Rent to Sunday</label>
+        <div id="a_partNote" style="font-size:.78rem;color:rgba(255,255,255,.55);margin:-.2rem 0 .5rem;line-height:1.5;"></div>
+        <input type="number" class="form-input" id="a_first_amt" step="0.01" min="0" oninput="markPartWeekEdited()">
+        <div style="font-size:.72rem;color:rgba(255,255,255,.38);margin-top:.35rem;">
+          Worked out by the day. Type over it if you agreed something different.
+        </div>
+      </div>
+
       <div class="form-row">
         <div class="form-group"><label class="form-label">Bond Amount (AUD) <span class="req">*</span></label><input type="number" class="form-input" id="a_bond" placeholder="4 weeks rent"></div>
         <div class="form-group"><label class="form-label">Bond Paid?</label><select class="form-select" id="a_bond_paid"><option value="false">Not Yet</option><option value="true">Yes — Received</option></select></div>
@@ -494,6 +506,9 @@ async function endAssignment(id){
   document.getElementById('ret_damages').value = '';
   document.getElementById('ret_comments').value = '';
   document.getElementById('retDistance').textContent = '';
+  _finalWeekEdited = false;
+  document.getElementById('ret_final_amt').value = '';
+  updateFinalWeek();
   toggleBondAmount();
 
   document.getElementById('returnModal').classList.add('open');
@@ -520,6 +535,54 @@ function calcReturnDistance(){
       ? diff.toLocaleString('en-AU') + ' km driven during this rental'
       : 'That is lower than the handover reading — please check';
   el.style.color = diff >= 0 ? '#4ade80' : '#f87171';
+}
+
+// ─── THE RETURN WEEK ───────────────────────────────────────────────
+// Same rule as handover: the last week is charged from Monday to the day the
+// car actually came back, counting that day. If the rental started and ended
+// inside one week, only the days between are charged.
+let _finalWeekEdited = false;
+function markFinalWeekEdited(){ _finalWeekEdited = true; }
+
+function updateFinalWeek(){
+  const wrap = document.getElementById('ret_partWrap');
+  const note = document.getElementById('ret_partNote');
+  const amt  = document.getElementById('ret_final_amt');
+  if(!wrap || !_returnAssignment) return;
+
+  const endDate = document.getElementById('ret_date').value;
+  const rate    = Number(_returnAssignment.weekly_rate) || 0;
+  const start   = _returnAssignment.start_date;
+  if(!endDate || !rate || !start || endDate < start){ wrap.style.display = 'none'; return; }
+
+  const sameWeek = mondayISO(endDate) === mondayISO(start);
+  const days = sameWeek
+      ? (dayIndex(endDate) - dayIndex(start) + 1)
+      : (dayIndex(endDate) + 1);
+
+  if(days >= 7 && !sameWeek){                       // came back on a Sunday
+    wrap.style.display = 'none';
+    amt.value = '';
+    _finalWeekEdited = false;
+    return;
+  }
+
+  const daily = rate / 7;
+  const calc  = Math.round(daily * days * 100) / 100;
+  const from  = sameWeek ? new Date(start+'T00:00:00') : new Date(mondayISO(endDate)+'T00:00:00');
+  const to    = new Date(endDate+'T00:00:00');
+  const fmt   = x => x.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
+
+  note.textContent = fmt(from) + ' to ' + fmt(to) + ' · ' + days + (days===1?' day':' days')
+                   + '  ·  $' + daily.toFixed(2) + '/day';
+  wrap.style.display = '';
+  if(!_finalWeekEdited) amt.value = calc.toFixed(2);
+}
+
+function mondayISO(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate() - dayIndex(dateStr));
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
 async function saveReturn(){
@@ -549,6 +612,59 @@ async function saveReturn(){
 
   const { error } = await window._sb.from('car_assignments').update(upd).eq('id', id);
   if(error){ alert('Could not save: ' + error.message); return; }
+
+  // ── Settle the final week ──
+  // The car came back mid-week, so that week is charged to the day. Anything
+  // dated after the return is rent the driver never owed.
+  try {
+    const finalMonday = mondayISO(endDate);
+    const partWrap = document.getElementById('ret_partWrap');
+    const finalAmt = document.getElementById('ret_final_amt').value;
+
+    const { data: wks } = await window._sb.from('rent_weeks')
+        .select('id,week_start,amount_due,amount_paid,status').eq('assignment_id', id);
+
+    if(partWrap && partWrap.style.display !== 'none' && finalAmt !== ''){
+      const due = parseFloat(finalAmt);
+      const row = (wks||[]).find(w => w.week_start === finalMonday);
+      if(!row){
+        await window._sb.from('rent_weeks').insert({
+          assignment_id: id, week_start: finalMonday,
+          amount_due: due, amount_paid: 0, status: 'Unpaid',
+          note: 'Final week — charged to the day the car came back'
+        });
+      } else if(Number(row.amount_paid||0) === 0){
+        await window._sb.from('rent_weeks').update({ amount_due: due }).eq('id', row.id);
+      } else {
+        // Already paid something against that week, so never change it quietly.
+        const paid = Number(row.amount_paid);
+        const diff = Math.round((paid - due) * 100) / 100;
+        const msg = 'They have already paid $' + paid.toFixed(2) + ' for the final week, '
+                  + 'but only owe $' + due.toFixed(2) + ' now that the car is back.\n\n'
+                  + (diff > 0 ? 'That leaves them $' + diff.toFixed(2) + ' in credit.\n\n' : '')
+                  + 'Change the week to $' + due.toFixed(2) + '?';
+        if(confirm(msg)){
+          await window._sb.from('rent_weeks').update({ amount_due: due }).eq('id', row.id);
+        }
+      }
+    }
+
+    // Weeks dated after the return. Only ever clear ones nothing was paid on.
+    const after     = (wks||[]).filter(w => w.week_start > finalMonday);
+    const clearable = after.filter(w => Number(w.amount_paid||0) === 0);
+    const keepers   = after.length - clearable.length;
+    if(clearable.length){
+      await window._sb.from('rent_weeks').delete().in('id', clearable.map(w => w.id));
+    }
+    if(keepers > 0){
+      alert('Rental closed.\n\n' + keepers + (keepers === 1 ? ' week' : ' weeks')
+          + ' dated after the return still has money recorded against it, so '
+          + 'nothing was removed there. Please check it in the Rent Tracker.');
+    }
+  } catch(e){
+    alert('The rental was closed, but the final week could not be settled:\n\n'
+        + e.message + '\n\nPlease check the Rent Tracker.');
+  }
 
   // Log the return odometer reading against this rental
   if(!isNaN(odo) && odo >= 0 && carId){
@@ -594,6 +710,9 @@ async function openAssignModal(){
       ? '<option value="">Select car...</option>' + free.map(c=>`<option value="${c.id}" data-rate="${c.weekly_rate}">${c.rego} — ${c.make_model} ($${c.weekly_rate}/wk)</option>`).join('')
       : '<option value="">No cars are free to rent out right now</option>';
   document.getElementById('a_start').value = todayISO();
+  _partWeekEdited = false;
+  document.getElementById('a_first_amt').value = '';
+  updatePartWeek();
   document.getElementById('assignModal').classList.add('open');
 }
 
@@ -605,9 +724,53 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(rate){
       document.getElementById('a_rate').value = rate;
       document.getElementById('a_bond').value = (parseFloat(rate)*4).toFixed(0);
+      updatePartWeek();
     }
   });
 });
+
+// ─── THE HANDOVER WEEK ─────────────────────────────────────────────
+// Rent cycles run Monday to Sunday, but cars go out on any day. The first
+// week is charged by the day — the weekly rate divided by seven, times the
+// days from handover to Sunday, counting the handover day itself.
+let _partWeekEdited = false;
+function markPartWeekEdited(){ _partWeekEdited = true; }
+
+function dayIndex(dateStr){                       // Mon=0 … Sun=6
+  const d = new Date(dateStr+'T00:00:00');
+  return (d.getDay() + 6) % 7;
+}
+
+function updatePartWeek(){
+  const wrap  = document.getElementById('a_partWrap');
+  const note  = document.getElementById('a_partNote');
+  const amt   = document.getElementById('a_first_amt');
+  const start = document.getElementById('a_start').value;
+  const rate  = parseFloat(document.getElementById('a_rate').value);
+  if(!wrap) return;
+
+  if(!start || !rate || isNaN(rate)){ wrap.style.display = 'none'; return; }
+
+  const idx  = dayIndex(start);
+  const days = 7 - idx;
+  if(days >= 7){                                   // handed over on a Monday
+    wrap.style.display = 'none';
+    amt.value = '';
+    _partWeekEdited = false;
+    return;
+  }
+
+  const daily = rate / 7;
+  const calc  = Math.round(daily * days * 100) / 100;
+  const d     = new Date(start+'T00:00:00');
+  const sun   = new Date(d); sun.setDate(sun.getDate() + days - 1);
+  const fmt   = x => x.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
+
+  note.textContent = 'Handed over ' + fmt(d) + ' · ' + days + (days===1?' day':' days')
+                   + ' to ' + fmt(sun) + '  ·  $' + daily.toFixed(2) + '/day';
+  wrap.style.display = '';
+  if(!_partWeekEdited) amt.value = calc.toFixed(2);
+}
 
 function closeAssignModal(){ document.getElementById('assignModal').classList.remove('open'); }
 
@@ -625,6 +788,14 @@ async function saveAssignment(){
     status: 'Active',
   };
   if(!data.driver_id||!data.car_id||!data.start_date||!data.weekly_rate){ alert('Please fill all required fields.'); return; }
+
+  // Keep the agreed handover-week rent, so the figure is still right months
+  // later. Left empty, the Rent Tracker works it out by the day.
+  const partWrap = document.getElementById('a_partWrap');
+  const partAmt  = document.getElementById('a_first_amt').value;
+  if(partWrap && partWrap.style.display !== 'none' && partAmt !== ''){
+    data.first_week_amount = parseFloat(partAmt);
+  }
   const {error} = await window._sb.from('car_assignments').insert([data]);
   if(error){ alert('Error: '+error.message); return; }
   // Auto-update the car status so the public website shows it as Rented
@@ -716,13 +887,24 @@ async function signOut() {
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Date Returned</label>
-          <input type="date" class="form-input" id="ret_date">
+          <input type="date" class="form-input" id="ret_date" onchange="updateFinalWeek()">
         </div>
         <div class="form-group">
           <label class="form-label">Odometer Now (km)</label>
           <input type="number" class="form-input" id="ret_odo" min="0" step="1" placeholder="e.g. 52140" oninput="calcReturnDistance()">
           <div class="ret-hint" id="retStartHint"></div>
           <div class="ret-dist" id="retDistance"></div>
+        </div>
+      </div>
+
+      <!-- Shown when the car comes back mid-week, since that last week is
+           charged by the day rather than as a whole week. -->
+      <div class="form-group" id="ret_partWrap" style="display:none;">
+        <label class="form-label">Final Week — Rent to the Day It Came Back</label>
+        <div id="ret_partNote" class="ret-hint" style="margin-bottom:.5rem;"></div>
+        <input type="number" class="form-input" id="ret_final_amt" step="0.01" min="0" oninput="markFinalWeekEdited()">
+        <div class="ret-hint" style="margin-top:.35rem;">
+          Worked out by the day. Type over it if you agreed something different.
         </div>
       </div>
 
