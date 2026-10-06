@@ -866,7 +866,17 @@ async function viewDriver(id){
           </div>
           <div class="form-group" style="margin:.75rem 0 0;">
             <label class="form-label">Rental Start Date <span style="color:#f5a623;">*</span></label>
-            <input class="form-input" id="ho_start" type="date">
+            <input class="form-input" id="ho_start" type="date" onchange="updateHandoverWeek()">
+          </div>
+          <!-- Shown only when the car goes out mid-week: that first week is
+               charged by the day, not as a whole week. -->
+          <div class="form-group" id="ho_partWrap" style="margin:.75rem 0 0;display:none;">
+            <label class="form-label">First Week — Rent to Sunday</label>
+            <div id="ho_partNote" style="font-size:.78rem;color:rgba(255,255,255,.55);margin:-.2rem 0 .5rem;line-height:1.5;"></div>
+            <input class="form-input" id="ho_first_amt" type="number" step="0.01" min="0" oninput="markHandoverWeekEdited()">
+            <div style="font-size:.72rem;color:rgba(255,255,255,.38);margin-top:.35rem;">
+              Worked out by the day. Type over it if you agreed something different.
+            </div>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.9rem;">
@@ -987,8 +997,53 @@ function onCarSelect(){
       var bondEl = document.getElementById('ho_bond');
       if(rateEl && !rateEl.value) rateEl.value = car.weekly_rate;
       if(bondEl && !bondEl.value) bondEl.value = car.weekly_rate * 4;
+      updateHandoverWeek();
     }
   }
+}
+
+// ─── THE HANDOVER WEEK ─────────────────────────────────────────────
+// Rent cycles run Monday to Sunday, but cars go out on any day. The first
+// week is charged by the day — the weekly rate divided by seven, times the
+// days from handover to Sunday, counting the handover day itself.
+var _handoverWeekEdited = false;
+function markHandoverWeekEdited(){ _handoverWeekEdited = true; }
+
+function hoDayIndex(dateStr){                     // Mon=0 … Sun=6
+  var d = new Date(dateStr + 'T00:00:00');
+  return (d.getDay() + 6) % 7;
+}
+
+function updateHandoverWeek(){
+  var wrap = document.getElementById('ho_partWrap');
+  var note = document.getElementById('ho_partNote');
+  var amt  = document.getElementById('ho_first_amt');
+  var startEl = document.getElementById('ho_start');
+  var rateEl  = document.getElementById('ho_rate');
+  if(!wrap || !startEl || !rateEl) return;
+
+  var start = startEl.value;
+  var rate  = parseFloat(rateEl.value);
+  if(!start || !rate || isNaN(rate)){ wrap.style.display = 'none'; return; }
+
+  var days = 7 - hoDayIndex(start);
+  if(days >= 7){                                   // handed over on a Monday
+    wrap.style.display = 'none';
+    amt.value = '';
+    _handoverWeekEdited = false;
+    return;
+  }
+
+  var daily = rate / 7;
+  var calc  = Math.round(daily * days * 100) / 100;
+  var d     = new Date(start + 'T00:00:00');
+  var sun   = new Date(d); sun.setDate(sun.getDate() + days - 1);
+  var fmt   = function(x){ return x.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'}); };
+
+  note.textContent = 'Handed over ' + fmt(d) + ' · ' + days + (days === 1 ? ' day' : ' days')
+                   + ' to ' + fmt(sun) + '  ·  $' + daily.toFixed(2) + '/day';
+  wrap.style.display = '';
+  if(!_handoverWeekEdited) amt.value = calc.toFixed(2);
 }
 
 // Gather handover data from the form
@@ -1035,7 +1090,7 @@ async function startRentalFromApproval(driverId){
     return 'Driver approved. They already have an active rental, so a second one was not created.';
   }
 
-  const { data: created, error: aErr } = await window._sb.from('car_assignments').insert([{
+  const newRental = {
     driver_id: driverId,
     car_id: listed.id,
     start_date: start,
@@ -1044,7 +1099,19 @@ async function startRentalFromApproval(driverId){
     bond_paid: bondPaid,
     contract_period: period || null,
     status: 'Active'
-  }]).select().single();
+  };
+
+  // Keep the agreed handover-week rent when the car goes out mid-week, so the
+  // figure is still right months later. Left empty, the Rent Tracker works it
+  // out by the day.
+  const hoWrap = document.getElementById('ho_partWrap');
+  const hoAmt  = document.getElementById('ho_first_amt');
+  if(hoWrap && hoAmt && hoWrap.style.display !== 'none' && hoAmt.value !== ''){
+    newRental.first_week_amount = parseFloat(hoAmt.value);
+  }
+
+  const { data: created, error: aErr } = await window._sb.from('car_assignments')
+      .insert([newRental]).select().single();
 
   if(aErr) return 'Driver approved, but the rental could not be created: ' + aErr.message + '\n\nPlease add it on the Car Assignments page.';
 
