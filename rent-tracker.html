@@ -272,18 +272,35 @@ function mondayOf(dateStr){
   return d;
 }
 
+// ─── PART WEEKS ────────────────────────────────────────────────────
+// Rent is charged by the day at the agreed weekly rate divided by seven, so
+// a car handed over on a Thursday is billed Thursday to Sunday, not the whole
+// week — and the same when it comes back mid-week. Both the handover day and
+// the return day are charged.
+function dayIndex(dateStr){            // Mon=0 … Sun=6
+  const d = new Date(dateStr+'T00:00:00');
+  return (d.getDay() + 6) % 7;
+}
+function daysFromHandover(dateStr){ return 7 - dayIndex(dateStr); }  // Mon→7, Thu→4, Sun→1
+function daysToReturn(dateStr){     return dayIndex(dateStr) + 1; }  // Mon→1, Wed→3, Sun→7
+function dailyRate(weekly){ return (Number(weekly)||0) / 7; }
+function partWeekRent(weekly, days){
+  return Math.round(dailyRate(weekly) * days * 100) / 100;
+}
+
 async function ensureWeeksExist(assignment){
   // Only ever auto-generate for live rentals. For ended rentals we show the
   // weeks that already exist, so we never invent unpaid weeks for a period
   // after the driver returned the car.
   if(assignment.status !== 'Active') return;
   const startMonday = mondayOf(assignment.start_date);
-  // Stop at the end date if the rental has one, otherwise at this week
-  const lastMonday = assignment.end_date
-      ? mondayOf(assignment.end_date)
-      : mondayOf(toISO(new Date()));
-  const todayMonday = lastMonday;
-  // Cap backfill so we don't generate hundreds of rows for very old assignments unexpectedly — still generates all real owed weeks
+
+  // NEVER past the current week. The agreed end date is what was agreed, not
+  // a stop: a driver keeps the car until the rental is ended by hand. Billing
+  // ahead of today invented weeks the driver did not owe and showed them as
+  // overdue, so the only ceiling is this week.
+  const todayMonday = mondayOf(toISO(new Date()));
+
   const weeks = [];
   let cur = new Date(startMonday);
   while(cur <= todayMonday){
@@ -304,13 +321,26 @@ async function ensureWeeksExist(assignment){
   const isFirstSetup = (existing || []).length === 0;
   const thisMonday = toISO(mondayOf(toISO(new Date())));
 
+  // The handover week is charged by the day, unless a different amount was
+  // agreed and recorded when the car was handed over.
+  const firstMonday  = toISO(startMonday);
+  const handoverDays = daysFromHandover(assignment.start_date);
+  const agreedFirst  = assignment.first_week_amount;
+
   const rows = missing.map(w => {
+    const isHandoverWeek = (w === firstMonday) && handoverDays < 7;
+    const due = isHandoverWeek
+        ? (agreedFirst != null && agreedFirst !== ''
+             ? Number(agreedFirst)
+             : partWeekRent(assignment.weekly_rate, handoverDays))
+        : Number(assignment.weekly_rate);
+
     const assumePaid = isFirstSetup && w < thisMonday;
     return {
       assignment_id: assignment.id,
       week_start: w,
-      amount_due: assignment.weekly_rate,
-      amount_paid: assumePaid ? assignment.weekly_rate : 0,
+      amount_due: due,
+      amount_paid: assumePaid ? due : 0,
       status: assumePaid ? 'Paid' : 'Unpaid',
       paid_date: assumePaid ? w : null,
       note: assumePaid ? 'Assumed settled on setup — pre-existing driver' : null
@@ -458,7 +488,26 @@ function renderList(thisMonday){
 }
 
 function weekRow(assignment, w){
-  const label = new Date(w.week_start+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+  let label = new Date(w.week_start+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+
+  // A handover or return week is only part of a week, so say how many days it
+  // covers — otherwise the smaller amount just looks like a mistake.
+  const firstMon = toISO(mondayOf(assignment.start_date));
+  const lastMon  = assignment.end_date ? toISO(mondayOf(assignment.end_date)) : null;
+  let partDays = null;
+  if(w.week_start === firstMon && daysFromHandover(assignment.start_date) < 7){
+    partDays = daysFromHandover(assignment.start_date);
+  }
+  if(assignment.end_date && w.week_start === lastMon && daysToReturn(assignment.end_date) < 7){
+    // A rental that starts and ends inside one week is charged for the days between.
+    partDays = (w.week_start === firstMon)
+        ? (dayIndex(assignment.end_date) - dayIndex(assignment.start_date) + 1)
+        : daysToReturn(assignment.end_date);
+  }
+  if(partDays !== null && partDays > 0){
+    label += ' · ' + partDays + (partDays === 1 ? ' day' : ' days');
+  }
+
   const due = Number(w.amount_due);
   const paid = Number(w.amount_paid||0);
   let remaining = Math.max(0, due - paid);
@@ -674,7 +723,13 @@ async function generateInvoice(mode){
     let from, to;
     if(_invMode === 'all'){
       from = a.start_date;
-      to   = a.end_date || toISO(new Date());
+      // "to date" means to date. On a live rental the agreed end date may be
+      // months away, and billing to it would invoice weeks the driver has not
+      // reached yet, so never go past today.
+      const today = toISO(new Date());
+      to = (a.status === 'Active')
+           ? (a.end_date && a.end_date < today ? a.end_date : today)
+           : (a.end_date || today);
     } else {
       from = document.getElementById('invFrom').value;
       to   = document.getElementById('invTo').value;
