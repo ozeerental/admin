@@ -599,7 +599,7 @@ async function buildInvoicePDFFromSnapshot(d, mode){
   // and the payments received, not just one of them.
   doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
   doc.setTextColor(150,158,168);
-  doc.text('GST Exclusive', PW-M-3, y-1.2, {align:'right'});
+  doc.text('GST Inclusive', PW-M-3, y-1.2, {align:'right'});
   y += 3;
   doc.setFillColor.apply(doc, INV_CLR.dark);
   doc.rect(M, y, CW, 17, 'F');
@@ -611,7 +611,7 @@ async function buildInvoicePDFFromSnapshot(d, mode){
   doc.text('$'+invMoney(d.owing > 0 ? d.owing : d.totalPaid), PW-M-5, y+9.2, {align:'right'});
   doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
   doc.setTextColor(150,158,168);
-  doc.text('GST Exclusive', PW-M-5, y+14, {align:'right'});
+  doc.text('GST Inclusive', PW-M-5, y+14, {align:'right'});
   y += 24;
 
   // ─────────── PAYMENT REFERENCE ───────────
