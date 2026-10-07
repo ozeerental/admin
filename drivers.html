@@ -996,7 +996,7 @@ function onCarSelect(){
       var rateEl = document.getElementById('ho_rate');
       var bondEl = document.getElementById('ho_bond');
       if(rateEl && !rateEl.value) rateEl.value = car.weekly_rate;
-      if(bondEl && !bondEl.value) bondEl.value = car.weekly_rate * 4;
+      if(bondEl && !bondEl.value) bondEl.value = car.weekly_rate * 2;
       updateHandoverWeek();
     }
   }
@@ -1024,13 +1024,25 @@ function updateHandoverWeek(){
 
   var start = startEl.value;
   var rate  = parseFloat(rateEl.value);
-  if(!start || !rate || isNaN(rate)){ wrap.style.display = 'none'; return; }
+  if(!start){ wrap.style.display = 'none'; return; }
 
   var days = 7 - hoDayIndex(start);
   if(days >= 7){                                   // handed over on a Monday
     wrap.style.display = 'none';
     amt.value = '';
     _handoverWeekEdited = false;
+    return;
+  }
+
+  // The rate comes from the car, so before one is picked there is nothing to
+  // work the rent out from. Show the block anyway and say so.
+  if(!rate || isNaN(rate)){
+    var d0 = new Date(start + 'T00:00:00');
+    note.textContent = 'Going out ' + d0.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'short'})
+                     + ' · ' + days + (days === 1 ? ' day' : ' days') + ' to Sunday. '
+                     + 'Choose a car, or type the weekly rate, to work out the rent.';
+    wrap.style.display = '';
+    amt.value = '';
     return;
   }
 
@@ -1376,7 +1388,7 @@ async function generateApprovalPDF(d, handover, docs){
   // ── SECTION 6 AGREEMENT ──
   sectionHeader('RENTAL VEHICLE AGREEMENT — TERMS & CONDITIONS');
   para('This is an agreement between the prospective hirer identified on page 1 (you) and the car owner(s) to rent the motor vehicle described on Page 1 including all accessories, tools, tyres, and equipment and any replacement vehicle (the vehicle).');
-  subHead('Contract Period: ' + ((handover && handover.rental_duration) || d.rental_duration || d.requested_duration || 'To be confirmed') + '   |   Bond: 4 weeks rent in advance');
+  subHead('Contract Period: ' + ((handover && handover.rental_duration) || d.rental_duration || d.requested_duration || 'To be confirmed') + '   |   Bond: 2 weeks rent in advance');
   subHead('Vehicle Insurance Excess: $1,195 + ($550 Age Excess if applicable)');
   y += 1;
   subHead('1. VEHICLE CONDITION AND RETURN');
