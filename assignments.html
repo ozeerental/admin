@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Finance — Ozee Rentals Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ── Local calendar date as YYYY-MM-DD ──────────────────────────────
@@ -16,15 +20,7 @@ function localISO(d){
 function todayISO(){ return localISO(new Date()); }
 </script>
 
-<script>
-// Initialize Supabase immediately when script loads
-var PROJ='tbhqamcuewycaqertpba';
-
-window._sb = window.supabase.createClient('https://'+PROJ+'.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U');
-</script>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Car Assignments — Ozee Rentals Admin</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:100vh;display:flex;flex-direction:column;}
@@ -32,74 +28,80 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 .topbar img{height:36px;filter:brightness(0) invert(1);}
 .topbar-right{display:flex;align-items:center;gap:1rem;}
 .topbar-user{font-size:.82rem;color:rgba(255,255,255,.5);}
-.topbar-logout{font-size:.78rem;color:#F5A623;text-decoration:none;letter-spacing:1px;text-transform:uppercase;padding:.4rem .9rem;border:1px solid rgba(245,166,35,.3);}
+.topbar-logout{font-size:.78rem;color:#F5A623;text-decoration:none;letter-spacing:1px;text-transform:uppercase;padding:.4rem .9rem;border:1px solid rgba(245,166,35,.3);cursor:pointer;background:none;font-family:"Barlow",sans-serif;}
 .app{display:flex;flex:1;}
 .sidebar{width:220px;background:#07101e;border-right:1px solid rgba(255,255,255,.06);padding:1.5rem 0;flex-shrink:0;}
 .sidebar-nav{list-style:none;}
-.sidebar-nav li a{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.5rem;color:rgba(255,255,255,.5);text-decoration:none;font-size:.88rem;font-weight:600;letter-spacing:.5px;transition:all .2s;border-left:3px solid transparent;}
+.sidebar-nav li a{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.5rem;color:rgba(255,255,255,.5);text-decoration:none;font-size:.88rem;font-weight:600;transition:all .2s;border-left:3px solid transparent;}
 .sidebar-nav li a:hover{color:#fff;background:rgba(255,255,255,.04);}
 .sidebar-nav li a.active{color:#F5A623;background:rgba(245,166,35,.08);border-left-color:#F5A623;}
-.sidebar-nav li a .s-icon{font-size:1.1rem;width:20px;text-align:center;}
 .sidebar-divider{margin:1rem 1.5rem;border:none;border-top:1px solid rgba(255,255,255,.06);}
 .main{flex:1;padding:2rem;overflow-y:auto;}
 .page-title{font-family:"Barlow Condensed",sans-serif;font-size:2.2rem;font-weight:900;text-transform:uppercase;letter-spacing:-1px;margin-bottom:.3rem;}
 .page-title span{color:#F5A623;}
 .page-sub{color:rgba(255,255,255,.4);font-size:.88rem;margin-bottom:2rem;}
-.table-wrap{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);overflow:hidden;}
-.table-header{padding:1.25rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;}
-.table-title{font-family:"Barlow Condensed",sans-serif;font-size:1.2rem;font-weight:900;text-transform:uppercase;letter-spacing:1px;}
-table{width:100%;border-collapse:collapse;}
-th{text-align:left;padding:.9rem 1rem;font-size:.7rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);border-bottom:1px solid rgba(255,255,255,.07);}
-td{padding:.9rem 1rem;font-size:.88rem;border-bottom:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.8);vertical-align:middle;}
-tr:hover td{background:rgba(255,255,255,.03);}
-.badge{padding:.25rem .7rem;font-size:.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
-.badge-green{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
-.badge-yellow{background:rgba(245,166,35,.15);color:#F5A623;border:1px solid rgba(245,166,35,.3);}
-.badge-red{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
-.badge-blue{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3);}
-.btn{padding:.5rem 1rem;font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;font-family:"Barlow",sans-serif;transition:all .2s;}
+
+/* Car grid */
+.car-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;margin-top:1.5rem;}
+.car-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:1.2rem;cursor:pointer;transition:all .2s;}
+.car-card:hover{border-color:#F5A623;background:rgba(245,166,35,.05);}
+.car-card.active{border-color:#F5A623;background:rgba(245,166,35,.08);}
+.cc-name{font-family:"Barlow Condensed",sans-serif;font-size:1.15rem;font-weight:800;text-transform:uppercase;margin-bottom:.15rem;}
+.cc-rego{font-size:.72rem;color:rgba(255,255,255,.4);letter-spacing:1px;margin-bottom:.8rem;}
+.cc-row{display:flex;justify-content:space-between;font-size:.82rem;padding:.25rem 0;color:rgba(255,255,255,.6);}
+.cc-row b{color:#fff;}
+.cc-net{margin-top:.6rem;padding-top:.6rem;border-top:1px dashed rgba(255,255,255,.12);display:flex;justify-content:space-between;align-items:center;}
+.cc-net-label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.4);}
+.cc-net-val{font-family:"Barlow Condensed",sans-serif;font-size:1.4rem;font-weight:900;}
+.pos{color:#4ade80;} .neg{color:#f87171;}
+
+/* Detail panel */
+.detail{display:none;margin-top:2rem;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;overflow:hidden;}
+.detail.open{display:block;}
+.detail-head{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;}
+.detail-title{font-family:"Barlow Condensed",sans-serif;font-size:1.6rem;font-weight:900;text-transform:uppercase;}
+.detail-title span{color:#F5A623;}
+.detail-actions{display:flex;gap:.6rem;flex-wrap:wrap;}
+.summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);}
+.summary-row.four{grid-template-columns:repeat(4,1fr);}
+@media(max-width:1100px){.summary-row.four{grid-template-columns:repeat(2,1fr);}}
+.summary-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:1rem;text-align:center;}
+.summary-label{font-size:.68rem;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.4);margin-bottom:.4rem;}
+.summary-val{font-family:"Barlow Condensed",sans-serif;font-size:1.7rem;font-weight:900;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+@media(max-width:768px){.two-col{grid-template-columns:1fr;} .summary-row{grid-template-columns:1fr;}}
+.col-pane{padding:1.5rem;}
+.col-pane+.col-pane{border-left:1px solid rgba(255,255,255,.08);}
+@media(max-width:768px){.col-pane+.col-pane{border-left:none;border-top:1px solid rgba(255,255,255,.08);}}
+.col-title{font-family:"Barlow Condensed",sans-serif;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;}
+.log-list{max-height:280px;overflow-y:auto;margin-bottom:1rem;}
+.log-item{display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.85rem;}
+.log-item:last-child{border-bottom:none;}
+.log-main{color:rgba(255,255,255,.85);}
+.log-sub{font-size:.72rem;color:rgba(255,255,255,.35);}
+.log-amt{font-weight:800;}
+.log-del{background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:1rem;padding:0 .3rem;}
+.log-del:hover{color:#f87171;}
+.empty-note{color:rgba(255,255,255,.3);font-size:.85rem;font-style:italic;padding:1rem 0;text-align:center;}
+
+.mini-form{display:flex;gap:.5rem;flex-wrap:wrap;}
+.mini-form input,.mini-form select{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:.6rem;font-size:.85rem;font-family:"Barlow",sans-serif;border-radius:4px;}
+.mini-form input:focus,.mini-form select:focus{outline:none;border-color:#F5A623;}
+/* Dropdown lists are drawn by the operating system on a light background,
+   so options need their own colours or they render white-on-white. */
+.mini-form select option,select option{background:#0d1526;color:#fff;}
+.f-amt{width:100px;} .f-date{width:130px;} .f-cat{width:130px;} .f-desc{flex:1;min-width:120px;}
+.btn{padding:.5rem 1rem;font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;font-family:"Barlow",sans-serif;transition:all .2s;border-radius:4px;}
 .btn-gold{background:linear-gradient(135deg,#F5A623,#D4880A);color:#000;}
+.btn-gold:hover{box-shadow:0 4px 20px rgba(245,166,35,.4);}
 .btn-outline{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);}
 .btn-outline:hover{border-color:#F5A623;color:#F5A623;}
-.btn-danger{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;}
-.btn-sm{padding:.35rem .8rem;font-size:.72rem;}
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;align-items:center;justify-content:center;padding:2rem;}
-.modal.open{display:flex;}
-.modal-box{background:#0d1526;border:1px solid rgba(245,166,35,.2);width:100%;max-width:800px;max-height:90vh;overflow-y:auto;}
-.modal-head{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;}
-.modal-head h3{font-family:"Barlow Condensed",sans-serif;font-size:1.5rem;font-weight:900;text-transform:uppercase;}
-.modal-close{background:none;border:none;color:rgba(255,255,255,.5);font-size:1.5rem;cursor:pointer;}
-.modal-body{padding:1.5rem;}
-.modal-foot{padding:1.5rem;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:flex-end;gap:.75rem;}
-.form-group{margin-bottom:1rem;}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;}
-.form-label{display:block;font-size:.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.4rem;}
-.form-input,.form-select,.form-textarea{width:100%;padding:.7rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:.9rem;font-family:"Barlow",sans-serif;}
-.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:#F5A623;}
-.form-select option{background:#0d1526;}
-.form-textarea{resize:vertical;min-height:80px;}
-.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;}
-.info-block{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:1.25rem;}
-.info-label{font-size:.68rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:.35rem;}
-.info-val{font-size:.95rem;font-weight:600;color:#fff;}
-.search-bar{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;}
-.search-input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.6rem 1rem;font-family:"Barlow",sans-serif;font-size:.88rem;min-width:220px;}
-.search-input:focus{outline:none;border-color:#F5A623;}
-.loading-cell{text-align:center;color:rgba(255,255,255,.3);font-style:italic;padding:3rem!important;}
-.doc-list{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem;}
-.doc-link{padding:.3rem .8rem;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#60a5fa;text-decoration:none;font-size:.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
-.doc-link:hover{background:rgba(59,130,246,.25);}
-.sig-img{max-width:200px;height:60px;object-fit:contain;background:#fff;padding:.25rem;}
-.alert-box{padding:1rem 1.5rem;margin-bottom:1.5rem;font-size:.88rem;}
-.alert-yellow{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:#F5A623;}
-@media(max-width:900px){.form-row,.info-grid{grid-template-columns:1fr;}}
+.btn-sm{padding:.5rem .9rem;font-size:.75rem;}
+.empty-msg{color:rgba(255,255,255,.3);text-align:center;padding:3rem;font-style:italic;}
 
 /* ═══════════════════════════════════════
-   MOBILE RESPONSIVE — ALL ADMIN PAGES
-   Target: iPhone and Android phones
+   MOBILE RESPONSIVE
 ═══════════════════════════════════════ */
-
-/* Hamburger button */
 .mob-menu-btn{
   display:none;
   background:none;border:none;
@@ -107,8 +109,6 @@ tr:hover td{background:rgba(255,255,255,.03);}
   cursor:pointer;padding:4px 8px;
   line-height:1;
 }
-
-/* Mobile overlay for sidebar */
 .sidebar-overlay{
   display:none;
   position:fixed;inset:0;
@@ -118,10 +118,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
 .sidebar-overlay.open{display:block;}
 
 @media(max-width:900px){
-  /* ── LAYOUT ── */
   .app{flex-direction:column;}
-  
-  /* ── SIDEBAR ── */
   .sidebar{
     position:fixed;top:0;left:-260px;
     width:260px!important;height:100vh;
@@ -130,8 +127,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
   }
   .sidebar.open{left:0;}
   .mob-menu-btn{display:block;}
-  
-  /* ── TOP BAR ── */
+
   .topbar{
     display:flex!important;
     justify-content:space-between;
@@ -140,690 +136,1523 @@ tr:hover td{background:rgba(255,255,255,.03);}
     position:sticky;top:0;z-index:100;
   }
   .topbar-left{display:flex;align-items:center;gap:10px;}
-  
-  /* ── MAIN ── */
-  main{padding:20px 16px!important;overflow-x:hidden;}
-  
-  /* ── PAGE HEADER ── */
-  .page-header{margin-bottom:24px!important;}
-  .page-header h1{font-size:1.6rem!important;}
-  .page-header p{font-size:.85rem!important;}
-  
-  /* ── STAT CARDS ── */
-  .stats-row{
-    display:grid!important;
-    grid-template-columns:1fr 1fr!important;
-    gap:12px!important;
-  }
-  .stat-card{padding:18px!important;}
-  .stat-card .stat-val{font-size:2rem!important;}
-  
-  /* ── DASHBOARD PANELS ── */
-  .dash-panels{
-    grid-template-columns:1fr!important;
-    gap:16px!important;
-  }
-  
-  /* ── TABLES — convert to card view ── */
-  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-  
-  table{width:100%;border-collapse:collapse;}
-  
-  /* Hide less important columns on mobile */
-  table th:nth-child(3),
-  table td:nth-child(3),
-  table th:nth-child(4),
-  table td:nth-child(4){display:none;}
-  
-  /* Make table cells bigger for touch */
-  table td,table th{
-    padding:14px 10px!important;
-    font-size:.82rem!important;
-  }
-  
-  /* ── DRIVERS TABLE — show approve/reject as full-width buttons ── */
-  #driversTable tr{position:relative;}
-  #driversTable td:last-child{
-    display:flex!important;
-    flex-direction:column;
-    gap:8px;
-    padding:10px!important;
-  }
-  #driversTable td:last-child .btn{
-    width:100%!important;
-    text-align:center;
-    padding:10px!important;
-    font-size:.82rem!important;
-  }
-  
-  /* ── CARS TABLE ── */
-  .car-photo-thumb{width:50px!important;height:40px!important;}
-  
-  /* ── MODALS ── */
-  .modal-box{
-    width:95vw!important;
-    max-width:95vw!important;
-    max-height:90vh!important;
-    overflow-y:auto!important;
-    margin:5vh auto!important;
-    padding:20px!important;
-  }
-  .modal-foot{
-    flex-direction:column!important;
-    gap:10px!important;
-  }
-  .modal-foot .btn{
-    width:100%!important;
-    text-align:center;
-    padding:14px!important;
-    font-size:.9rem!important;
-  }
-  
-  /* ── FORM GRIDS ── */
-  .form-grid{grid-template-columns:1fr!important;}
-  .form-grid-2{grid-template-columns:1fr!important;}
-  
-  /* ── BUTTONS ── */
-  .btn-sm{padding:10px 14px!important;font-size:.78rem!important;}
-  
-  /* ── FILTERS ROW ── */
-  .filters-row{
-    flex-direction:column!important;
-    gap:10px!important;
-    align-items:stretch!important;
-  }
-  .filters-row input,
-  .filters-row select{width:100%!important;}
-  
-  /* ── PAGE ACTIONS ── */
-  .page-actions{
-    flex-direction:column!important;
-    gap:10px!important;
-    align-items:stretch!important;
-  }
-  .page-actions .btn{width:100%;text-align:center;}
-  
-  /* ── FINES TABLE ── */
-  .fines-table th:nth-child(5),
-  .fines-table td:nth-child(5),
-  .fines-table th:nth-child(6),
-  .fines-table td:nth-child(6){display:none;}
-  
-  /* ── ASSIGNMENTS ── */
-  .assign-table th:nth-child(4),
-  .assign-table td:nth-child(4){display:none;}
-}
+  .topbar-user{font-size:.72rem!important;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
-@media(max-width:480px){
-  .stats-row{grid-template-columns:1fr!important;}
-  .page-header h1{font-size:1.4rem!important;}
-  table th:nth-child(2),
-  table td:nth-child(2){font-size:.75rem!important;}
+  .main{padding:20px 16px!important;overflow-x:hidden;}
+  .page-title{font-size:1.6rem!important;}
+  .page-sub{font-size:.85rem!important;}
+
+  /* Car Finance: one card per row, detail panel stacks */
+  .car-grid{grid-template-columns:1fr!important;}
+  .summary-row{grid-template-columns:1fr!important;}
+  .two-col{grid-template-columns:1fr!important;}
+  .col-pane+.col-pane{border-left:none!important;border-top:1px solid rgba(255,255,255,.08);}
+  .detail-head{flex-direction:column;align-items:flex-start!important;}
+  .mini-form{flex-direction:column;}
+  .mini-form input,.mini-form select,.f-amt,.f-date,.f-cat,.f-desc{width:100%!important;}
+
+  /* Rent Tracker: stack driver rows */
+  .d-head{flex-direction:column;align-items:flex-start!important;gap:.6rem!important;}
+  .d-right{width:100%;justify-content:space-between;}
+  .week-row{flex-direction:column;align-items:flex-start!important;}
+  .week-left{flex-direction:column;align-items:flex-start!important;gap:.2rem!important;}
+  .week-date{min-width:auto!important;}
+  .week-row .btn{width:100%;}
 }
-.ret-who{font-size:.82rem;color:rgba(255,255,255,.5);margin-top:.2rem;}
-.ret-hint{font-size:.72rem;color:rgba(255,255,255,.35);margin-top:.3rem;}
-.ret-dist{font-size:.78rem;font-weight:700;margin-top:.2rem;}
-.ret-note{background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.22);border-radius:6px;
-  padding:.7rem .85rem;font-size:.8rem;color:rgba(255,255,255,.55);margin-top:.5rem;}
+/* Rental history */
+.hist-pane{padding:1.5rem;border-top:1px solid rgba(255,255,255,.08);}
+.hist-sub{font-family:"Barlow",sans-serif;font-size:.72rem;font-weight:500;letter-spacing:0;
+  text-transform:none;color:rgba(255,255,255,.35);margin-left:.5rem;}
+.hist-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;
+  padding:.85rem 0;border-bottom:1px solid rgba(255,255,255,.06);flex-wrap:wrap;}
+.hist-row:last-child{border-bottom:none;}
+.hist-name{font-weight:700;color:#fff;font-size:.92rem;}
+.hist-meta{font-size:.75rem;color:rgba(255,255,255,.4);margin-top:.15rem;}
+.hist-right{text-align:right;}
+.hist-amt{font-family:"Barlow Condensed",sans-serif;font-size:1.15rem;font-weight:900;color:#4ade80;}
+.hist-owed{font-size:.72rem;color:#f87171;font-weight:700;margin-top:.1rem;}
+.hist-badge{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  padding:.22rem .55rem;border-radius:100px;margin-left:.5rem;}
+.hb-active{background:rgba(74,222,128,.14);border:1px solid rgba(74,222,128,.35);color:#4ade80;}
+.hb-ended{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);}
+@media(max-width:900px){
+  .hist-row{flex-direction:column;align-items:flex-start;}
+  .hist-right{text-align:left;}
+}
+.retired-banner{display:flex;align-items:flex-start;gap:.7rem;background:rgba(148,163,184,.1);
+  border:1px solid rgba(148,163,184,.35);border-radius:10px;padding:.9rem 1.1rem;margin-bottom:1.2rem;}
+.retired-banner b{color:#cbd5e1;display:block;margin-bottom:.15rem;font-size:.92rem;}
+.retired-banner span.rb-text{color:rgba(255,255,255,.55);font-size:.82rem;line-height:1.5;}
+.log-lock{color:rgba(255,255,255,.25);font-size:.85rem;padding:0 .3rem;cursor:help;}
+.log-src{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3);color:#F5A623;
+  font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;
+  padding:.12rem .4rem;border-radius:100px;margin-left:.45rem;vertical-align:middle;}
+/* Odometer */
+.odo-strip{display:flex;flex-wrap:wrap;gap:1.5rem;padding:1rem 1.5rem;
+  border-top:1px solid rgba(255,255,255,.08);background:rgba(245,166,35,.04);}
+.odo-strip:empty{display:none;}
+.odo-stat span{display:block;font-size:.68rem;text-transform:uppercase;letter-spacing:1px;
+  color:rgba(255,255,255,.4);margin-bottom:.2rem;}
+.odo-stat b{font-family:"Barlow Condensed",sans-serif;font-size:1.25rem;font-weight:900;color:#F5A623;}
+.hist-km{font-size:.75rem;color:rgba(255,255,255,.5);margin-top:.2rem;}
+@media(max-width:900px){.odo-strip{gap:1rem;}}
+/* Owner settlement */
+.settle-pane{padding:1.5rem;border-top:1px solid rgba(255,255,255,.08);background:rgba(96,165,250,.04);}
+.sale-box{margin:1.5rem;padding:1.1rem 1.2rem;border:1px solid rgba(245,166,35,.45);
+  border-radius:10px;background:rgba(245,166,35,.07);}
+.sale-head{font-family:"Barlow Condensed",sans-serif;font-size:.72rem;font-weight:800;
+  letter-spacing:.12em;text-transform:uppercase;color:#F5A623;margin-bottom:.55rem;}
+.sale-line{font-size:1.02rem;font-weight:700;color:#fff;line-height:1.45;}
+.sale-line b{color:#F5A623;}
+.sale-pay{margin-top:.5rem;font-size:.92rem;font-weight:700;color:#4ade80;line-height:1.45;}
+.sale-note{margin-top:.6rem;font-size:.72rem;font-style:italic;color:rgba(255,255,255,.4);line-height:1.5;}
+.settle-pane:empty{display:none;}
+.settle-grid{margin-top:.5rem;}
+.settle-line{display:flex;justify-content:space-between;align-items:center;
+  padding:.5rem 0;font-size:.9rem;color:rgba(255,255,255,.65);}
+.settle-line b{font-weight:800;color:#fff;}
+.settle-sub{border-top:1px solid rgba(255,255,255,.1);margin-top:.3rem;padding-top:.7rem;}
+.settle-final{border-top:2px solid rgba(255,255,255,.18);margin-top:.4rem;padding-top:.8rem;}
+.settle-final span{font-weight:700;color:#fff;text-transform:uppercase;font-size:.78rem;letter-spacing:1px;}
+.settle-final b{font-family:"Barlow Condensed",sans-serif;font-size:1.6rem;font-weight:900;}
+.owner-badge{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.4);color:#60a5fa;
+  font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  padding:.15rem .45rem;border-radius:100px;margin-left:.4rem;vertical-align:middle;}
+.grid-section{grid-column:1/-1;font-family:"Barlow Condensed",sans-serif;font-size:1.05rem;
+  font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:rgba(255,255,255,.5);
+  padding:1rem 0 .1rem;border-top:1px solid rgba(255,255,255,.08);margin-top:.6rem;}
+.grid-section span{font-size:.7rem;font-weight:600;color:rgba(255,255,255,.28);
+  margin-left:.6rem;text-transform:none;letter-spacing:0;}
+.retired-badge{background:rgba(148,163,184,.15);border:1px solid rgba(148,163,184,.45);color:#94a3b8;
+  font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  padding:.15rem .45rem;border-radius:100px;margin-left:.4rem;vertical-align:middle;}
+.car-card.is-retired{opacity:.72;}
+.own-pill{display:inline-block;font-family:"Barlow",sans-serif;font-size:.62rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.5px;padding:.25rem .6rem;border-radius:100px;
+  margin-left:.6rem;vertical-align:middle;}
+.own-ext{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.45);color:#60a5fa;}
+.own-biz{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);}
+.settle-note{font-size:.75rem;color:rgba(255,255,255,.38);font-style:italic;padding:.4rem 0 .2rem;}
 </style>
 </head>
 <body>
+
 <div class="topbar">
   <img src="https://ozeerentals.com.au/logo-white.png" alt="Ozee Rentals">
   <div class="topbar-right">
     <span class="topbar-user" id="adminEmail">Loading...</span>
-    <a href="#" class="topbar-logout" onclick="signOut()">Sign Out</a>
+    <button class="topbar-logout" onclick="signOut()">Sign Out</button>
   </div>
 </div>
+
 <div class="app">
   <aside class="sidebar">
     <ul class="sidebar-nav">
-      <li><a href="dashboard.html" class=""><span class="s-icon">📊</span> Dashboard</a></li>
-      <li><a href="cars.html" class=""><span class="s-icon">🚗</span> Car Management</a></li>
-      <li><a href="drivers.html" class=""><span class="s-icon">👥</span> Driver Applications</a></li>
-      <li><a href="assignments.html" class="active"><span class="s-icon">🔗</span> Car Assignments</a></li>
-      <li><a href="fines.html" class=""><span class="s-icon">🚨</span> Fines &amp; Tolls</a></li>
-      <li><a href="finance.html" class=""><span class="s-icon">💰</span> Car Finance</a></li>
-      <li><a href="rent-tracker.html" class=""><span class="s-icon">🗓️</span> Rent Tracker</a></li>
-      <li><a href="invoices.html" class=""><span class="s-icon">🧾</span> Invoices</a></li>
+      <li><a href="dashboard.html"><span>📊</span> Dashboard</a></li>
+      <li><a href="cars.html"><span>🚗</span> Car Management</a></li>
+      <li><a href="drivers.html"><span>👥</span> Driver Applications</a></li>
+      <li><a href="assignments.html"><span>🔗</span> Car Assignments</a></li>
+      <li><a href="fines.html"><span>🚨</span> Fines &amp; Tolls</a></li>
+      <li><a href="finance.html" class="active"><span>💰</span> Car Finance</a></li>
+      <li><a href="rent-tracker.html"><span>🗓️</span> Rent Tracker</a></li>
+      <li><a href="invoices.html"><span>🧾</span> Invoices</a></li>
       <hr class="sidebar-divider">
-      <li><a href="https://ozeerentals.com.au"><span class="s-icon">🌐</span> View Website</a></li>
+      <li><a href="https://ozeerentals.com.au"><span>🌐</span> View Website</a></li>
     </ul>
   </aside>
+
   <main class="main">
-    
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2rem;flex-wrap:wrap;gap:1rem;">
-  <div><div class="page-title">Car <span>Assignments</span></div><div class="page-sub">Track which driver has which car — essential for fine and toll notices</div></div>
-  <button class="btn btn-gold" onclick="openAssignModal()">+ New Assignment</button>
-</div>
+    <div class="page-title">Car <span>Finance</span></div>
+    <div class="page-sub">Click a car to see its full cost & earnings history, and export a PDF report</div>
 
-<!-- LOOKUP TOOL -->
-<div class="table-wrap" style="margin-bottom:2rem;">
-  <div class="table-header"><div class="table-title">🔍 Find Driver by Date</div></div>
-  <div style="padding:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
-    <div><div class="form-label">Car Rego</div><input class="search-input" id="lookup_rego" placeholder="e.g. ABC123" style="min-width:150px;"></div>
-    <div><div class="form-label">Incident Date</div><input type="date" class="search-input" id="lookup_date" style="min-width:160px;"></div>
-    <button class="btn btn-gold" onclick="lookupDriver()">Find Driver</button>
-  </div>
-  <div id="lookupResult" style="padding:0 1.5rem 1.5rem;display:none;">
-    <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);padding:1.25rem;border-left:4px solid #4ade80;">
-      <div style="font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:#4ade80;margin-bottom:.75rem;">Driver Found</div>
-      <div id="lookupResultContent"></div>
+    <div class="car-grid" id="carGrid">
+      <div class="empty-msg">Loading fleet...</div>
     </div>
-  </div>
-  <div id="lookupNotFound" style="padding:0 1.5rem 1.5rem;display:none;">
-    <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);padding:1.25rem;">No driver found for that car on that date.</div>
-  </div>
-</div>
 
-<!-- ACTIVE ASSIGNMENTS -->
-<div class="table-wrap" style="margin-bottom:2rem;">
-  <div class="table-header"><div class="table-title">Active Assignments</div></div>
-  <table class="assign-table">
-    <thead><tr><th>Driver</th><th>Car</th><th>Start Date</th><th>Contract</th><th>Rate/Week</th><th>Bond</th><th>Status</th><th>Actions</th></tr></thead>
-    <tbody id="activeTable"><tr><td colspan="8" class="loading-cell">Loading...</td></tr></tbody>
-  </table>
-</div>
-
-<!-- HISTORY -->
-<div class="table-wrap">
-  <div class="table-header"><div class="table-title">Assignment History</div></div>
-  <table>
-    <thead><tr><th>Driver</th><th>Car</th><th>Start</th><th>End</th><th>Duration</th><th>Status</th></tr></thead>
-    <tbody id="historyTable"><tr><td colspan="6" class="loading-cell">Loading...</td></tr></tbody>
-  </table>
-</div>
-
-<!-- ASSIGN MODAL -->
-<div class="modal" id="assignModal">
-  <div class="modal-box">
-    <div class="modal-head"><h3>New Car Assignment</h3><button class="modal-close" onclick="closeAssignModal()">×</button></div>
-    <div class="modal-body">
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Driver <span class="req">*</span></label><select class="form-select" id="a_driver"><option value="">Select driver...</option></select></div>
-        <div class="form-group"><label class="form-label">Car <span class="req">*</span></label><select class="form-select" id="a_car"><option value="">Select car...</option></select></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Start Date <span class="req">*</span></label><input type="date" class="form-input" id="a_start" onchange="updatePartWeek()"></div>
-        <div class="form-group"><label class="form-label">Agreed End Date <span style="font-weight:400;opacity:.5;">(optional)</span></label><input type="date" class="form-input" id="a_end"><div style="font-size:.7rem;color:rgba(255,255,255,.35);margin-top:.3rem;">A note of what was agreed. Rent keeps running until you end the rental by hand.</div></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Contract Period</label><select class="form-select" id="a_contract"><option>3 Months</option><option>6 Months</option><option>Monthly</option><option>Weekly</option></select></div>
-        <div class="form-group"><label class="form-label">Weekly Rate (AUD) <span class="req">*</span></label><input type="number" class="form-input" id="a_rate" placeholder="250" oninput="updatePartWeek()"></div>
-      </div>
-
-      <!-- Shown only when the car goes out mid-week, since that first week is
-           charged by the day rather than as a whole week. -->
-      <div class="form-group" id="a_partWrap" style="display:none;">
-        <label class="form-label">First Week — Rent to Sunday</label>
-        <div id="a_partNote" style="font-size:.78rem;color:rgba(255,255,255,.55);margin:-.2rem 0 .5rem;line-height:1.5;"></div>
-        <input type="number" class="form-input" id="a_first_amt" step="0.01" min="0" oninput="markPartWeekEdited()">
-        <div style="font-size:.72rem;color:rgba(255,255,255,.38);margin-top:.35rem;">
-          Worked out by the day. Type over it if you agreed something different.
+    <div class="detail" id="detailPanel">
+      <div class="detail-head">
+        <div class="detail-title" id="detailTitle">Car <span>Name</span></div>
+        <div class="detail-actions">
+          <button class="btn btn-outline btn-sm" onclick="closeDetail()">Close</button>
+          <button class="btn btn-gold btn-sm" onclick="exportPDF('download')">⬇ Download PDF</button>
+          <button class="btn btn-outline btn-sm" onclick="exportPDF('email')">✉ Email Owner</button>
+          <button class="btn btn-outline btn-sm" onclick="exportPDF('whatsapp')">WhatsApp Owner</button>
         </div>
       </div>
 
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Bond Amount (AUD) <span class="req">*</span></label><input type="number" class="form-input" id="a_bond" placeholder="4 weeks rent"></div>
-        <div class="form-group"><label class="form-label">Bond Paid?</label><select class="form-select" id="a_bond_paid"><option value="false">Not Yet</option><option value="true">Yes — Received</option></select></div>
+      <div class="summary-row" id="summaryRow">
+        <div class="summary-box">
+          <div class="summary-label">Total Expenses</div>
+          <div class="summary-val" id="sumCost">$0</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Rent Collected</div>
+          <div class="summary-val" id="sumIncome">$0</div>
+        </div>
+        <div class="summary-box" id="sumFeeBox" style="display:none;">
+          <div class="summary-label">Commission Earned</div>
+          <div class="summary-val pos" id="sumFee">$0</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label" id="sumNetLabel">Net Position</div>
+          <div class="summary-val" id="sumNet">$0</div>
+        </div>
       </div>
-      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="a_notes" placeholder="Any additional notes..."></textarea></div>
+
+      <div id="retiredBanner"></div>
+
+      <div class="two-col">
+        <div class="col-pane">
+          <div class="col-title">Expenses</div>
+          <div class="mini-form" id="expForm" style="margin-bottom:1rem;">
+            <select class="f-cat" id="expCat">
+              <option>Purchase Price</option><option>Rego</option><option>Service</option>
+              <option>Insurance</option><option>Repair</option><option>Other</option>
+            </select>
+            <input class="f-desc" id="expDesc" placeholder="Description">
+            <input class="f-amt" id="expAmt" type="number" placeholder="$ Amount">
+            <input class="f-date" id="expDate" type="date">
+            <button class="btn btn-gold btn-sm" onclick="addExpense()">+ Add</button>
+          </div>
+          <div class="log-list" id="expList"></div>
+        </div>
+        <div class="col-pane">
+          <div class="col-title">Rent Income</div>
+          <div class="mini-form" id="incForm" style="margin-bottom:1rem;">
+            <input class="f-desc" id="incDriver" placeholder="Driver name (optional)">
+            <input class="f-amt" id="incAmt" type="number" placeholder="$ Amount">
+            <input class="f-date" id="incDate" type="date">
+            <button class="btn btn-gold btn-sm" onclick="addIncome()">+ Add</button>
+          </div>
+          <div class="log-list" id="incList"></div>
+        </div>
+      </div>
+
+      <div id="salePane" style="display:none;"></div>
+      <div class="settle-pane" id="settlePane"></div>
+
+      <div class="odo-strip" id="odoStrip"></div>
+
+      <div class="hist-pane">
+        <div class="col-title">Rental History <span class="hist-sub">every driver who has had this car</span></div>
+        <div id="histList"></div>
+      </div>
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-outline" onclick="closeAssignModal()">Cancel</button>
-      <button class="btn btn-gold" onclick="saveAssignment()">Create Assignment</button>
-    </div>
-  </div>
-</div>
-
-<script>
-
-// Delete a car assignment (+ any linked fines first)
-async function deleteAssignment(id){
-  if(!confirm('Delete this assignment?\n\nThis permanently removes the assignment record. This cannot be undone.')) return;
-  try {
-    // Note the car and whether this assignment was still active, before deleting
-    var { data: asg } = await window._sb.from('car_assignments').select('car_id,status').eq('id', id).single();
-    // First delete any fines linked to this assignment (FK constraint)
-    await window._sb.from('fines_tolls').delete().eq('assignment_id', id);
-    // Then delete the assignment
-    var { error } = await window._sb.from('car_assignments').delete().eq('id', id);
-    if(error){ alert('Error: '+error.message); return; }
-    // If it was an active rental, return the car to Available on the public website
-    if(asg && asg.car_id && asg.status === 'Active'){
-      await window._sb.from('cars').update({status:'Available', available_from:null}).eq('id', asg.car_id);
-    }
-    loadAssignments();
-    alert('Assignment deleted successfully.');
-  } catch(e){
-    alert('Error: '+e.message);
-  }
-}
-
-async function loadAssignments(){
-  const {data:active} = await window._sb.from('car_assignments')
-    .select('*,cars(rego,make_model),drivers(first_name,last_name,mobile,email)')
-    .eq('status','Active').order('start_date',{ascending:false});
-
-  const {data:history} = await window._sb.from('car_assignments')
-    .select('*,cars(rego,make_model),drivers(first_name,last_name)')
-    .in('status',['Completed','Terminated']).order('end_date',{ascending:false}).limit(20);
-
-  const aT = document.getElementById('activeTable');
-  if(!(active||[]).length){ aT.innerHTML='<tr><td colspan="8" class="loading-cell">No active assignments</td></tr>'; }
-  else aT.innerHTML = active.map(a=>`
-    <tr>
-      <td><strong>${a.drivers?.first_name||''} ${a.drivers?.last_name||''}</strong><br><small style="color:rgba(255,255,255,.4);">${a.drivers?.mobile||''}</small></td>
-      <td><strong>${a.cars?.rego||'—'}</strong><br><small style="color:rgba(255,255,255,.4);">${a.cars?.make_model||''}</small></td>
-      <td>${new Date(a.start_date).toLocaleDateString('en-AU')}</td>
-      <td>${a.contract_period}</td>
-      <td style="color:#F5A623;font-weight:700;">$${a.weekly_rate}/wk</td>
-      <td>${a.bond_paid?'<span class="badge badge-green">Paid</span>':'<span class="badge badge-yellow">Pending</span>'}</td>
-      <td><span class="badge badge-green">Active</span></td>
-      <td><button class="btn btn-danger btn-sm" onclick="endAssignment('${a.id}')">End Rental</button>
-      <button class="btn btn-sm" onclick="deleteAssignment('${a.id}')" style="background:rgba(120,120,120,.12);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);margin-top:4px;">🗑️ Delete</button></td>
-    </tr>`).join('');
-
-  const hT = document.getElementById('historyTable');
-  if(!(history||[]).length){ hT.innerHTML='<tr><td colspan="6" class="loading-cell">No history yet</td></tr>'; }
-  else hT.innerHTML = history.map(a=>{
-    const start = new Date(a.start_date);
-    const end = a.end_date ? new Date(a.end_date) : new Date();
-    const days = Math.round((end-start)/(1000*60*60*24));
-    return `<tr>
-      <td>${a.drivers?.first_name||''} ${a.drivers?.last_name||''}</td>
-      <td>${a.cars?.rego||'—'} — ${a.cars?.make_model||''}</td>
-      <td>${start.toLocaleDateString('en-AU')}</td>
-      <td>${a.end_date ? new Date(a.end_date).toLocaleDateString('en-AU') : '—'}</td>
-      <td>${days} days</td>
-      <td><span class="badge ${a.status==='Completed'?'badge-blue':'badge-red'}">${a.status}</span></td>
-    </tr>`;
-  }).join('');
-}
-
-async function lookupDriver(){
-  const rego = document.getElementById('lookup_rego').value.trim().toUpperCase();
-  const date = document.getElementById('lookup_date').value;
-  if(!rego||!date){ alert('Please enter both a car rego and a date.'); return; }
-
-  document.getElementById('lookupResult').style.display='none';
-  document.getElementById('lookupNotFound').style.display='none';
-
-  const {data} = await window._sb.from('car_assignments')
-    .select('*,cars(rego,make_model),drivers(first_name,last_name,mobile,email,license_number,license_state)')
-    .lte('start_date',date)
-    .or(`end_date.is.null,end_date.gte.${date}`)
-    .in('status',['Active','Completed']);
-
-  const match = (data||[]).find(a=>a.cars?.rego===rego);
-  if(match){
-    document.getElementById('lookupResultContent').innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
-        <div><div class="info-label">Driver</div><div class="info-val">${match.drivers?.first_name} ${match.drivers?.last_name}</div></div>
-        <div><div class="info-label">Mobile</div><div class="info-val"><a href="tel:${match.drivers?.mobile}" style="color:#4ade80;">${match.drivers?.mobile}</a></div></div>
-        <div><div class="info-label">Email</div><div class="info-val"><a href="mailto:${match.drivers?.email}" style="color:#4ade80;">${match.drivers?.email}</a></div></div>
-        <div><div class="info-label">Licence</div><div class="info-val">${match.drivers?.license_number} (${match.drivers?.license_state})</div></div>
-        <div><div class="info-label">Rental Period</div><div class="info-val">${new Date(match.start_date).toLocaleDateString('en-AU')} → ${match.end_date?new Date(match.end_date).toLocaleDateString('en-AU'):'Present'}</div></div>
-        <div><div class="info-label">Car</div><div class="info-val">${match.cars?.rego} — ${match.cars?.make_model}</div></div>
-      </div>`;
-    document.getElementById('lookupResult').style.display='block';
-  } else {
-    document.getElementById('lookupNotFound').style.display='block';
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  ENDING A RENTAL — record the car's condition on return
-// ═══════════════════════════════════════════════════════════════
-let _returnAssignment = null;
-
-async function endAssignment(id){
-  const { data: asg } = await window._sb.from('car_assignments')
-      .select('*,cars(id,rego,make_model),drivers(first_name,last_name)')
-      .eq('id', id).single();
-  if(!asg){ alert('Could not load that rental.'); return; }
-  _returnAssignment = asg;
-
-  // What the odometer read when they collected it
-  let startKm = null;
-  const { data: hand } = await window._sb.from('odometer_readings')
-      .select('reading_km').eq('assignment_id', id).eq('source','Handover').limit(1);
-  if(hand && hand.length) startKm = Number(hand[0].reading_km);
-  _returnAssignment._startKm = startKm;
-
-  const nm = asg.drivers ? (asg.drivers.first_name + ' ' + asg.drivers.last_name) : 'Driver';
-  const car = asg.cars ? (asg.cars.rego + ' — ' + asg.cars.make_model) : '';
-  document.getElementById('retWho').textContent = nm + '  ·  ' + car;
-  document.getElementById('retStartHint').textContent = startKm != null
-      ? 'At handover it read ' + startKm.toLocaleString('en-AU') + ' km'
-      : 'No handover reading was recorded for this rental';
-
-  document.getElementById('ret_date').value = todayISO();
-  document.getElementById('ret_odo').value = '';
-  document.getElementById('ret_fuel').value = '';
-  document.getElementById('ret_bond').value = asg.bond_paid ? 'Yes' : 'No';
-  document.getElementById('ret_bond_amt').value = asg.bond_amount || '';
-  document.getElementById('ret_damages').value = '';
-  document.getElementById('ret_comments').value = '';
-  document.getElementById('retDistance').textContent = '';
-  _finalWeekEdited = false;
-  document.getElementById('ret_final_amt').value = '';
-  updateFinalWeek();
-  toggleBondAmount();
-
-  document.getElementById('returnModal').classList.add('open');
-}
-
-function closeReturnModal(){
-  document.getElementById('returnModal').classList.remove('open');
-  _returnAssignment = null;
-}
-
-function toggleBondAmount(){
-  const v = document.getElementById('ret_bond').value;
-  document.getElementById('bondAmtWrap').style.display = (v === 'No') ? 'none' : '';
-}
-
-function calcReturnDistance(){
-  if(!_returnAssignment) return;
-  const start = _returnAssignment._startKm;
-  const end = parseFloat(document.getElementById('ret_odo').value);
-  const el = document.getElementById('retDistance');
-  if(start == null || isNaN(end)){ el.textContent = ''; return; }
-  const diff = end - start;
-  el.textContent = diff >= 0
-      ? diff.toLocaleString('en-AU') + ' km driven during this rental'
-      : 'That is lower than the handover reading — please check';
-  el.style.color = diff >= 0 ? '#4ade80' : '#f87171';
-}
-
-// ─── THE RETURN WEEK ───────────────────────────────────────────────
-// Same rule as handover: the last week is charged from Monday to the day the
-// car actually came back, counting that day. If the rental started and ended
-// inside one week, only the days between are charged.
-let _finalWeekEdited = false;
-function markFinalWeekEdited(){ _finalWeekEdited = true; }
-
-function updateFinalWeek(){
-  const wrap = document.getElementById('ret_partWrap');
-  const note = document.getElementById('ret_partNote');
-  const amt  = document.getElementById('ret_final_amt');
-  if(!wrap || !_returnAssignment) return;
-
-  const endDate = document.getElementById('ret_date').value;
-  const rate    = Number(_returnAssignment.weekly_rate) || 0;
-  const start   = _returnAssignment.start_date;
-  if(!endDate || !rate || !start || endDate < start){ wrap.style.display = 'none'; return; }
-
-  const sameWeek = mondayISO(endDate) === mondayISO(start);
-  const days = sameWeek
-      ? (dayIndex(endDate) - dayIndex(start) + 1)
-      : (dayIndex(endDate) + 1);
-
-  if(days >= 7 && !sameWeek){                       // came back on a Sunday
-    wrap.style.display = 'none';
-    amt.value = '';
-    _finalWeekEdited = false;
-    return;
-  }
-
-  const daily = rate / 7;
-  const calc  = Math.round(daily * days * 100) / 100;
-  const from  = sameWeek ? new Date(start+'T00:00:00') : new Date(mondayISO(endDate)+'T00:00:00');
-  const to    = new Date(endDate+'T00:00:00');
-  const fmt   = x => x.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
-
-  note.textContent = fmt(from) + ' to ' + fmt(to) + ' · ' + days + (days===1?' day':' days')
-                   + '  ·  $' + daily.toFixed(2) + '/day';
-  wrap.style.display = '';
-  if(!_finalWeekEdited) amt.value = calc.toFixed(2);
-}
-
-function mondayISO(dateStr){
-  const d = new Date(dateStr+'T00:00:00');
-  d.setDate(d.getDate() - dayIndex(dateStr));
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
-
-async function saveReturn(){
-  if(!_returnAssignment) return;
-  const id = _returnAssignment.id;
-  const carId = _returnAssignment.car_id;
-  const endDate = document.getElementById('ret_date').value || todayISO();
-  const odo = parseFloat(document.getElementById('ret_odo').value);
-  const bondChoice = document.getElementById('ret_bond').value;
-  const bondAmt = parseFloat(document.getElementById('ret_bond_amt').value);
-
-  if(!isNaN(odo) && _returnAssignment._startKm != null && odo < _returnAssignment._startKm){
-    if(!confirm('The odometer reading is lower than it was at handover.\n\nSave it anyway?')) return;
-  }
-
-  const upd = {
-    status: 'Completed',
-    end_date: endDate,
-    returned_at: new Date().toISOString(),
-    return_odometer: isNaN(odo) ? null : odo,
-    return_fuel: document.getElementById('ret_fuel').value || null,
-    bond_returned: bondChoice,
-    bond_returned_amount: (bondChoice === 'No' || isNaN(bondAmt)) ? null : bondAmt,
-    damages: document.getElementById('ret_damages').value.trim() || null,
-    return_comments: document.getElementById('ret_comments').value.trim() || null
-  };
-
-  const { error } = await window._sb.from('car_assignments').update(upd).eq('id', id);
-  if(error){ alert('Could not save: ' + error.message); return; }
-
-  // ── Settle the final week ──
-  // The car came back mid-week, so that week is charged to the day. Anything
-  // dated after the return is rent the driver never owed.
-  try {
-    const finalMonday = mondayISO(endDate);
-    const partWrap = document.getElementById('ret_partWrap');
-    const finalAmt = document.getElementById('ret_final_amt').value;
-
-    const { data: wks } = await window._sb.from('rent_weeks')
-        .select('id,week_start,amount_due,amount_paid,status').eq('assignment_id', id);
-
-    if(partWrap && partWrap.style.display !== 'none' && finalAmt !== ''){
-      const due = parseFloat(finalAmt);
-      const row = (wks||[]).find(w => w.week_start === finalMonday);
-      if(!row){
-        await window._sb.from('rent_weeks').insert({
-          assignment_id: id, week_start: finalMonday,
-          amount_due: due, amount_paid: 0, status: 'Unpaid',
-          note: 'Final week — charged to the day the car came back'
-        });
-      } else if(Number(row.amount_paid||0) === 0){
-        await window._sb.from('rent_weeks').update({ amount_due: due }).eq('id', row.id);
-      } else {
-        // Already paid something against that week, so never change it quietly.
-        const paid = Number(row.amount_paid);
-        const diff = Math.round((paid - due) * 100) / 100;
-        const msg = 'They have already paid $' + paid.toFixed(2) + ' for the final week, '
-                  + 'but only owe $' + due.toFixed(2) + ' now that the car is back.\n\n'
-                  + (diff > 0 ? 'That leaves them $' + diff.toFixed(2) + ' in credit.\n\n' : '')
-                  + 'Change the week to $' + due.toFixed(2) + '?';
-        if(confirm(msg)){
-          await window._sb.from('rent_weeks').update({ amount_due: due }).eq('id', row.id);
-        }
-      }
-    }
-
-    // Weeks dated after the return. Only ever clear ones nothing was paid on.
-    const after     = (wks||[]).filter(w => w.week_start > finalMonday);
-    const clearable = after.filter(w => Number(w.amount_paid||0) === 0);
-    const keepers   = after.length - clearable.length;
-    if(clearable.length){
-      await window._sb.from('rent_weeks').delete().in('id', clearable.map(w => w.id));
-    }
-    if(keepers > 0){
-      alert('Rental closed.\n\n' + keepers + (keepers === 1 ? ' week' : ' weeks')
-          + ' dated after the return still has money recorded against it, so '
-          + 'nothing was removed there. Please check it in the Rent Tracker.');
-    }
-  } catch(e){
-    alert('The rental was closed, but the final week could not be settled:\n\n'
-        + e.message + '\n\nPlease check the Rent Tracker.');
-  }
-
-  // Log the return odometer reading against this rental
-  if(!isNaN(odo) && odo >= 0 && carId){
-    await window._sb.from('odometer_readings').insert({
-      car_id: carId,
-      reading_km: odo,
-      reading_date: endDate,
-      source: 'Return',
-      assignment_id: id,
-      note: 'Reading when the car was returned'
-    });
-  }
-
-  // Put the car back on the website as available
-  if(carId){
-    const cs = await window._sb.from('cars')
-        .update({ status:'Available', available_from:null }).eq('id', carId);
-    if(cs.error) alert('Rental ended, but the car status could not be updated: ' + cs.error.message + '\n\nPlease set it to Available in Car Management.');
-  }
-
-  closeReturnModal();
-  loadAssignments();
-}
-
-async function openAssignModal(){
-  // Only cars that can genuinely be rented out today. Three filters, because
-  // one is not enough: status catches the ordinary case, retired_reason
-  // catches a car retired while it was sitting Available, and the live list
-  // of active rentals catches a car whose status drifted out of step with
-  // reality — which is how the same car ends up rented to two drivers.
-  const [{data:drivers},{data:cars},{data:busy}] = await Promise.all([
-    window._sb.from('drivers').select('id,first_name,last_name').eq('status','Approved').order('first_name'),
-    window._sb.from('cars').select('id,rego,make_model,weekly_rate,status,retired_reason').order('rego'),
-    window._sb.from('car_assignments').select('car_id').eq('status','Active')
-  ]);
-
-  const onRent = new Set((busy||[]).map(a => a.car_id));
-  const free = (cars||[]).filter(c =>
-        c.status === 'Available' && !c.retired_reason && !onRent.has(c.id));
-
-  document.getElementById('a_driver').innerHTML = '<option value="">Select driver...</option>' + (drivers||[]).map(d=>`<option value="${d.id}">${d.first_name} ${d.last_name}</option>`).join('');
-  document.getElementById('a_car').innerHTML = free.length
-      ? '<option value="">Select car...</option>' + free.map(c=>`<option value="${c.id}" data-rate="${c.weekly_rate}">${c.rego} — ${c.make_model} ($${c.weekly_rate}/wk)</option>`).join('')
-      : '<option value="">No cars are free to rent out right now</option>';
-  document.getElementById('a_start').value = todayISO();
-  _partWeekEdited = false;
-  document.getElementById('a_first_amt').value = '';
-  updatePartWeek();
-  document.getElementById('assignModal').classList.add('open');
-}
-
-document.addEventListener('DOMContentLoaded',()=>{
-  const carSel = document.getElementById('a_car');
-  if(carSel) carSel.addEventListener('change',()=>{
-    const opt = carSel.selectedOptions[0];
-    const rate = opt?.getAttribute('data-rate');
-    if(rate){
-      document.getElementById('a_rate').value = rate;
-      document.getElementById('a_bond').value = (parseFloat(rate)*4).toFixed(0);
-      updatePartWeek();
-    }
-  });
-});
-
-// ─── THE HANDOVER WEEK ─────────────────────────────────────────────
-// Rent cycles run Monday to Sunday, but cars go out on any day. The first
-// week is charged by the day — the weekly rate divided by seven, times the
-// days from handover to Sunday, counting the handover day itself.
-let _partWeekEdited = false;
-function markPartWeekEdited(){ _partWeekEdited = true; }
-
-function dayIndex(dateStr){                       // Mon=0 … Sun=6
-  const d = new Date(dateStr+'T00:00:00');
-  return (d.getDay() + 6) % 7;
-}
-
-function updatePartWeek(){
-  const wrap  = document.getElementById('a_partWrap');
-  const note  = document.getElementById('a_partNote');
-  const amt   = document.getElementById('a_first_amt');
-  const start = document.getElementById('a_start').value;
-  const rate  = parseFloat(document.getElementById('a_rate').value);
-  if(!wrap) return;
-
-  if(!start || !rate || isNaN(rate)){ wrap.style.display = 'none'; return; }
-
-  const idx  = dayIndex(start);
-  const days = 7 - idx;
-  if(days >= 7){                                   // handed over on a Monday
-    wrap.style.display = 'none';
-    amt.value = '';
-    _partWeekEdited = false;
-    return;
-  }
-
-  const daily = rate / 7;
-  const calc  = Math.round(daily * days * 100) / 100;
-  const d     = new Date(start+'T00:00:00');
-  const sun   = new Date(d); sun.setDate(sun.getDate() + days - 1);
-  const fmt   = x => x.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
-
-  note.textContent = 'Handed over ' + fmt(d) + ' · ' + days + (days===1?' day':' days')
-                   + ' to ' + fmt(sun) + '  ·  $' + daily.toFixed(2) + '/day';
-  wrap.style.display = '';
-  if(!_partWeekEdited) amt.value = calc.toFixed(2);
-}
-
-function closeAssignModal(){ document.getElementById('assignModal').classList.remove('open'); }
-
-async function saveAssignment(){
-  const data = {
-    driver_id: document.getElementById('a_driver').value,
-    car_id: document.getElementById('a_car').value,
-    start_date: document.getElementById('a_start').value,
-    end_date: document.getElementById('a_end').value || null,
-    contract_period: document.getElementById('a_contract').value,
-    weekly_rate: parseFloat(document.getElementById('a_rate').value),
-    bond_amount: parseFloat(document.getElementById('a_bond').value),
-    bond_paid: document.getElementById('a_bond_paid').value === 'true',
-    notes: document.getElementById('a_notes').value,
-    status: 'Active',
-  };
-  if(!data.driver_id||!data.car_id||!data.start_date||!data.weekly_rate){ alert('Please fill all required fields.'); return; }
-
-  // Keep the agreed handover-week rent, so the figure is still right months
-  // later. Left empty, the Rent Tracker works it out by the day.
-  const partWrap = document.getElementById('a_partWrap');
-  const partAmt  = document.getElementById('a_first_amt').value;
-  if(partWrap && partWrap.style.display !== 'none' && partAmt !== ''){
-    data.first_week_amount = parseFloat(partAmt);
-  }
-  const {error} = await window._sb.from('car_assignments').insert([data]);
-  if(error){ alert('Error: '+error.message); return; }
-  // Auto-update the car status so the public website shows it as Rented
-  const carStatus = await window._sb.from('cars').update({status:'Rented'}).eq('id', data.car_id);
-  if(carStatus.error){ alert('Assignment saved, but the car status could not be updated: '+carStatus.error.message+'\n\nPlease set it to Rented manually in Car Management.'); }
-  closeAssignModal();
-  loadAssignments();
-}
-
-</script>
-
   </main>
 </div>
 
-
 <script>
-// Auth guard - runs after DOM loads
+// ─── SUPABASE INIT (same project as rest of admin) ───
+var PROJ='tbhqamcuewycaqertpba';
+const _db = window.supabase.createClient('https://'+PROJ+'.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U');
+
+let allCars = [];
+let activeCarId = null;
+let activeExpenses = [];
+let activeIncome = [];
+let activeHistory = [];
+let activeOdo = [];
+let activePayouts = [];
+let activeWeekById = {};
+
+// "Mon 21 Sep - Sun 27 Sep 2026" for a week beginning on the given Monday.
+function cycleLabel(weekStart){
+  if(!weekStart) return null;
+  const a = new Date(weekStart + 'T00:00:00');
+  if(isNaN(a)) return null;
+  const b = new Date(a); b.setDate(b.getDate() + 6);
+  const DAY = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const d = (x) => DAY[x.getDay()] + ' ' + x.getDate() + ' ' + MON[x.getMonth()];
+  return d(a) + ' - ' + d(b) + ' ' + b.getFullYear();
+}
+
+// Owner settlement figures for the selected car
+function settlement(){
+  const car = allCars.find(c => c.id === activeCarId);
+  if(!car || !car.externally_owned) return null;
+  const income = activeIncome.reduce((s,i)=>s+Number(i.amount),0);
+  // Only running costs come out of the owner's share. The purchase price is
+  // excluded — on an investor's car it was never your money.
+  const running = activeExpenses.filter(e => (e.category||'') !== 'Purchase Price');
+  const costs = running.reduce((s,e)=>s+Number(e.amount),0);
+  const excluded = activeExpenses
+      .filter(e => (e.category||'') === 'Purchase Price')
+      .reduce((s,e)=>s+Number(e.amount),0);
+  // Running costs come off first, then our service fee is taken
+  // on what is left, not on the gross rent.
+  const afterCosts = income - costs;
+  const feePct = Number(car.service_fee_pct) || 0;
+  const fee = feePct > 0 ? (afterCosts * feePct / 100) : 0;
+  const rentalDue = afterCosts - fee;
+
+  // The sale price is deliberately kept out of every figure here. It is money
+  // for the vehicle itself, not rent, so mixing it into the rental account
+  // makes both numbers impossible to read. It is stated on its own instead.
+  const saleAmount = (car.retired_reason === 'Sold' || car.retired_reason === 'Written Off')
+        ? (Number(car.retired_amount) || 0) : 0;
+  const saleDate  = car.retired_date || null;
+  const saleIsSale = car.retired_reason === 'Sold';
+
+  const dueToOwner = rentalDue;
+  const paidOut = activePayouts.reduce((s,p)=>s+Number(p.amount),0);
+  return { car, income, costs, excluded, runningCount: running.length,
+           afterCosts, feePct, fee, rentalDue,
+           saleAmount, saleDate, saleIsSale,
+           dueToOwner, paidOut,
+           outstanding: dueToOwner - paidOut };
+}
+
+// Distance stats for the selected car
+function odoStats(){
+  if(!activeOdo.length) return null;
+  // Chosen by value, never by position in the array, so the sort order the
+  // rows arrive in can change without silently inverting these figures.
+  const byDate = activeOdo.slice().sort((a,b) =>
+        String(a.reading_date).localeCompare(String(b.reading_date)) ||
+        (Number(a.reading_km) - Number(b.reading_km)));
+  const oldest = byDate[0], latest = byDate[byDate.length-1];
+  const total = Number(latest.reading_km) - Number(oldest.reading_km);
+  let perWeek = null;
+  const days = (new Date(latest.reading_date+'T00:00:00') - new Date(oldest.reading_date+'T00:00:00'))/86400000;
+  if(days >= 7 && total > 0) perWeek = Math.round(total / (days/7));
+  const purchase = activeOdo.find(r => r.source === 'Purchase');
+  return { current:Number(latest.reading_km), total, perWeek,
+           since:oldest.reading_date, count:activeOdo.length,
+           purchaseKm: purchase ? Number(purchase.reading_km) : null,
+           purchaseDate: purchase ? purchase.reading_date : null,
+           sincePurchase: purchase ? Number(latest.reading_km) - Number(purchase.reading_km) : null };
+}
+
+// km driven during a particular rental, from its handover/return readings
+function odoForAssignment(assignmentId){
+  const rs = activeOdo.filter(r => r.assignment_id === assignmentId);
+  const start = rs.find(r => r.source === 'Handover');
+  const end   = rs.find(r => r.source === 'Return');
+  if(start && end) return Number(end.reading_km) - Number(start.reading_km);
+  return null;
+}
+function kmTxt(n){ return Number(n||0).toLocaleString('en-AU') + ' km'; }
+
+function money(n){ return '$'+Number(n||0).toLocaleString('en-AU',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+
+async function loadCars(){
+  const { data, error } = await _db.from('cars').select('*').order('make_model');
+  if(error){ document.getElementById('carGrid').innerHTML = '<div class="empty-msg">Could not load cars.</div>'; return; }
+  allCars = data || [];
+
+  // Pull expense + income totals for all cars in two queries
+  const { data: exp } = await _db.from('car_expenses').select('car_id, amount');
+  const { data: inc } = await _db.from('rent_payments').select('car_id, amount');
+
+  const expTotals = {}, incTotals = {};
+  (exp||[]).forEach(e => expTotals[e.car_id] = (expTotals[e.car_id]||0) + Number(e.amount));
+  (inc||[]).forEach(i => incTotals[i.car_id] = (incTotals[i.car_id]||0) + Number(i.amount));
+
+  const grid = document.getElementById('carGrid');
+  if(!allCars.length){ grid.innerHTML = '<div class="empty-msg">No cars found yet — add one in Car Management first.</div>'; return; }
+
+  const cardFor = c => {
+    const cost = expTotals[c.id] || 0;
+    const income = incTotals[c.id] || 0;
+    const net = income - cost;
+    return `<div class="car-card${c.retired_reason ? ' is-retired' : ''}" data-id="${c.id}" onclick="openDetail('${c.id}')">
+      <div class="cc-name">${c.make_model} ${c.year||''}${c.externally_owned ? '<span class="owner-badge">Owner</span>' : ''}${c.retired_reason ? `<span class="retired-badge">${c.retired_reason}</span>` : ''}</div>
+      <div class="cc-rego">${c.rego||''}</div>
+      <div class="cc-row"><span>Total Cost</span><b>${money(cost)}</b></div>
+      <div class="cc-row"><span>Total Earned</span><b>${money(income)}</b></div>
+      <div class="cc-net">
+        <span class="cc-net-label">Net</span>
+        <span class="cc-net-val ${net>=0?'pos':'neg'}">${net>=0?'+':'-'}${money(Math.abs(net))}</span>
+      </div>
+    </div>`;
+  };
+
+  // Vehicles that have left the fleet get their own section below, so the
+  // working grid holds only the cars still earning.
+  const active  = allCars.filter(c => !c.retired_reason);
+  const retired = allCars.filter(c =>  c.retired_reason);
+
+  let html = active.length
+        ? active.map(cardFor).join('')
+        : '<div class="empty-msg" style="grid-column:1/-1;">No vehicles in the active fleet.</div>';
+
+  if(retired.length){
+    html += '<div class="grid-section">Retired Vehicles'
+          + '<span>' + retired.length + (retired.length === 1 ? ' vehicle' : ' vehicles') + '</span></div>'
+          + retired.map(cardFor).join('');
+  }
+  grid.innerHTML = html;
+}
+
+async function openDetail(carId){
+  activeCarId = carId;
+  document.querySelectorAll('.car-card').forEach(el => el.classList.toggle('active', el.dataset.id===carId));
+
+  const car = allCars.find(c => c.id === carId);
+  document.getElementById('detailTitle').innerHTML =
+    `${car.make_model} <span>${car.year||''} — ${car.rego||''}</span>` +
+    (car.externally_owned
+      ? `<span class="own-pill own-ext">Investor's car${car.owner_name ? ' · '+car.owner_name : ''}${car.service_fee_pct ? ' · '+car.service_fee_pct+'% fee' : ''}</span>`
+      : `<span class="own-pill own-biz">Owned by the business</span>`);
+
+  // Money lists read newest first, so the most recent month is the first
+  // thing anyone sees. The odometer stays oldest first, because its
+  // "since previous" column only makes sense read forwards.
+  const [{ data: exp }, { data: inc }, { data: hist }, { data: odo }, { data: pay }] = await Promise.all([
+    _db.from('car_expenses').select('*').eq('car_id', carId).order('expense_date', {ascending:false}),
+    _db.from('rent_payments').select('*').eq('car_id', carId).order('payment_date', {ascending:false}),
+    _db.from('car_assignments')
+       .select('id,start_date,end_date,status,weekly_rate,drivers(first_name,last_name,mobile)')
+       .eq('car_id', carId).order('start_date', {ascending:false}),
+    _db.from('odometer_readings').select('*').eq('car_id', carId)
+       .order('reading_date',{ascending:true}).order('reading_km',{ascending:true}),
+    _db.from('owner_payouts').select('*').eq('car_id', carId)
+       .order('payout_date',{ascending:false})
+  ]);
+  activeOdo = odo || [];
+  activePayouts = pay || [];
+  activeWeekById = {};
+  activeExpenses = exp || [];
+  activeIncome = inc || [];
+  activeHistory = hist || [];
+
+  // Pull the weekly rent records for these rentals so each driver's
+  // collected total is based on what was actually marked paid.
+  if(activeHistory.length){
+    const ids = activeHistory.map(h => h.id);
+    const { data: wks } = await _db.from('rent_weeks')
+      .select('id,assignment_id,week_start,amount_paid,amount_due,status').in('assignment_id', ids);
+    // Keyed by week id so a payment can name the exact rental cycle it covers
+    // rather than relying on the free-text note saved alongside it.
+    (wks||[]).forEach(w => { activeWeekById[w.id] = w; });
+    const byA = {};
+    (wks||[]).forEach(w => {
+      if(!byA[w.assignment_id]) byA[w.assignment_id] = {paid:0, owed:0, weeks:0};
+      byA[w.assignment_id].weeks++;
+      byA[w.assignment_id].paid += Number(w.amount_paid||0);
+      if(w.status !== 'Paid') byA[w.assignment_id].owed += Number(w.amount_due) - Number(w.amount_paid||0);
+    });
+    activeHistory.forEach(h => { h._stats = byA[h.id] || {paid:0, owed:0, weeks:0}; });
+  }
+
+  renderDetail();
+  applyRetiredLock();
+
+  document.getElementById('detailPanel').classList.add('open');
+  document.getElementById('detailPanel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// A retired vehicle is a closed record: nothing further may be added to it.
+// Only the report remains available.
+function applyRetiredLock(){
+  const car = allCars.find(c => c.id === activeCarId);
+  const retired = !!(car && car.retired_reason);
+  ['expForm','incForm','poForm'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = retired ? 'none' : '';
+  });
+  const banner = document.getElementById('retiredBanner');
+  if(banner){
+    if(!retired){ banner.innerHTML = ''; return; }
+    const when = car.retired_date
+        ? new Date(car.retired_date+'T00:00:00').toLocaleDateString('en-AU')
+        : 'date not recorded';
+    banner.innerHTML =
+      '<div class="retired-banner"><span>&#128274;</span><div>' +
+      '<b>This vehicle is retired &mdash; ' + car.retired_reason + ' on ' + when + '</b>' +
+      '<span class="rb-text">Its records are closed. Expenses, rental income and owner payments ' +
+      'can no longer be added or changed. The PDF report remains available.</span>' +
+      '</div></div>';
+  }
+}
+
+function renderDetail(){
+  const totalCost = activeExpenses.reduce((s,e) => s + Number(e.amount), 0);
+  const totalIncome = activeIncome.reduce((s,i) => s + Number(i.amount), 0);
+  const net = totalIncome - totalCost;
+
+  // Mirrors the PDF exactly: expenses always include the purchase price, and
+  // the last box is the same figure the report finishes on.
+  const _car = allCars.find(c => c.id === activeCarId);
+  const _S = settlement();
+  // The sale price is never folded into the position — it is stated on its own.
+  const _final = _S ? (totalIncome - totalCost - _S.fee)
+                    : (totalIncome - totalCost);
+
+  document.getElementById('sumCost').textContent = money(totalCost);
+  document.getElementById('sumIncome').textContent = money(totalIncome);
+
+  const feeBox = document.getElementById('sumFeeBox');
+  const row = document.getElementById('summaryRow');
+  if(_S){
+    feeBox.style.display = '';
+    row.classList.add('four');
+    document.getElementById('sumFee').textContent = money(_S.fee);
+  } else {
+    feeBox.style.display = 'none';
+    row.classList.remove('four');
+  }
+  document.getElementById('sumNetLabel').textContent =
+    (_car && _car.retired_reason) ? 'Final Position'
+                                  : (_S ? 'Position to Date' : 'Net Position');
+
+  const netEl = document.getElementById('sumNet');
+  netEl.textContent = (_final>=0?'+':'-') + money(Math.abs(_final));
+  netEl.className = 'summary-val ' + (_final>=0?'pos':'neg');
+
+  document.getElementById('expList').innerHTML = activeExpenses.length ? activeExpenses.map(e => `
+    <div class="log-item">
+      <div><div class="log-main">${e.category}${e.description?' — '+e.description:''}</div><div class="log-sub">${e.expense_date}</div></div>
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <div class="log-amt neg">-${money(e.amount)}</div>
+        <button class="log-del" onclick="deleteRow('car_expenses','${e.id}')">✕</button>
+      </div>
+    </div>`).join('') : '<div class="empty-note">No expenses logged yet</div>';
+
+  // ── Vehicle sale ──
+  // Stated on its own, and counted in nothing else on this page.
+  const _saleAmt = (_car && (_car.retired_reason === 'Sold' || _car.retired_reason === 'Written Off'))
+        ? (Number(_car.retired_amount) || 0) : 0;
+  const salePane = document.getElementById('salePane');
+  if(salePane){
+    if(_saleAmt > 0){
+      const sold = _car.retired_reason === 'Sold';
+      const when = _car.retired_date
+            ? new Date(_car.retired_date+'T00:00:00')
+                .toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'})
+            : null;
+      salePane.innerHTML =
+          '<div class="sale-box">'
+        + '<div class="sale-head">' + (sold ? 'Vehicle Sale' : 'Insurance Settlement') + '</div>'
+        + '<div class="sale-line">' + (_car.rego || 'This vehicle') + ' was '
+        + (sold ? 'sold' : 'written off') + (when ? ' on ' + when : '')
+        + ' for <b>' + money(_saleAmt) + '</b>.</div>'
+        + (_car.externally_owned
+            ? '<div class="sale-pay">The full amount of ' + money(_saleAmt)
+              + ' will be transferred to the owner within two weeks.</div>' : '')
+        + '<div class="sale-note">Shown separately. Not included in any rent, '
+        + 'commission, expense or position figure.</div>'
+        + '</div>';
+      salePane.style.display = '';
+    } else {
+      salePane.innerHTML = '';
+      salePane.style.display = 'none';
+    }
+  }
+
+  // ── Owner settlement ──
+  const sp = document.getElementById('settlePane');
+  const S = settlement();
+  if(sp){
+    if(!S){
+      sp.innerHTML = '';
+    } else {
+      const owed = S.outstanding;
+      sp.innerHTML = `
+        <div class="col-title">Money owed to the car owner
+          <span class="hist-sub">${S.car.owner_name ? S.car.owner_name : 'this car belongs to an investor'}</span>
+        </div>
+        <div class="settle-grid">
+          <div class="settle-line"><span>Gross rental income</span><b class="pos">${money(S.income)}</b></div>
+          <div class="settle-line"><span>Less: operating expenses</span><b class="neg">−${money(S.costs)}</b></div>
+          <div class="settle-line"><span>Net rental income</span><b>${money(S.afterCosts)}</b></div>
+          ${S.fee > 0 ? `<div class="settle-line"><span>Management commission (${S.feePct}%)</span><b class="neg">−${money(S.fee)}</b></div>` : ''}
+          <div class="settle-line settle-sub"><span>Total due to owner</span><b>${money(S.dueToOwner)}</b></div>
+          <div class="settle-line"><span>Less: payments already remitted</span><b class="neg">−${money(S.paidOut)}</b></div>
+          ${S.excluded > 0 ? `<div class="settle-note">The vehicle purchase price of ${money(S.excluded)} is excluded — this vehicle was not acquired by the business.</div>` : ''}
+          <div class="settle-line settle-final">
+            <span>${owed >= 0 ? 'Balance due to owner' : 'Overpaid — recoverable from owner'}</span>
+            <b class="${owed > 0 ? 'neg' : 'pos'}">${money(Math.abs(owed))}</b>
+          </div>
+        </div>
+
+        <div class="mini-form" id="poForm" style="margin:1rem 0 .8rem;">
+          <input class="f-amt" id="poAmt" type="number" placeholder="$ Amount">
+          <input class="f-date" id="poDate" type="date">
+          <select class="f-cat" id="poMethod">
+            <option>Bank Transfer</option><option>Cash</option><option>Other</option>
+          </select>
+          <input class="f-desc" id="poNote" placeholder="Note (optional)">
+          <button class="btn btn-gold btn-sm" onclick="addPayout()">+ Add Payment to Owner</button>
+        </div>
+        <div class="log-list" id="poList"></div>`;
+
+      const pl = document.getElementById('poList');
+      pl.innerHTML = activePayouts.length ? activePayouts.map(p => `
+        <div class="log-item">
+          <div>
+            <div class="log-main">Paid${p.method ? ' by '+p.method.toLowerCase() : ''}${p.note ? ' — '+p.note : ''}</div>
+            <div class="log-sub">${p.payout_date}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <div class="log-amt">${money(p.amount)}</div>
+            <button class="log-del" onclick="deleteRow('owner_payouts','${p.id}')">&#10005;</button>
+          </div>
+        </div>`).join('') : '<div class="empty-note">You have not paid the owner anything yet</div>';
+    }
+  }
+
+  // ── Odometer strip ──
+  const os = odoStats();
+  const odoEl = document.getElementById('odoStrip');
+  if(odoEl){
+    if(!os){
+      odoEl.innerHTML = '';
+    } else {
+      const costPerKm = os.total > 0 ? (totalCost / os.total) : null;
+      odoEl.innerHTML = `
+        <div class="odo-stat"><span>Current odometer</span><b>${kmTxt(os.current)}</b></div>
+        ${os.purchaseKm!=null ? `<div class="odo-stat"><span>At purchase</span><b>${kmTxt(os.purchaseKm)}</b></div>` : ''}
+        ${os.sincePurchase>0 ? `<div class="odo-stat"><span>Driven since purchase</span><b>${kmTxt(os.sincePurchase)}</b></div>` : ''}
+        ${os.total>0 ? `<div class="odo-stat"><span>Driven while tracked</span><b>${kmTxt(os.total)}</b></div>` : ''}
+        ${os.perWeek ? `<div class="odo-stat"><span>Average use</span><b>${os.perWeek.toLocaleString('en-AU')} km/wk</b></div>` : ''}
+        ${costPerKm ? `<div class="odo-stat"><span>Cost per km</span><b>$${costPerKm.toFixed(2)}</b></div>` : ''}
+        <div class="odo-stat"><span>Readings logged</span><b>${os.count}</b></div>`;
+    }
+  }
+
+  // ── Rental history ──
+  const hl = document.getElementById('histList');
+  if(hl){
+    if(!activeHistory.length){
+      hl.innerHTML = '<div class="empty-note">No drivers have been assigned to this car yet.</div>';
+    } else {
+      const fd = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : null;
+      hl.innerHTML = activeHistory.map(h => {
+        const nm = h.drivers ? `${h.drivers.first_name} ${h.drivers.last_name}` : 'Unknown driver';
+        const active = h.status === 'Active';
+        const st = h._stats || {paid:0,owed:0,weeks:0};
+        const period = active
+            ? `${fd(h.start_date)} → present`
+            : `${fd(h.start_date)} → ${fd(h.end_date) || 'ended'}`;
+        const wk = st.weeks ? ` · ${st.weeks} week${st.weeks===1?'':'s'}` : '';
+        const drivenKm = odoForAssignment(h.id);
+        return `<div class="hist-row">
+          <div>
+            <div class="hist-name">${nm}
+              <span class="hist-badge ${active?'hb-active':'hb-ended'}">${active?'Current':'Ended'}</span>
+            </div>
+            <div class="hist-meta">${period}${wk} · ${money(h.weekly_rate)}/wk${h.drivers&&h.drivers.mobile?' · '+h.drivers.mobile:''}</div>
+            ${drivenKm!=null ? `<div class="hist-km">🚗 ${kmTxt(drivenKm)} driven${st.weeks?' · '+Math.round(drivenKm/st.weeks).toLocaleString('en-AU')+' km/wk':''}</div>` : ''}
+          </div>
+          <div class="hist-right">
+            <div class="hist-amt">${money(st.paid)}</div>
+            ${st.owed>0 ? `<div class="hist-owed">${money(st.owed)} outstanding</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  document.getElementById('incList').innerHTML = activeIncome.length ? activeIncome.map(i => {
+    // Payments created by the Rent Tracker are locked here: the weekly record
+    // is the source of truth, so they must be changed there. Deleting one from
+    // this side would leave its week still showing as Paid.
+    const fromTracker = !!i.rent_week_id;
+    const action = fromTracker
+      ? `<span class="log-lock" title="Recorded in the Rent Tracker — edit it there">&#128274;</span>`
+      : `<button class="log-del" onclick="deleteRow('rent_payments','${i.id}')">&#10005;</button>`;
+    return `
+    <div class="log-item">
+      <div>
+        <div class="log-main">${i.driver_name || 'Rent payment'}${fromTracker ? '<span class="log-src">Rent Tracker</span>' : ''}</div>
+        <div class="log-sub">${i.payment_date}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <div class="log-amt pos">+${money(i.amount)}</div>
+        ${action}
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty-note">No rent payments logged yet</div>';
+}
+
+function closeDetail(){
+  document.getElementById('detailPanel').classList.remove('open');
+  document.querySelectorAll('.car-card').forEach(el => el.classList.remove('active'));
+  activeCarId = null;
+}
+
+async function addExpense(){
+  const _c = allCars.find(c => c.id === activeCarId);
+  if(_c && _c.retired_reason){
+    alert('This vehicle is retired and its records are closed.\n\n'
+        + _c.rego + ' was ' + String(_c.retired_reason).toLowerCase()
+        + '. Nothing further can be added to it. You can still export the PDF report.');
+    return;
+  }
+  const category = document.getElementById('expCat').value;
+  const description = document.getElementById('expDesc').value.trim();
+  const amount = parseFloat(document.getElementById('expAmt').value);
+  const expense_date = document.getElementById('expDate').value || todayISO();
+  if(!amount || amount<=0){ alert('Enter a valid amount'); return; }
+
+  const { error } = await _db.from('car_expenses').insert({ car_id: activeCarId, category, description, amount, expense_date });
+  if(error){ alert('Could not save: '+error.message); return; }
+
+  document.getElementById('expDesc').value=''; document.getElementById('expAmt').value=''; document.getElementById('expDate').value='';
+  await openDetail(activeCarId);
+  await loadCars();
+}
+
+async function addIncome(){
+  const _c = allCars.find(c => c.id === activeCarId);
+  if(_c && _c.retired_reason){
+    alert('This vehicle is retired and its records are closed.\n\n'
+        + _c.rego + ' was ' + String(_c.retired_reason).toLowerCase()
+        + '. Nothing further can be added to it. You can still export the PDF report.');
+    return;
+  }
+  const driver_name = document.getElementById('incDriver').value.trim();
+  const amount = parseFloat(document.getElementById('incAmt').value);
+  const payment_date = document.getElementById('incDate').value || todayISO();
+  if(!amount || amount<=0){ alert('Enter a valid amount'); return; }
+
+  const { error } = await _db.from('rent_payments').insert({ car_id: activeCarId, driver_name, amount, payment_date });
+  if(error){ alert('Could not save: '+error.message); return; }
+
+  document.getElementById('incDriver').value=''; document.getElementById('incAmt').value=''; document.getElementById('incDate').value='';
+  await openDetail(activeCarId);
+  await loadCars();
+}
+
+async function addPayout(){
+  const _c = allCars.find(c => c.id === activeCarId);
+  if(_c && _c.retired_reason){
+    alert('This vehicle is retired and its records are closed.\n\n'
+        + _c.rego + ' was ' + String(_c.retired_reason).toLowerCase()
+        + '. Nothing further can be added to it. You can still export the PDF report.');
+    return;
+  }
+  const amount = parseFloat(document.getElementById('poAmt').value);
+  const payout_date = document.getElementById('poDate').value || todayISO();
+  const method = document.getElementById('poMethod').value;
+  const note = document.getElementById('poNote').value.trim() || null;
+  if(!amount || amount <= 0){ alert('Enter a valid payout amount.'); return; }
+
+  const { error } = await _db.from('owner_payouts')
+    .insert({ car_id: activeCarId, amount, payout_date, method, note });
+  if(error){ alert('Could not save: '+error.message); return; }
+  await openDetail(activeCarId);
+}
+
+async function deleteRow(table, id){
+  if(!confirm('Delete this entry?')) return;
+  const { error } = await _db.from(table).delete().eq('id', id);
+  if(error){ alert('Could not delete: '+error.message); return; }
+  await openDetail(activeCarId);
+  await loadCars();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PROFESSIONAL PDF REPORT
+// ═══════════════════════════════════════════════════════════
+const CO = {
+  name:'Ozee Rentals Pty Ltd',
+  abn:'ABN 71 694 905 667',
+  email:'admin@ozeerentals.com.au',
+  phone:'0450 786 145',
+  region:'Newcastle & Hunter Region, NSW',
+  site:'ozeerentals.com.au'
+};
+// Ozee logo embedded directly so it always renders, with no network call
+// or cross-origin issue. White artwork on the header's dark background.
+const LOGO = 'data:image/png;base64,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';
+const LOGO_RATIO = 1.7964;  // width / height
+const CLR = {
+  dark:[10,12,15], gold:[255,138,61], grey:[110,118,127],
+  light:[244,245,246], line:[223,226,230],
+  green:[22,128,61], red:[190,42,42], white:[255,255,255]
+};
+
+function pdfMoney(n){
+  return Number(n||0).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtDate(d){
+  if(!d) return '-';
+  const dt = new Date(d + (d.length===10 ? 'T00:00:00' : ''));
+  if(isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SENDING A REPORT: download, email, or a WhatsApp link
+// ═══════════════════════════════════════════════════════════
+
+// jsPDF hands back a data URI; the API wants just the base64 payload.
+function pdfBase64(doc){
+  const uri = doc.output('datauristring');
+  return uri.substring(uri.indexOf(',') + 1);
+}
+
+// Sends through the same Edge Function already used for approval emails.
+async function emailPdf(doc, fileName, to, subject, html){
+  const res = await fetch('https://'+PROJ+'.supabase.co/functions/v1/send-driver-email', {
+    method:'POST',
+    headers:{'Content-Type':'application/json',
+             'Authorization':'Bearer '+_db.supabaseKey, 'apikey':_db.supabaseKey},
+    body: JSON.stringify({ to, subject, html,
+                           pdfBase64: pdfBase64(doc), pdfFileName: fileName })
+  });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok || data.error) throw new Error(data.error || 'The email could not be sent.');
+  return data;
+}
+
+// WhatsApp cannot carry a file, so the document is stored and a private,
+// time-limited link is sent instead. The link is unguessable and stops
+// working after 30 days.
+async function uploadPdfForSharing(doc, bucket, path){
+  const blob = doc.output('blob');
+  const { error: upErr } = await _db.storage.from(bucket)
+        .upload(path, blob, { contentType:'application/pdf', upsert:true });
+  if(upErr) throw new Error('Could not store the report: ' + upErr.message);
+  const { data, error } = await _db.storage.from(bucket).createSignedUrl(path, 60*60*24*30);
+  if(error || !data) throw new Error('Could not create a share link: ' + (error ? error.message : 'no link returned'));
+  return data.signedUrl;
+}
+
+// Australian numbers are stored locally (0412...) but wa.me needs the
+// country code and digits only.
+function waNumber(raw){
+  let n = String(raw||'').replace(/[^0-9+]/g,'');
+  if(n.startsWith('+')) return n.slice(1);
+  if(n.startsWith('0'))  return '61' + n.slice(1);
+  if(n.startsWith('61')) return n;
+  return '61' + n;
+}
+function openWhatsApp(mobile, message){
+  window.open('https://wa.me/' + waNumber(mobile) + '?text=' + encodeURIComponent(message), '_blank');
+}
+
+async function exportPDF(mode){
+  mode = mode || 'download';
+  const car = allCars.find(c => c.id === activeCarId);
+  if(!car){ alert('Please select a car first.'); return; }
+
+  // Check we can reach the owner before spending time building the document.
+  if(mode === 'email' && !car.owner_email){
+    alert('No email address is recorded for this vehicle\'s owner.\n\n'
+        + 'Add one in Car Management, under the ownership section.');
+    return;
+  }
+  if(mode === 'whatsapp' && !car.owner_mobile){
+    alert('No mobile number is recorded for this vehicle\'s owner.\n\n'
+        + 'Add one in Car Management, under the ownership section.');
+    return;
+  }
+
+  const btn = document.querySelector('.detail-actions .btn-gold');
+  const btnTxt = btn ? btn.textContent : '';
+  if(btn){ btn.textContent = 'Generating...'; btn.disabled = true; }
+
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4' });
+    const PW = 210, PH = 297, M = 14, CW = PW - M*2;
+
+    const totalCost   = activeExpenses.reduce((s,e)=>s+Number(e.amount),0);
+    const totalIncome = activeIncome.reduce((s,i)=>s+Number(i.amount),0);
+    const net = totalIncome - totalCost;
+
+    // ─────────── HEADER BAND ───────────
+    function header(firstPage){
+      const H = firstPage ? 30 : 14;
+      doc.setFillColor.apply(doc, CLR.dark);
+      doc.rect(0,0,PW,H,'F');
+      doc.setFillColor.apply(doc, CLR.gold);
+      doc.rect(0,H,PW,0.9,'F');
+      if(firstPage){
+        let logoOK = false;
+        try{ const h = 11, w = h * LOGO_RATIO;
+             doc.addImage(LOGO,'PNG',(PW-w)/2,5,w,h); logoOK = true; }catch(e){}
+        if(!logoOK){ doc.setFont('helvetica','bold'); doc.setFontSize(14);
+                     doc.setTextColor.apply(doc, CLR.white);
+                     doc.text('OZEE', PW/2, 12, {align:'center'}); }
+        doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+        doc.setTextColor.apply(doc, CLR.white);
+        doc.text('CAR FINANCE REPORT', PW/2, 23.5, {align:'center'});
+        doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+        doc.setTextColor(160,168,177);
+        doc.text('Statement of vehicle costs and earnings', PW/2, 27.5, {align:'center'});
+      } else {
+        doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+        doc.setTextColor.apply(doc, CLR.white);
+        doc.text('CAR FINANCE REPORT', M, 9);
+        doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+        doc.setTextColor(160,168,177);
+        doc.text(String(car.make_model||'') + '  ·  ' + String(car.rego||''), PW-M, 9, {align:'right'});
+      }
+    }
+
+    // ─────────── FOOTER ───────────
+    function footer(pageNo, pageCount){
+      doc.setDrawColor.apply(doc, CLR.line);
+      doc.setLineWidth(0.2);
+      doc.line(M, PH-13, PW-M, PH-13);
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.6);
+      doc.setTextColor.apply(doc, CLR.grey);
+      doc.text(CO.name+'  ·  '+CO.abn+'  ·  '+CO.email+'  ·  '+CO.phone+'  ·  '+CO.site, M, PH-9);
+      doc.text('Page '+pageNo+' of '+pageCount, PW-M, PH-9, {align:'right'});
+    }
+
+    header(true);
+
+    let y = 42;
+
+    // ─────────── VEHICLE BLOCK ───────────
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    doc.setTextColor.apply(doc, CLR.grey);
+    doc.text('GENERATED ' + new Date().toLocaleDateString('en-AU',
+      {day:'numeric',month:'long',year:'numeric'}).toUpperCase(), M, y);
+    y += 8;
+
+    const title = String(car.make_model||'') + ' ' + String(car.year||'');
+    doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    doc.setTextColor.apply(doc, CLR.dark);
+    doc.text(title, M, y);
+    const titleW = doc.getTextWidth(title);
+    if(car.rego){
+      const sepX = M + titleW + 4;
+      doc.setFont('helvetica','normal'); doc.setFontSize(14);
+      doc.setTextColor(200,204,209);
+      doc.text('|', sepX, y);
+      doc.setFont('helvetica','bold'); doc.setFontSize(16);
+      doc.setTextColor.apply(doc, CLR.gold);
+      doc.text(String(car.rego), sepX + 4, y);
+    }
+    y += 7.5;
+
+    // Key facts as label / value pairs. Retirement is merged into Status so
+    // there is one place to look for where the car stands.
+    const facts = [];
+    if(car.category)    facts.push(['Type', String(car.category), false]);
+    if(car.weekly_rate) facts.push(['Rate', '$'+car.weekly_rate+'/week', false]);
+    if(car.status){
+      let st = String(car.status);
+      if(car.retired_reason){
+        st += '  ·  ' + car.retired_reason
+            + (car.retired_date ? ' ' + new Date(car.retired_date+'T00:00:00').toLocaleDateString('en-AU') : '');
+      }
+      facts.push(['Status', st, !!car.retired_reason]);
+    }
+    let fx = M;
+    facts.forEach(function(f){
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+      doc.setTextColor.apply(doc, CLR.grey);
+      doc.text(f[0], fx, y);
+      const lw = doc.getTextWidth(f[0]);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+      doc.setTextColor.apply(doc, f[2] ? [150,60,60] : CLR.dark);
+      doc.text(f[1], fx + lw + 3, y);
+      fx += lw + 3 + doc.getTextWidth(f[1]) + 9;
+    });
+    y += 1;
+
+    // Ownership pill
+    const ownLabel = car.externally_owned
+        ? ("INVESTOR'S CAR" + (car.owner_name ? '  ·  ' + car.owner_name.toUpperCase() : '')
+             + (car.service_fee_pct ? '  ·  ' + car.service_fee_pct + '% SERVICE FEE' : ''))
+        : 'OWNED BY THE BUSINESS';
+    const ownCol = car.externally_owned ? [37,99,235] : CLR.grey;
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    const ownW = doc.getTextWidth(ownLabel) + 7;
+    doc.setFillColor(car.externally_owned ? 232 : 240, car.externally_owned ? 240 : 241, car.externally_owned ? 254 : 243);
+    doc.setDrawColor.apply(doc, ownCol);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(M, y+3.5, ownW, 6.2, 1.2, 1.2, 'FD');
+    doc.setTextColor.apply(doc, ownCol);
+    doc.text(ownLabel, M+3.5, y+7.8);
+    y += 13;
+
+    // Odometer summary, same label / value treatment as the facts row
+    const os = odoStats();
+    if(os){
+      const odoPairs = [['Odometer', os.current.toLocaleString('en-AU') + ' km']];
+      if(os.purchaseKm != null) odoPairs.push(['At purchase', os.purchaseKm.toLocaleString('en-AU') + ' km']);
+      if(os.sincePurchase > 0)  odoPairs.push(['Driven since', os.sincePurchase.toLocaleString('en-AU') + ' km']);
+      else if(os.total > 0)     odoPairs.push(['Tracked', os.total.toLocaleString('en-AU') + ' km']);
+      if(os.perWeek)            odoPairs.push(['Average', os.perWeek.toLocaleString('en-AU') + ' km/wk']);
+      if(os.total > 0){
+        // Running costs only where the vehicle belongs to its owner.
+        const kmBase = car.externally_owned
+              ? activeExpenses.filter(e => (e.category||'') !== 'Purchase Price')
+                              .reduce((a,e)=>a+Number(e.amount),0)
+              : totalCost;
+        odoPairs.push(['Cost/km', '$' + (kmBase/os.total).toFixed(2)]);
+      }
+      // Measure first so a long line drops the least important pair rather than
+      // running off the page.
+      function odoWidth(pairs){
+        let w = 0;
+        pairs.forEach(function(pr){
+          doc.setFont('helvetica','normal'); doc.setFontSize(8);
+          w += doc.getTextWidth(pr[0]) + 3;
+          doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+          w += doc.getTextWidth(pr[1]) + 9;
+        });
+        return w;
+      }
+      while(odoPairs.length > 2 && odoWidth(odoPairs) > CW){ odoPairs.pop(); }
+      let ox = M;
+      odoPairs.forEach(function(pr){
+        doc.setFont('helvetica','normal'); doc.setFontSize(8);
+        doc.setTextColor.apply(doc, CLR.grey);
+        doc.text(pr[0], ox, y+7);
+        const lw2 = doc.getTextWidth(pr[0]);
+        doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+        doc.setTextColor.apply(doc, CLR.dark);
+        doc.text(pr[1], ox + lw2 + 3, y+7);
+        ox += lw2 + 3 + doc.getTextWidth(pr[1]) + 9;
+      });
+      y += 19;
+    } else {
+      y += 3;
+    }
+
+    // ─────────── SUMMARY CARDS ───────────
+    // Both cases carry the vehicle purchase price inside total expenses, and
+    // both finish on the same figure as the position block further down, so
+    // the top of the report and the bottom can never disagree.
+    const _S0 = settlement();
+    let cards;
+
+    if(_S0){
+      // Investor's car: expenses, what the driver paid, what we kept,
+      // and where the vehicle finishes once both come out.
+      // The sale price is never in here — it is stated on its own.
+      const ownerFinal = totalIncome - totalCost - _S0.fee;
+      cards = [
+        {label:'TOTAL EXPENSES',   val:'$'+pdfMoney(totalCost),    col:CLR.dark},
+        {label:'RENT COLLECTED',   val:'$'+pdfMoney(totalIncome),  col:CLR.dark},
+        {label:'COMMISSION EARNED',val:'$'+pdfMoney(_S0.fee),      col:CLR.green},
+        {label: car.retired_reason ? 'FINAL POSITION' : 'POSITION TO DATE',
+         val:(ownerFinal>=0?'+$':'-$')+pdfMoney(Math.abs(ownerFinal)),
+         col: ownerFinal>=0?CLR.green:CLR.red, accent:true}
+      ];
+    } else {
+      const bizNet = totalIncome - totalCost;
+      cards = [
+        {label:'TOTAL EXPENSES', val:'$'+pdfMoney(totalCost),   col:CLR.dark},
+        {label:'RENT COLLECTED', val:'$'+pdfMoney(totalIncome), col:CLR.dark},
+        {label: car.retired_reason ? 'FINAL POSITION' : 'NET POSITION',
+         val:(bizNet>=0?'+$':'-$')+pdfMoney(Math.abs(bizNet)),
+         col: bizNet>=0?CLR.green:CLR.red, accent:true}
+      ];
+    }
+
+    const gap = 4, cardH = 25, cardW = (CW - gap*(cards.length-1))/cards.length;
+    const valSize = cards.length > 3 ? 12 : 14;
+    cards.forEach((c,i)=>{
+      const x = M + i*(cardW+gap);
+      doc.setFillColor(250,250,251);
+      doc.setDrawColor.apply(doc, CLR.line);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(x,y,cardW,cardH,1.5,1.5,'FD');
+      if(c.accent){ doc.setFillColor.apply(doc, c.col); doc.rect(x,y,1.5,cardH,'F'); }
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.6);
+      doc.setTextColor.apply(doc, CLR.grey);
+      doc.text(c.label, x+5, y+8);
+      doc.setFont('helvetica','bold'); doc.setFontSize(valSize);
+      doc.setTextColor.apply(doc, c.col);
+      doc.text(c.val, x+5, y+18);
+    });
+    y += cardH + 12;
+
+    // ─────────── TABLE RENDERER ───────────
+    function ensure(h){
+      if(y + h > PH - 20){ doc.addPage(); header(false); y = 26; }
+    }
+    function section(title, count){
+      ensure(16);
+      const showCount = (count !== null && count !== undefined && count !== 0);
+      doc.setFillColor.apply(doc, CLR.dark);
+      doc.rect(M,y,CW,8,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.setTextColor.apply(doc, CLR.white);
+      doc.text(title.toUpperCase(), M+4, y+5.6);
+      if(showCount){
+        doc.setFont('helvetica','normal'); doc.setFontSize(8);
+        doc.setTextColor(175,182,190);
+        doc.text(count+(count===1?' entry':' entries'), PW-M-4, y+5.6, {align:'right'});
+      }
+      y += 8;
+    }
+    function cols(headers){
+      doc.setFillColor(238,240,243);
+      doc.rect(M,y,CW,6.5,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+      doc.setTextColor.apply(doc, CLR.grey);
+      headers.forEach(h=>doc.text(h.t, h.x, y+4.5, h.a?{align:h.a}:undefined));
+      y += 6.5;
+    }
+    function row(cells, idx, amtColor){
+      ensure(7);
+      if(idx%2===1){ doc.setFillColor(250,250,251); doc.rect(M,y,CW,7,'F'); }
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      cells.forEach(c=>{
+        doc.setTextColor.apply(doc, c.amt ? amtColor : CLR.dark);
+        if(c.amt) doc.setFont('helvetica','bold');
+        let t = String(c.t==null?'':c.t);
+        if(c.max && doc.getTextWidth(t) > c.max){
+          while(t.length>3 && doc.getTextWidth(t+'...') > c.max) t = t.slice(0,-1);
+          t += '...';
+        }
+        doc.text(t, c.x, y+4.8, c.a?{align:c.a}:undefined);
+        if(c.amt) doc.setFont('helvetica','normal');
+      });
+      doc.setDrawColor(235,237,240); doc.setLineWidth(0.2);
+      doc.line(M,y+7,PW-M,y+7);
+      y += 7;
+    }
+    function totalRow(label, value, color){
+      ensure(9);
+      doc.setFillColor(238,240,243);
+      doc.rect(M,y,CW,8.5,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.setTextColor.apply(doc, CLR.dark);
+      doc.text(label, M+4, y+5.8);
+      doc.setTextColor.apply(doc, color);
+      doc.text(value, PW-M-4, y+5.8, {align:'right'});
+      y += 8.5;
+    }
+    function emptyNote(msg){
+      ensure(10);
+      doc.setFont('helvetica','italic'); doc.setFontSize(8.5);
+      doc.setTextColor.apply(doc, CLR.grey);
+      doc.text(msg, M+4, y+5.5);
+      doc.setFont('helvetica','normal');
+      y += 10;
+    }
+
+    // ─────────── EXPENSES ───────────
+    section('Operating Expenses', activeExpenses.length);
+    if(!activeExpenses.length){ emptyNote('No expenses recorded for this vehicle.'); }
+    else {
+      cols([{t:'DATE',x:M+4},{t:'CATEGORY',x:M+32},{t:'DESCRIPTION',x:M+72},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
+      activeExpenses.slice().sort((a,b)=>String(b.expense_date).localeCompare(String(a.expense_date)))
+        .forEach((e,i)=>row([
+          {t:fmtDate(e.expense_date),x:M+4},
+          {t:e.category,x:M+32,max:36},
+          {t:e.description||'-',x:M+72,max:70},
+          {t:'-$'+pdfMoney(e.amount),x:PW-M-4,a:'right',amt:true}
+        ], i, CLR.red));
+      totalRow('Total Operating Expenses','-$'+pdfMoney(totalCost), CLR.red);
+      // Reconcile the total with the summary card above, which excludes a
+      // purchase the owner funded.
+      if(car.externally_owned){
+        const _pp = activeExpenses.filter(e => (e.category||'') === 'Purchase Price')
+                                  .reduce((a,e)=>a+Number(e.amount),0);
+        if(_pp > 0){
+          ensure(8);
+          doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+          doc.setTextColor.apply(doc, CLR.grey);
+          doc.text('Includes the vehicle purchase price of $'+pdfMoney(_pp)
+            +', which was funded by the owner.', M+4, y+4.5);
+          y += 8;
+        }
+      }
+    }
+    y += 10;
+
+    // ─────────── DRIVERS & RENT COLLECTED ───────────
+    // One line per rental, not one line per payment. A statement that lists
+    // every weekly $350 grows forever and says nothing the summary does not.
+    //
+    // Built from the payments themselves rather than from the weekly cycles,
+    // so the rows always add up to the RENT COLLECTED figure at the top. Cash
+    // taken straight against the car belongs to no rental, and would otherwise
+    // sit in the total with nothing on the page to explain it.
+    {
+      const paidByAsg = {};
+      const looseByName = {};
+
+      activeIncome.forEach(p => {
+        const wk = p.rent_week_id ? activeWeekById[p.rent_week_id] : null;
+        if(wk && wk.assignment_id){
+          paidByAsg[wk.assignment_id] = (paidByAsg[wk.assignment_id] || 0) + Number(p.amount || 0);
+        } else {
+          const nm = (p.driver_name || '').trim() || 'Not recorded';
+          looseByName[nm] = (looseByName[nm] || 0) + Number(p.amount || 0);
+        }
+      });
+
+      const looseNames = Object.keys(looseByName);
+      const rowCount = (activeHistory ? activeHistory.length : 0) + looseNames.length;
+
+      const vehicle = [car.make_model, car.rego].filter(Boolean).join('  ·  ');
+      section('Drivers & Rent Collected' + (vehicle ? '  —  ' + vehicle : ''), rowCount);
+
+      if(!rowCount){
+        emptyNote('No rent has been collected for this vehicle yet.');
+      } else {
+        cols([{t:'DRIVER',x:M+4},{t:'RENTAL PERIOD',x:M+56},
+              {t:'WEEKS',x:M+118,a:'right'},{t:'KM DRIVEN',x:M+146,a:'right'},
+              {t:'RENT PAID',x:PW-M-4,a:'right'}]);
+
+        // Fixed three-letter months: en-AU renders "short" as June and Sept,
+        // which does not line up with the Aug and Oct used elsewhere.
+        const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const fd = d => {
+          if(!d) return '-';
+          const x = new Date(d+'T00:00:00');
+          return String(x.getDate()).padStart(2,'0') + ' ' + MON3[x.getMonth()]
+               + ' ' + String(x.getFullYear()).slice(2);
+        };
+        let i = 0;
+
+        (activeHistory || []).forEach(h => {
+          const nm  = h.drivers ? (h.drivers.first_name + ' ' + h.drivers.last_name) : 'Unknown driver';
+          const st  = h._stats || {paid:0, owed:0, weeks:0};
+          const per = fd(h.start_date) + '  to  ' + (h.status === 'Active' ? 'present' : fd(h.end_date));
+          const dk  = odoForAssignment(h.id);
+          row([
+            {t:nm + (h.status === 'Active' ? '  (current)' : ''), x:M+4, max:50},
+            {t:per, x:M+56, max:60},
+            {t:String(st.weeks || 0), x:M+118, a:'right'},
+            {t:dk != null ? dk.toLocaleString('en-AU') : '—', x:M+146, a:'right'},
+            {t:'$'+pdfMoney(paidByAsg[h.id] || 0), x:PW-M-4, a:'right', amt:true}
+          ], i++, CLR.green);
+        });
+
+        // Anything taken outside a rental, so the column still foots.
+        looseNames.forEach(nm => {
+          row([
+            {t:nm, x:M+4, max:50},
+            {t:'not tied to a rental', x:M+56, max:60},
+            {t:'—', x:M+118, a:'right'},
+            {t:'—', x:M+146, a:'right'},
+            {t:'$'+pdfMoney(looseByName[nm]), x:PW-M-4, a:'right', amt:true}
+          ], i++, CLR.green);
+        });
+
+        totalRow('Total Rent Collected', '+$'+pdfMoney(totalIncome), CLR.green);
+      }
+      y += 12;
+    }
+
+    // ─────────── ODOMETER HISTORY ───────────
+    if(activeOdo && activeOdo.length){
+      section('Odometer Record', activeOdo.length);
+      cols([{t:'DATE',x:M+4},{t:'READING',x:M+40,a:'right'},{t:'RECORDED AT',x:M+70},{t:'SINCE PREVIOUS',x:PW-M-4,a:'right'}]);
+      activeOdo.forEach((r,i)=>{
+        const prev = activeOdo[i-1];
+        const diff = prev ? Number(r.reading_km) - Number(prev.reading_km) : null;
+        const isPurchase = r.source === 'Purchase';
+        row([
+          {t:fmtDate(r.reading_date), x:M+4},
+          {t:Number(r.reading_km).toLocaleString('en-AU')+' km', x:M+40, a:'right'},
+          {t:(isPurchase ? 'At purchase - opening reading' : (r.source||'Periodic check')), x:M+70, max:48},
+          {t: diff!=null ? '+'+diff.toLocaleString('en-AU')+' km' : (isPurchase ? 'start' : '—'), x:PW-M-4, a:'right'}
+        ], i, CLR.dark);
+      });
+      y += 10;
+    }
+
+    // ─────────── VEHICLE SALE ───────────
+    // Stated entirely on its own. The sale is money for the vehicle, not rent,
+    // so folding it into commission, expenses and the running position made
+    // both figures impossible to read. It is counted nowhere else in this report.
+    const saleAmt = (car.retired_reason === 'Sold' || car.retired_reason === 'Written Off')
+          ? (Number(car.retired_amount) || 0) : 0;
+
+    if(saleAmt > 0){
+      const sold = car.retired_reason === 'Sold';
+      const when = car.retired_date
+            ? new Date(car.retired_date+'T00:00:00')
+                .toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'})
+            : null;
+
+      const headline = (car.rego || 'This vehicle') + ' was '
+                     + (sold ? 'sold' : 'written off')
+                     + (when ? ' on ' + when : '')
+                     + ' for $' + pdfMoney(saleAmt) + '.';
+
+      doc.setFont('helvetica','bold'); doc.setFontSize(12);
+      const hLines = doc.splitTextToSize(headline, CW - 12);
+
+      const payLine = car.externally_owned
+            ? 'The full amount of $' + pdfMoney(saleAmt)
+              + ' will be transferred to the owner within two weeks.'
+            : null;
+      doc.setFont('helvetica','bold'); doc.setFontSize(10);
+      const pLines = payLine ? doc.splitTextToSize(payLine, CW - 12) : [];
+
+      const footLine = 'Shown separately. This amount is not included in any rent, '
+                     + 'commission, expense or position figure in this report.';
+      doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+      const fLines = doc.splitTextToSize(footLine, CW - 12);
+
+      const boxH = 7 + hLines.length*6 + (pLines.length ? pLines.length*5.2 + 2 : 0)
+                 + fLines.length*3.6 + 6;
+
+      ensure(boxH + 16);
+      section(sold ? 'Vehicle Sale' : 'Insurance Settlement', null);
+
+      doc.setFillColor(253,248,243);
+      doc.setDrawColor.apply(doc, CLR.gold);
+      doc.setLineWidth(0.6);
+      doc.rect(M, y, CW, boxH, 'FD');
+
+      let yy = y + 8.5;
+      doc.setFont('helvetica','bold'); doc.setFontSize(12);
+      doc.setTextColor.apply(doc, CLR.dark);
+      hLines.forEach(t => { doc.text(t, M+6, yy); yy += 6; });
+
+      if(pLines.length){
+        yy += 2;
+        doc.setFont('helvetica','bold'); doc.setFontSize(10);
+        doc.setTextColor.apply(doc, CLR.green);
+        pLines.forEach(t => { doc.text(t, M+6, yy); yy += 5.2; });
+      }
+
+      yy += 1.5;
+      doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+      doc.setTextColor.apply(doc, CLR.grey);
+      fLines.forEach(t => { doc.text(t, M+6, yy); yy += 3.6; });
+
+      doc.setLineWidth(0.2);
+      y += boxH + 7;
+    }
+
+    // ─────────── OWNER SETTLEMENT ───────────
+    const S = settlement();
+    if(S){
+      ensure(60);
+      section('Owner Settlement Statement', activePayouts.length);
+
+      const lines = [
+        ['Gross rental income',                    '$'+pdfMoney(S.income),   CLR.green],
+        ['Less: operating expenses',               '-$'+pdfMoney(S.costs),   CLR.red],
+        ['Net rental income',                      '$'+pdfMoney(S.afterCosts), CLR.dark],
+        ...(S.fee > 0 ? [['Less: management commission ('+S.feePct+'%)', '-$'+pdfMoney(S.fee), CLR.red]] : []),
+        ['Total due to owner',                     '$'+pdfMoney(S.dueToOwner), CLR.dark],
+        ['Less: payments already remitted',        '-$'+pdfMoney(S.paidOut), CLR.red]
+      ];
+      const totalIdx = lines.findIndex(l => l[0] === 'Total due to owner');
+      lines.forEach((ln,i)=>{
+        ensure(8);
+        if(i===totalIdx){ doc.setFillColor(238,240,243); doc.rect(M,y,CW,7.5,'F'); }
+        else if(i%2===1){ doc.setFillColor(250,250,251); doc.rect(M,y,CW,7.5,'F'); }
+        doc.setFont('helvetica', i===totalIdx?'bold':'normal'); doc.setFontSize(9);
+        doc.setTextColor.apply(doc, CLR.dark);
+        doc.text(ln[0], M+4, y+5.2);
+        doc.setFont('helvetica','bold');
+        doc.setTextColor.apply(doc, ln[2]);
+        doc.text(ln[1], PW-M-4, y+5.2, {align:'right'});
+        doc.setDrawColor(235,237,240); doc.setLineWidth(0.2);
+        doc.line(M,y+7.5,PW-M,y+7.5);
+        y += 7.5;
+      });
+
+      if(S.excluded > 0){
+        ensure(8);
+        doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+        doc.setTextColor.apply(doc, CLR.grey);
+        doc.text('This statement covers rental settlement only. The vehicle purchase price of $'+pdfMoney(S.excluded)+' is accounted for in the vehicle position below.', M+4, y+4.5);
+        y += 8;
+      }
+
+      // closing balance
+      ensure(16);
+      const owed = S.outstanding;
+      doc.setFillColor.apply(doc, CLR.dark);
+      doc.rect(M,y,CW,13,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.setTextColor.apply(doc, CLR.white);
+      doc.text(owed >= 0 ? 'BALANCE DUE TO OWNER' : 'OVERPAID - RECOVERABLE FROM OWNER', M+4, y+8.4);
+      doc.setFontSize(12);
+      doc.setTextColor.apply(doc, owed > 0 ? [255,140,140] : [110,220,140]);
+      doc.text('$'+pdfMoney(Math.abs(owed)), PW-M-4, y+8.6, {align:'right'});
+      y += 20;
+
+      // payout log
+      if(activePayouts.length){
+        ensure(20);
+        cols([{t:'DATE PAID',x:M+4},{t:'HOW',x:M+40},{t:'NOTE',x:M+80},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
+        activePayouts.slice().sort((a,b)=>String(b.payout_date).localeCompare(String(a.payout_date)))
+          .forEach((p,i)=>row([
+            {t:fmtDate(p.payout_date), x:M+4},
+            {t:p.method||'—', x:M+40, max:38},
+            {t:p.note||'—', x:M+80, max:60},
+            {t:'$'+pdfMoney(p.amount), x:PW-M-4, a:'right', amt:true}
+          ], i, CLR.dark));
+        totalRow('Total already paid to owner','$'+pdfMoney(S.paidOut), CLR.dark);
+      }
+      y += 12;
+    }
+
+    // ─────────── FINAL POSITION (retired vehicles) ───────────
+    // Shown for every retired vehicle, and for every vehicle owned by someone
+    // else even while it is still on the road -- its owner needs the full
+    // picture of their position at any time, not only once it has gone.
+    if(car.retired_reason || car.externally_owned){
+      ensure(70);
+      const ownerCar = !!car.externally_owned;
+
+      const purchaseCost = activeExpenses
+            .filter(e => (e.category||'') === 'Purchase Price')
+            .reduce((s,e)=>s+Number(e.amount),0);
+      const runningCost = activeExpenses
+            .filter(e => (e.category||'') !== 'Purchase Price')
+            .reduce((s,e)=>s+Number(e.amount),0);
+
+      const heading = !car.retired_reason
+            ? 'Vehicle Position to Date'
+            : (ownerCar && car.retired_reason === 'Sold'
+                 ? 'Final Position - Sold on Behalf of Owner'
+                 : 'Final Position - ' + car.retired_reason);
+      section(heading, null);
+
+      const rows = [];
+      let bottomLabel, bottomValue;
+
+      if(ownerCar){
+        // The commission the business retained is shown so the owner can see
+        // the complete rental picture in one place. The sale price is not part
+        // of this — it has its own statement above.
+        const commission = (activeIncome.reduce((s,i)=>s+Number(i.amount),0) - runningCost)
+                           * (Number(car.service_fee_pct)||0) / 100;
+        const rentalToOwner = totalIncome - runningCost - commission;
+        // The sale price is stated on its own page block, never folded in here.
+        const ownerPosition = -purchaseCost + rentalToOwner;
+
+        if(purchaseCost > 0) rows.push(['Vehicle purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
+        rows.push(['Gross rental income', '$'+pdfMoney(totalIncome), CLR.green]);
+        rows.push(['Less: operating expenses', '-$'+pdfMoney(runningCost), CLR.red]);
+        if(commission > 0)
+          rows.push(['Less: management commission (' + (Number(car.service_fee_pct)||0) + '%)',
+                     '-$'+pdfMoney(commission), CLR.red]);
+        rows.push(['Net rental earnings to owner', '$'+pdfMoney(rentalToOwner), CLR.dark, true]);
+
+        bottomLabel = purchaseCost > 0
+              ? 'NET POSITION'
+              : 'NET PROCEEDS TO OWNER';
+        bottomValue = ownerPosition;
+      } else {
+        const lifetime = totalIncome - purchaseCost - runningCost;
+        if(purchaseCost > 0) rows.push(['Vehicle purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
+        rows.push(['Gross rental income', '$'+pdfMoney(totalIncome), CLR.green]);
+        rows.push(['Less: operating expenses', '-$'+pdfMoney(runningCost), CLR.red]);
+        bottomLabel = 'NET POSITION';
+        bottomValue = lifetime;
+      }
+
+      rows.forEach((ln,i)=>{
+        ensure(8);
+        if(ln[3]){ doc.setFillColor(238,240,243); doc.rect(M,y,CW,7.5,'F'); }
+        else if(i%2===1){ doc.setFillColor(250,250,251); doc.rect(M,y,CW,7.5,'F'); }
+        doc.setFont('helvetica', ln[3] ? 'bold' : 'normal'); doc.setFontSize(9);
+        doc.setTextColor.apply(doc, CLR.dark);
+        doc.text(ln[0], M+4, y+5.2);
+        doc.setFont('helvetica','bold');
+        doc.setTextColor.apply(doc, ln[2]);
+        doc.text(ln[1], PW-M-4, y+5.2, {align:'right'});
+        doc.setDrawColor(235,237,240); doc.setLineWidth(0.2);
+        doc.line(M,y+7.5,PW-M,y+7.5);
+        y += 7.5;
+      });
+
+      ensure(18);
+      doc.setFillColor.apply(doc, CLR.dark);
+      doc.rect(M,y,CW,15,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.setTextColor.apply(doc, CLR.white);
+      doc.text(bottomLabel, M+4, y+9.4);
+      doc.setFontSize(13);
+      doc.setTextColor.apply(doc, bottomValue >= 0 ? [110,220,140] : [255,140,140]);
+      doc.text((bottomValue>=0?'$':'-$')+pdfMoney(Math.abs(bottomValue)), PW-M-4, y+9.6, {align:'right'});
+      y += 21;
+
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+      doc.setTextColor.apply(doc, CLR.grey);
+      let note = '';
+      if(car.retired_reason){
+        note += 'This vehicle was ' + String(car.retired_reason).toLowerCase() + ' on '
+             + (car.retired_date ? new Date(car.retired_date+'T00:00:00').toLocaleDateString('en-AU')
+                                 : 'a date not recorded') + '. ';
+      } else {
+        note += 'This vehicle remains in service. The position above covers everything recorded up to '
+             + new Date().toLocaleDateString('en-AU') + '. ';
+      }
+      if(car.retired_reason === 'Sold' || car.retired_reason === 'Written Off'){
+        note += 'The position above covers rent and running costs only. The '
+              + (car.retired_reason === 'Sold' ? 'sale price' : 'insurance settlement')
+              + ' is set out on its own earlier in this report and is deliberately '
+              + 'kept out of these figures'
+              + (ownerCar ? '; no commission is taken on it' : '') + '. ';
+      }
+      if(ownerCar && purchaseCost > 0){
+        note += 'The purchase price shown was funded by the owner, not by the business. ';
+      }
+      if(car.retired_notes) note += car.retired_notes;
+      doc.text(doc.splitTextToSize(note, CW), M+2, y);
+      y += 14;
+    }
+
+    // ─────────── NET SUMMARY ───────────
+    // Skipped wherever the vehicle position block above already states the
+    // outcome -- that is every retired vehicle, and every vehicle owned by
+    // an investor. Two different bottom lines on one report invites doubt,
+    // and on an owner's vehicle this figure would wrongly treat their
+    // purchase as a business cost.
+    if(!car.retired_reason && !car.externally_owned){
+    ensure(30);
+    doc.setFillColor.apply(doc, CLR.dark);
+    doc.roundedRect(M,y,CW,22,1.5,1.5,'F');
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.setTextColor(175,182,190);
+    doc.text('NET POSITION  (income less expenses)', M+6, y+8);
+    doc.setFont('helvetica','bold'); doc.setFontSize(17);
+    doc.setTextColor.apply(doc, net>=0?[110,220,140]:[255,140,140]);
+    doc.text((net>=0?'+$':'-$')+pdfMoney(Math.abs(net)), M+6, y+17);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.setTextColor(175,182,190);
+    doc.text(net>=0 ? 'This vehicle has covered its costs.' : 'This vehicle has not yet covered its costs.',
+             PW-M-6, y+17, {align:'right'});
+    y += 30;
+    }
+
+    // ─────────── FOOTERS ───────────
+    const pages = doc.internal.getNumberOfPages();
+    for(let p=1;p<=pages;p++){ doc.setPage(p); footer(p,pages); }
+
+    const safe = String(car.rego||car.make_model||'vehicle').replace(/[^A-Za-z0-9_-]/g,'_');
+    const fileName = 'Ozee_Finance_Report_'+safe+'_'+todayISO()+'.pdf';
+    const vehicleLabel = String(car.make_model||'Vehicle') + (car.rego ? ' ('+car.rego+')' : '');
+
+    if(mode === 'email'){
+      await emailPdf(doc, fileName, car.owner_email,
+        'Finance report - ' + vehicleLabel,
+        '<p>Hello' + (car.owner_name ? ' ' + car.owner_name : '') + ',</p>'
+        + '<p>Please find attached the current finance report for <strong>' + vehicleLabel + '</strong>, '
+        + 'covering rental income, operating expenses, commission and the overall position of the vehicle.</p>'
+        + '<p>Kind regards,<br>Ozee Rentals</p>');
+      alert('The finance report has been emailed to ' + car.owner_email + '.');
+    } else if(mode === 'whatsapp'){
+      const link = await uploadPdfForSharing(doc, 'car-documents', 'reports/'+safe+'/'+fileName);
+      openWhatsApp(car.owner_mobile,
+        'Hello' + (car.owner_name ? ' ' + car.owner_name : '') + ', here is the finance report for '
+        + vehicleLabel + ':\n' + link + '\n\nOzee Rentals');
+    } else {
+      doc.save(fileName);
+    }
+  }catch(err){
+    alert('Could not generate the PDF: '+err.message);
+  }finally{
+    if(btn){ btn.textContent = btnTxt; btn.disabled = false; }
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-  const { data: { session } } = await window._sb.auth.getSession();
+  const { data: { session } } = await _db.auth.getSession();
   if (!session) { window.location.href = 'index.html'; return; }
-  const el = document.getElementById('adminEmail');
-  if (el) el.textContent = session.user.email;
-  loadAssignments();
+  document.getElementById('adminEmail').textContent = session.user.email;
+  await loadCars();
 });
+
 async function signOut() {
-  await window._sb.auth.signOut();
-  localStorage.clear();
-  sessionStorage.clear();
+  await _db.auth.signOut();
   window.location.href = 'index.html';
 }
 </script>
@@ -831,21 +1660,18 @@ async function signOut() {
 <script>
 // Mobile sidebar toggle
 (function(){
-  // Add overlay div
   var overlay = document.createElement('div');
   overlay.className = 'sidebar-overlay';
   overlay.id = 'sidebarOverlay';
   overlay.onclick = function(){ closeSidebar(); };
   document.body.appendChild(overlay);
 
-  // Add hamburger button to topbar
   var topbar = document.querySelector('.topbar');
   if(topbar){
     var btn = document.createElement('button');
     btn.className = 'mob-menu-btn';
-    btn.innerHTML = '☰';
+    btn.innerHTML = '\u2630';
     btn.onclick = function(){ toggleSidebar(); };
-    // Wrap existing content in topbar-left
     var existing = topbar.firstElementChild;
     var wrap = document.createElement('div');
     wrap.className = 'topbar-left';
@@ -866,88 +1692,11 @@ async function signOut() {
     if(sb){ sb.classList.remove('open'); }
     if(ov){ ov.classList.remove('open'); }
   }
-  // Close sidebar when nav link clicked
   document.querySelectorAll('.sidebar-nav a').forEach(function(a){
     a.addEventListener('click', function(){ if(window.innerWidth<=900) closeSidebar(); });
   });
 })();
 </script>
 
-<!-- VEHICLE RETURN -->
-<div class="modal" id="returnModal">
-  <div class="modal-box" style="max-width:560px;">
-    <div class="modal-head">
-      <div>
-        <h3>Vehicle Returned</h3>
-        <div class="ret-who" id="retWho"></div>
-      </div>
-      <button class="modal-close" onclick="closeReturnModal()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Date Returned</label>
-          <input type="date" class="form-input" id="ret_date" onchange="updateFinalWeek()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Odometer Now (km)</label>
-          <input type="number" class="form-input" id="ret_odo" min="0" step="1" placeholder="e.g. 52140" oninput="calcReturnDistance()">
-          <div class="ret-hint" id="retStartHint"></div>
-          <div class="ret-dist" id="retDistance"></div>
-        </div>
-      </div>
-
-      <!-- Shown when the car comes back mid-week, since that last week is
-           charged by the day rather than as a whole week. -->
-      <div class="form-group" id="ret_partWrap" style="display:none;">
-        <label class="form-label">Final Week — Rent to the Day It Came Back</label>
-        <div id="ret_partNote" class="ret-hint" style="margin-bottom:.5rem;"></div>
-        <input type="number" class="form-input" id="ret_final_amt" step="0.01" min="0" oninput="markFinalWeekEdited()">
-        <div class="ret-hint" style="margin-top:.35rem;">
-          Worked out by the day. Type over it if you agreed something different.
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Fuel Level</label>
-        <select class="form-select" id="ret_fuel">
-          <option value="">-- Select --</option>
-          <option>Full</option><option>3/4</option><option>1/2</option>
-          <option>1/4</option><option>Near empty</option>
-        </select>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Bond Returned?</label>
-          <select class="form-select" id="ret_bond" onchange="toggleBondAmount()">
-            <option value="Yes">Yes — returned in full</option>
-            <option value="Partial">Partly returned</option>
-            <option value="No">No — kept</option>
-          </select>
-        </div>
-        <div class="form-group" id="bondAmtWrap">
-          <label class="form-label">Amount Returned ($)</label>
-          <input type="number" class="form-input" id="ret_bond_amt" min="0" step="1" placeholder="e.g. 1100">
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Damage or Issues</label>
-        <textarea class="form-textarea" id="ret_damages" rows="2" placeholder="Any damage, missing items or faults — leave blank if none"></textarea>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Comments</label>
-        <textarea class="form-textarea" id="ret_comments" rows="2" placeholder="Anything else worth recording about this return"></textarea>
-      </div>
-
-      <div class="ret-note">Saving this ends the rental and puts the car back on the website as available.</div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-outline" onclick="closeReturnModal()">Cancel</button>
-      <button class="btn btn-gold" onclick="saveReturn()">Save &amp; End Rental</button>
-    </div>
-  </div>
-</div>
-</body></html>
+</body>
+</html>
