@@ -1526,7 +1526,7 @@ async function exportPDF(mode){
         rows.push(['Net rental earnings to owner', '$'+pdfMoney(rentalToOwner), CLR.dark, true]);
 
         bottomLabel = purchaseCost > 0
-              ? (ownerPosition >= 0 ? 'NET POSITION - OWNER GAIN' : 'NET POSITION - OWNER LOSS')
+              ? 'NET POSITION'
               : 'NET PROCEEDS TO OWNER';
         bottomValue = ownerPosition;
       } else {
@@ -1534,7 +1534,7 @@ async function exportPDF(mode){
         if(purchaseCost > 0) rows.push(['Vehicle purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
         rows.push(['Gross rental income', '$'+pdfMoney(totalIncome), CLR.green]);
         rows.push(['Less: operating expenses', '-$'+pdfMoney(runningCost), CLR.red]);
-        bottomLabel = lifetime >= 0 ? 'NET POSITION - LIFETIME PROFIT' : 'NET POSITION - LIFETIME LOSS';
+        bottomLabel = 'NET POSITION';
         bottomValue = lifetime;
       }
 
