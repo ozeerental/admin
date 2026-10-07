@@ -1255,48 +1255,80 @@ async function exportPDF(mode){
     }
     y += 10;
 
-    // ─────────── INCOME ───────────
-    section('Rental Income', activeIncome.length);
-    if(!activeIncome.length){ emptyNote('No rental income has been recorded for this vehicle.'); }
-    else {
-      cols([{t:'DATE RECEIVED',x:M+4},{t:'DRIVER',x:M+32},{t:'RENTAL CYCLE',x:M+78},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
-      activeIncome.slice().sort((a,b)=>String(b.payment_date).localeCompare(String(a.payment_date)))
-        .forEach((r,i)=>row([
-          {t:fmtDate(r.payment_date),x:M+4},
-          {t:r.driver_name||'-',x:M+32,max:54},
-          {t:(function(){
-               const w = r.rent_week_id ? activeWeekById[r.rent_week_id] : null;
-               const cyc = w ? cycleLabel(w.week_start) : null;
-               if(!cyc) return r.note || 'Weekly rent';
-               // The section already says Rental Income, so only a part
-               // payment needs calling out by name.
-               return (Number(r.amount) < Number(w.amount_due) ? 'Part payment - ' : '') + cyc;
-             })(), x:M+78, max:74},
-          {t:'+$'+pdfMoney(r.amount),x:PW-M-4,a:'right',amt:true}
-        ], i, CLR.green));
-      totalRow('Total Rental Income','+$'+pdfMoney(totalIncome), CLR.green);
-    }
-    y += 12;
+    // ─────────── DRIVERS & RENT COLLECTED ───────────
+    // One line per rental, not one line per payment. A statement that lists
+    // every weekly $350 grows forever and says nothing the summary does not.
+    //
+    // Built from the payments themselves rather than from the weekly cycles,
+    // so the rows always add up to the RENT COLLECTED figure at the top. Cash
+    // taken straight against the car belongs to no rental, and would otherwise
+    // sit in the total with nothing on the page to explain it.
+    {
+      const paidByAsg = {};
+      const looseByName = {};
 
-    // ─────────── RENTAL HISTORY ───────────
-    if(activeHistory && activeHistory.length){
-      section('Rental History', activeHistory.length);
-      cols([{t:'DRIVER',x:M+4},{t:'PERIOD',x:M+56},{t:'WEEKS',x:M+118,a:'right'},{t:'KM DRIVEN',x:M+146,a:'right'},{t:'COLLECTED',x:PW-M-4,a:'right'}]);
-      const fd = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'2-digit'}) : '-';
-      activeHistory.forEach((h,i)=>{
-        const nm = h.drivers ? (h.drivers.first_name+' '+h.drivers.last_name) : 'Unknown driver';
-        const st = h._stats || {paid:0,owed:0,weeks:0};
-        const per = fd(h.start_date)+'  to  '+(h.status==='Active' ? 'present' : fd(h.end_date));
-        const dk = odoForAssignment(h.id);
-        row([
-          {t:nm+(h.status==='Active'?'  (current)':''), x:M+4, max:50},
-          {t:per, x:M+56, max:60},
-          {t:String(st.weeks||0), x:M+118, a:'right'},
-          {t:dk!=null ? dk.toLocaleString('en-AU') : '—', x:M+146, a:'right'},
-          {t:'$'+pdfMoney(st.paid), x:PW-M-4, a:'right', amt:true}
-        ], i, CLR.green);
+      activeIncome.forEach(p => {
+        const wk = p.rent_week_id ? activeWeekById[p.rent_week_id] : null;
+        if(wk && wk.assignment_id){
+          paidByAsg[wk.assignment_id] = (paidByAsg[wk.assignment_id] || 0) + Number(p.amount || 0);
+        } else {
+          const nm = (p.driver_name || '').trim() || 'Not recorded';
+          looseByName[nm] = (looseByName[nm] || 0) + Number(p.amount || 0);
+        }
       });
-      y += 10;
+
+      const looseNames = Object.keys(looseByName);
+      const rowCount = (activeHistory ? activeHistory.length : 0) + looseNames.length;
+
+      const vehicle = [car.make_model, car.rego].filter(Boolean).join('  ·  ');
+      section('Drivers & Rent Collected' + (vehicle ? '  —  ' + vehicle : ''), rowCount);
+
+      if(!rowCount){
+        emptyNote('No rent has been collected for this vehicle yet.');
+      } else {
+        cols([{t:'DRIVER',x:M+4},{t:'RENTAL PERIOD',x:M+56},
+              {t:'WEEKS',x:M+118,a:'right'},{t:'KM DRIVEN',x:M+146,a:'right'},
+              {t:'RENT PAID',x:PW-M-4,a:'right'}]);
+
+        // Fixed three-letter months: en-AU renders "short" as June and Sept,
+        // which does not line up with the Aug and Oct used elsewhere.
+        const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const fd = d => {
+          if(!d) return '-';
+          const x = new Date(d+'T00:00:00');
+          return String(x.getDate()).padStart(2,'0') + ' ' + MON3[x.getMonth()]
+               + ' ' + String(x.getFullYear()).slice(2);
+        };
+        let i = 0;
+
+        (activeHistory || []).forEach(h => {
+          const nm  = h.drivers ? (h.drivers.first_name + ' ' + h.drivers.last_name) : 'Unknown driver';
+          const st  = h._stats || {paid:0, owed:0, weeks:0};
+          const per = fd(h.start_date) + '  to  ' + (h.status === 'Active' ? 'present' : fd(h.end_date));
+          const dk  = odoForAssignment(h.id);
+          row([
+            {t:nm + (h.status === 'Active' ? '  (current)' : ''), x:M+4, max:50},
+            {t:per, x:M+56, max:60},
+            {t:String(st.weeks || 0), x:M+118, a:'right'},
+            {t:dk != null ? dk.toLocaleString('en-AU') : '—', x:M+146, a:'right'},
+            {t:'$'+pdfMoney(paidByAsg[h.id] || 0), x:PW-M-4, a:'right', amt:true}
+          ], i++, CLR.green);
+        });
+
+        // Anything taken outside a rental, so the column still foots.
+        looseNames.forEach(nm => {
+          row([
+            {t:nm, x:M+4, max:50},
+            {t:'not tied to a rental', x:M+56, max:60},
+            {t:'—', x:M+118, a:'right'},
+            {t:'—', x:M+146, a:'right'},
+            {t:'$'+pdfMoney(looseByName[nm]), x:PW-M-4, a:'right', amt:true}
+          ], i++, CLR.green);
+        });
+
+        totalRow('Total Rent Collected', '+$'+pdfMoney(totalIncome), CLR.green);
+      }
+      y += 12;
     }
 
     // ─────────── ODOMETER HISTORY ───────────
