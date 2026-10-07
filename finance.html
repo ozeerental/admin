@@ -198,6 +198,14 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 @media(max-width:900px){.odo-strip{gap:1rem;}}
 /* Owner settlement */
 .settle-pane{padding:1.5rem;border-top:1px solid rgba(255,255,255,.08);background:rgba(96,165,250,.04);}
+.sale-box{margin:1.5rem;padding:1.1rem 1.2rem;border:1px solid rgba(245,166,35,.45);
+  border-radius:10px;background:rgba(245,166,35,.07);}
+.sale-head{font-family:"Barlow Condensed",sans-serif;font-size:.72rem;font-weight:800;
+  letter-spacing:.12em;text-transform:uppercase;color:#F5A623;margin-bottom:.55rem;}
+.sale-line{font-size:1.02rem;font-weight:700;color:#fff;line-height:1.45;}
+.sale-line b{color:#F5A623;}
+.sale-pay{margin-top:.5rem;font-size:.92rem;font-weight:700;color:#4ade80;line-height:1.45;}
+.sale-note{margin-top:.6rem;font-size:.72rem;font-style:italic;color:rgba(255,255,255,.4);line-height:1.5;}
 .settle-pane:empty{display:none;}
 .settle-grid{margin-top:.5rem;}
 .settle-line{display:flex;justify-content:space-between;align-items:center;
@@ -320,6 +328,7 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
         </div>
       </div>
 
+      <div id="salePane" style="display:none;"></div>
       <div class="settle-pane" id="settlePane"></div>
 
       <div class="odo-strip" id="odoStrip"></div>
@@ -364,7 +373,7 @@ function settlement(){
   if(!car || !car.externally_owned) return null;
   const income = activeIncome.reduce((s,i)=>s+Number(i.amount),0);
   // Only running costs come out of the owner's share. The purchase price is
-  // excluded — on a car owned by someone else it was never your money.
+  // excluded — on an investor's car it was never your money.
   const running = activeExpenses.filter(e => (e.category||'') !== 'Purchase Price');
   const costs = running.reduce((s,e)=>s+Number(e.amount),0);
   const excluded = activeExpenses
@@ -377,18 +386,19 @@ function settlement(){
   const fee = feePct > 0 ? (afterCosts * feePct / 100) : 0;
   const rentalDue = afterCosts - fee;
 
-  // Where the business has disposed of the vehicle for its owner, the money
-  // received belongs to the owner in full. No commission is taken on a sale.
-  const disposal = (car.retired_reason === 'Sold' || car.retired_reason === 'Written Off')
+  // The sale price is deliberately kept out of every figure here. It is money
+  // for the vehicle itself, not rent, so mixing it into the rental account
+  // makes both numbers impossible to read. It is stated on its own instead.
+  const saleAmount = (car.retired_reason === 'Sold' || car.retired_reason === 'Written Off')
         ? (Number(car.retired_amount) || 0) : 0;
-  const disposalLabel = car.retired_reason === 'Sold'
-        ? 'Sale proceeds held on owner\'s behalf'
-        : 'Insurance settlement received';
+  const saleDate  = car.retired_date || null;
+  const saleIsSale = car.retired_reason === 'Sold';
 
-  const dueToOwner = rentalDue + disposal;
+  const dueToOwner = rentalDue;
   const paidOut = activePayouts.reduce((s,p)=>s+Number(p.amount),0);
   return { car, income, costs, excluded, runningCount: running.length,
-           afterCosts, feePct, fee, rentalDue, disposal, disposalLabel,
+           afterCosts, feePct, fee, rentalDue,
+           saleAmount, saleDate, saleIsSale,
            dueToOwner, paidOut,
            outstanding: dueToOwner - paidOut };
 }
@@ -483,7 +493,7 @@ async function openDetail(carId){
   document.getElementById('detailTitle').innerHTML =
     `${car.make_model} <span>${car.year||''} — ${car.rego||''}</span>` +
     (car.externally_owned
-      ? `<span class="own-pill own-ext">Owned by someone else${car.owner_name ? ' · '+car.owner_name : ''}${car.service_fee_pct ? ' · '+car.service_fee_pct+'% fee' : ''}</span>`
+      ? `<span class="own-pill own-ext">Investor's car${car.owner_name ? ' · '+car.owner_name : ''}${car.service_fee_pct ? ' · '+car.service_fee_pct+'% fee' : ''}</span>`
       : `<span class="own-pill own-biz">Owned by the business</span>`);
 
   // Money lists read newest first, so the most recent month is the first
@@ -566,9 +576,9 @@ function renderDetail(){
   // the last box is the same figure the report finishes on.
   const _car = allCars.find(c => c.id === activeCarId);
   const _S = settlement();
-  const _disp = Number(_car && _car.retired_amount) || 0;
-  const _final = _S ? (totalIncome + _disp - totalCost - _S.fee)
-                    : (totalIncome + _disp - totalCost);
+  // The sale price is never folded into the position — it is stated on its own.
+  const _final = _S ? (totalIncome - totalCost - _S.fee)
+                    : (totalIncome - totalCost);
 
   document.getElementById('sumCost').textContent = money(totalCost);
   document.getElementById('sumIncome').textContent = money(totalIncome);
@@ -600,6 +610,37 @@ function renderDetail(){
       </div>
     </div>`).join('') : '<div class="empty-note">No expenses logged yet</div>';
 
+  // ── Vehicle sale ──
+  // Stated on its own, and counted in nothing else on this page.
+  const _saleAmt = (_car && (_car.retired_reason === 'Sold' || _car.retired_reason === 'Written Off'))
+        ? (Number(_car.retired_amount) || 0) : 0;
+  const salePane = document.getElementById('salePane');
+  if(salePane){
+    if(_saleAmt > 0){
+      const sold = _car.retired_reason === 'Sold';
+      const when = _car.retired_date
+            ? new Date(_car.retired_date+'T00:00:00')
+                .toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'})
+            : null;
+      salePane.innerHTML =
+          '<div class="sale-box">'
+        + '<div class="sale-head">' + (sold ? 'Vehicle Sale' : 'Insurance Settlement') + '</div>'
+        + '<div class="sale-line">' + (_car.rego || 'This vehicle') + ' was '
+        + (sold ? 'sold' : 'written off') + (when ? ' on ' + when : '')
+        + ' for <b>' + money(_saleAmt) + '</b>.</div>'
+        + (_car.externally_owned
+            ? '<div class="sale-pay">The full amount of ' + money(_saleAmt)
+              + ' will be transferred to the owner within two weeks.</div>' : '')
+        + '<div class="sale-note">Shown separately. Not included in any rent, '
+        + 'commission, expense or position figure.</div>'
+        + '</div>';
+      salePane.style.display = '';
+    } else {
+      salePane.innerHTML = '';
+      salePane.style.display = 'none';
+    }
+  }
+
   // ── Owner settlement ──
   const sp = document.getElementById('settlePane');
   const S = settlement();
@@ -610,15 +651,13 @@ function renderDetail(){
       const owed = S.outstanding;
       sp.innerHTML = `
         <div class="col-title">Money owed to the car owner
-          <span class="hist-sub">${S.car.owner_name ? S.car.owner_name : 'this car belongs to someone else'}</span>
+          <span class="hist-sub">${S.car.owner_name ? S.car.owner_name : 'this car belongs to an investor'}</span>
         </div>
         <div class="settle-grid">
           <div class="settle-line"><span>Gross rental income</span><b class="pos">${money(S.income)}</b></div>
           <div class="settle-line"><span>Less: operating expenses</span><b class="neg">−${money(S.costs)}</b></div>
           <div class="settle-line"><span>Net rental income</span><b>${money(S.afterCosts)}</b></div>
           ${S.fee > 0 ? `<div class="settle-line"><span>Management commission (${S.feePct}%)</span><b class="neg">−${money(S.fee)}</b></div>` : ''}
-          ${S.disposal > 0 ? `<div class="settle-line"><span>Net rental proceeds due to owner</span><b>${money(S.rentalDue)}</b></div>
-          <div class="settle-line"><span>Add: ${S.disposalLabel}</span><b class="pos">${money(S.disposal)}</b></div>` : ''}
           <div class="settle-line settle-sub"><span>Total due to owner</span><b>${money(S.dueToOwner)}</b></div>
           <div class="settle-line"><span>Less: payments already remitted</span><b class="neg">−${money(S.paidOut)}</b></div>
           ${S.excluded > 0 ? `<div class="settle-note">The vehicle purchase price of ${money(S.excluded)} is excluded — this vehicle was not acquired by the business.</div>` : ''}
@@ -1012,7 +1051,7 @@ async function exportPDF(mode){
 
     // Ownership pill
     const ownLabel = car.externally_owned
-        ? ('OWNED BY SOMEONE ELSE' + (car.owner_name ? '  ·  ' + car.owner_name.toUpperCase() : '')
+        ? ("INVESTOR'S CAR" + (car.owner_name ? '  ·  ' + car.owner_name.toUpperCase() : '')
              + (car.service_fee_pct ? '  ·  ' + car.service_fee_pct + '% SERVICE FEE' : ''))
         : 'OWNED BY THE BUSINESS';
     const ownCol = car.externally_owned ? [37,99,235] : CLR.grey;
@@ -1076,13 +1115,13 @@ async function exportPDF(mode){
     // both finish on the same figure as the position block further down, so
     // the top of the report and the bottom can never disagree.
     const _S0 = settlement();
-    const _disposal = Number(car.retired_amount) || 0;
     let cards;
 
     if(_S0){
-      // Owned by someone else: expenses, what the driver paid, what we kept,
+      // Investor's car: expenses, what the driver paid, what we kept,
       // and where the vehicle finishes once both come out.
-      const ownerFinal = totalIncome + _disposal - totalCost - _S0.fee;
+      // The sale price is never in here — it is stated on its own.
+      const ownerFinal = totalIncome - totalCost - _S0.fee;
       cards = [
         {label:'TOTAL EXPENSES',   val:'$'+pdfMoney(totalCost),    col:CLR.dark},
         {label:'RENT COLLECTED',   val:'$'+pdfMoney(totalIncome),  col:CLR.dark},
@@ -1092,7 +1131,7 @@ async function exportPDF(mode){
          col: ownerFinal>=0?CLR.green:CLR.red, accent:true}
       ];
     } else {
-      const bizNet = totalIncome + _disposal - totalCost;
+      const bizNet = totalIncome - totalCost;
       cards = [
         {label:'TOTAL EXPENSES', val:'$'+pdfMoney(totalCost),   col:CLR.dark},
         {label:'RENT COLLECTED', val:'$'+pdfMoney(totalIncome), col:CLR.dark},
@@ -1278,6 +1317,72 @@ async function exportPDF(mode){
       y += 10;
     }
 
+    // ─────────── VEHICLE SALE ───────────
+    // Stated entirely on its own. The sale is money for the vehicle, not rent,
+    // so folding it into commission, expenses and the running position made
+    // both figures impossible to read. It is counted nowhere else in this report.
+    const saleAmt = (car.retired_reason === 'Sold' || car.retired_reason === 'Written Off')
+          ? (Number(car.retired_amount) || 0) : 0;
+
+    if(saleAmt > 0){
+      const sold = car.retired_reason === 'Sold';
+      const when = car.retired_date
+            ? new Date(car.retired_date+'T00:00:00')
+                .toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'})
+            : null;
+
+      const headline = (car.rego || 'This vehicle') + ' was '
+                     + (sold ? 'sold' : 'written off')
+                     + (when ? ' on ' + when : '')
+                     + ' for $' + pdfMoney(saleAmt) + '.';
+
+      doc.setFont('helvetica','bold'); doc.setFontSize(12);
+      const hLines = doc.splitTextToSize(headline, CW - 12);
+
+      const payLine = car.externally_owned
+            ? 'The full amount of $' + pdfMoney(saleAmt)
+              + ' will be transferred to the owner within two weeks.'
+            : null;
+      doc.setFont('helvetica','bold'); doc.setFontSize(10);
+      const pLines = payLine ? doc.splitTextToSize(payLine, CW - 12) : [];
+
+      const footLine = 'Shown separately. This amount is not included in any rent, '
+                     + 'commission, expense or position figure in this report.';
+      doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+      const fLines = doc.splitTextToSize(footLine, CW - 12);
+
+      const boxH = 7 + hLines.length*6 + (pLines.length ? pLines.length*5.2 + 2 : 0)
+                 + fLines.length*3.6 + 6;
+
+      ensure(boxH + 16);
+      section(sold ? 'Vehicle Sale' : 'Insurance Settlement', null);
+
+      doc.setFillColor(253,248,243);
+      doc.setDrawColor.apply(doc, CLR.gold);
+      doc.setLineWidth(0.6);
+      doc.rect(M, y, CW, boxH, 'FD');
+
+      let yy = y + 8.5;
+      doc.setFont('helvetica','bold'); doc.setFontSize(12);
+      doc.setTextColor.apply(doc, CLR.dark);
+      hLines.forEach(t => { doc.text(t, M+6, yy); yy += 6; });
+
+      if(pLines.length){
+        yy += 2;
+        doc.setFont('helvetica','bold'); doc.setFontSize(10);
+        doc.setTextColor.apply(doc, CLR.green);
+        pLines.forEach(t => { doc.text(t, M+6, yy); yy += 5.2; });
+      }
+
+      yy += 1.5;
+      doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+      doc.setTextColor.apply(doc, CLR.grey);
+      fLines.forEach(t => { doc.text(t, M+6, yy); yy += 3.6; });
+
+      doc.setLineWidth(0.2);
+      y += boxH + 7;
+    }
+
     // ─────────── OWNER SETTLEMENT ───────────
     const S = settlement();
     if(S){
@@ -1289,10 +1394,6 @@ async function exportPDF(mode){
         ['Less: operating expenses',               '-$'+pdfMoney(S.costs),   CLR.red],
         ['Net rental income',                      '$'+pdfMoney(S.afterCosts), CLR.dark],
         ...(S.fee > 0 ? [['Less: management commission ('+S.feePct+'%)', '-$'+pdfMoney(S.fee), CLR.red]] : []),
-        ...(S.disposal > 0 ? [
-              ['Net rental proceeds due to owner', '$'+pdfMoney(S.rentalDue), CLR.dark],
-              ['Add: ' + S.disposalLabel,          '$'+pdfMoney(S.disposal),  CLR.green]
-            ] : []),
         ['Total due to owner',                     '$'+pdfMoney(S.dueToOwner), CLR.dark],
         ['Less: payments already remitted',        '-$'+pdfMoney(S.paidOut), CLR.red]
       ];
@@ -1356,7 +1457,6 @@ async function exportPDF(mode){
     if(car.retired_reason || car.externally_owned){
       ensure(70);
       const ownerCar = !!car.externally_owned;
-      const disposal = Number(car.retired_amount) || 0;
 
       const purchaseCost = activeExpenses
             .filter(e => (e.category||'') === 'Purchase Price')
@@ -1364,10 +1464,6 @@ async function exportPDF(mode){
       const runningCost = activeExpenses
             .filter(e => (e.category||'') !== 'Purchase Price')
             .reduce((s,e)=>s+Number(e.amount),0);
-
-      const disposalLabel = car.retired_reason === 'Sold' ? 'Sale price achieved'
-                          : car.retired_reason === 'Written Off' ? 'Insurance settlement received'
-                          : null;
 
       const heading = !car.retired_reason
             ? 'Vehicle Position to Date'
@@ -1380,13 +1476,14 @@ async function exportPDF(mode){
       let bottomLabel, bottomValue;
 
       if(ownerCar){
-        // The owner funded the vehicle and receives the disposal proceeds in
-        // full. The commission the business retained is shown so the owner can
-        // see the complete picture in one place.
+        // The commission the business retained is shown so the owner can see
+        // the complete rental picture in one place. The sale price is not part
+        // of this — it has its own statement above.
         const commission = (activeIncome.reduce((s,i)=>s+Number(i.amount),0) - runningCost)
                            * (Number(car.service_fee_pct)||0) / 100;
         const rentalToOwner = totalIncome - runningCost - commission;
-        const ownerPosition = -purchaseCost + rentalToOwner + disposal;
+        // The sale price is stated on its own page block, never folded in here.
+        const ownerPosition = -purchaseCost + rentalToOwner;
 
         if(purchaseCost > 0) rows.push(['Vehicle purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
         rows.push(['Gross rental income', '$'+pdfMoney(totalIncome), CLR.green]);
@@ -1395,20 +1492,16 @@ async function exportPDF(mode){
           rows.push(['Less: management commission (' + (Number(car.service_fee_pct)||0) + '%)',
                      '-$'+pdfMoney(commission), CLR.red]);
         rows.push(['Net rental earnings to owner', '$'+pdfMoney(rentalToOwner), CLR.dark, true]);
-        if(disposalLabel && disposal > 0)
-          rows.push([disposalLabel, '$'+pdfMoney(disposal), CLR.green]);
 
         bottomLabel = purchaseCost > 0
               ? (ownerPosition >= 0 ? 'NET POSITION - OWNER GAIN' : 'NET POSITION - OWNER LOSS')
               : 'NET PROCEEDS TO OWNER';
         bottomValue = ownerPosition;
       } else {
-        const lifetime = totalIncome + disposal - purchaseCost - runningCost;
+        const lifetime = totalIncome - purchaseCost - runningCost;
         if(purchaseCost > 0) rows.push(['Vehicle purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
         rows.push(['Gross rental income', '$'+pdfMoney(totalIncome), CLR.green]);
         rows.push(['Less: operating expenses', '-$'+pdfMoney(runningCost), CLR.red]);
-        if(disposalLabel && disposal > 0)
-          rows.push([disposalLabel, '$'+pdfMoney(disposal), CLR.green]);
         bottomLabel = lifetime >= 0 ? 'NET POSITION - LIFETIME PROFIT' : 'NET POSITION - LIFETIME LOSS';
         bottomValue = lifetime;
       }
@@ -1450,9 +1543,12 @@ async function exportPDF(mode){
         note += 'This vehicle remains in service. The position above covers everything recorded up to '
              + new Date().toLocaleDateString('en-AU') + '. ';
       }
-      if(ownerCar && car.retired_reason === 'Sold'){
-        note += 'The vehicle was sold by the business on behalf of its owner. The full sale price is '
-              + 'credited to the owner; no commission has been applied to the sale. ';
+      if(car.retired_reason === 'Sold' || car.retired_reason === 'Written Off'){
+        note += 'The position above covers rent and running costs only. The '
+              + (car.retired_reason === 'Sold' ? 'sale price' : 'insurance settlement')
+              + ' is set out on its own earlier in this report and is deliberately '
+              + 'kept out of these figures'
+              + (ownerCar ? '; no commission is taken on it' : '') + '. ';
       }
       if(ownerCar && purchaseCost > 0){
         note += 'The purchase price shown was funded by the owner, not by the business. ';
@@ -1465,7 +1561,7 @@ async function exportPDF(mode){
     // ─────────── NET SUMMARY ───────────
     // Skipped wherever the vehicle position block above already states the
     // outcome -- that is every retired vehicle, and every vehicle owned by
-    // someone else. Two different bottom lines on one report invites doubt,
+    // an investor. Two different bottom lines on one report invites doubt,
     // and on an owner's vehicle this figure would wrongly treat their
     // purchase as a business cost.
     if(!car.retired_reason && !car.externally_owned){
