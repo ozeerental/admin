@@ -496,30 +496,10 @@ tr:hover td{background:rgba(255,255,255,.03);}
           </div>
         </div>
       </div>
-      <div class="form-row-3">
-        <div class="form-group">
-          <label class="form-label">Insurer</label>
-          <input class="form-input" id="c_insurer" placeholder="e.g. AAMI, Allianz">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Policy Number</label>
-          <input class="form-input" id="c_policy" placeholder="Policy number">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Insurance Expiry</label>
-          <input class="form-input" id="c_ins_exp" type="date">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Rego Expiry</label>
-          <input class="form-input" id="c_rego_exp" type="date">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Service Due</label>
-          <input class="form-input" id="c_svc" type="date">
-        </div>
-      </div>
+      <!-- Insurer, policy number, insurance expiry, rego expiry and service
+           due are not in use yet, so they are off the form to keep it short.
+           Their columns and any values already saved are untouched: putting
+           the fields back here is all that is needed to use them again. -->
       <div class="section-divider">Ownership</div>
       <div class="form-row">
         <div class="form-group">
@@ -625,15 +605,9 @@ tr:hover td{background:rgba(255,255,255,.03);}
           <textarea class="form-textarea" id="c_retired_notes" rows="2" placeholder="Buyer, incident details, or anything worth recording"></textarea>
         </div>
       </div>
-      <div class="section-divider">Upload Documents</div>
-      <div class="form-group">
-        <label class="form-label">Registration Certificate</label>
-        <input type="file" class="form-input" id="doc_rego" accept=".pdf,.jpg,.png">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Insurance Policy</label>
-        <input type="file" class="form-input" id="doc_ins" accept=".pdf,.jpg,.png">
-      </div>
+      <div class="section-divider">Photos</div>
+      <!-- Registration certificate and insurance policy uploads are off for
+           now. Anything already uploaded is still there and still shares. -->
       <div class="form-group">
         <label class="form-label">Vehicle Photos (add as many as you like — click any photo to preview)</label>
         <div id="photoGallery" style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.6rem;"></div>
@@ -865,8 +839,6 @@ function openCarModal(car) {
   document.getElementById('c_rate').value = car ? car.weekly_rate : '';
   document.getElementById('c_status').value = car ? car.status : 'Available';
   document.getElementById('c_avail_from').value = car && car.available_from ? car.available_from : '';
-  document.getElementById('c_rego_exp').value = car ? (car.rego_expiry || '') : '';
-  document.getElementById('c_svc').value = car ? (car.service_due || '') : '';
   document.getElementById('c_notes').value = car ? (car.notes || '') : '';
   editingCarId = car ? car.id : null;
 
@@ -875,9 +847,6 @@ function openCarModal(car) {
   document.getElementById('doc_photos').value = '';
 
   // Insurance
-  document.getElementById('c_insurer').value = (car && car.insurer) ? car.insurer : '';
-  document.getElementById('c_policy').value  = (car && car.policy_number) ? car.policy_number : '';
-  document.getElementById('c_ins_exp').value = (car && car.insurance_expiry) ? car.insurance_expiry : '';
 
   // Retire — only offered for a car that already exists
   document.getElementById('retireSection').style.display = car ? '' : 'none';
@@ -1000,11 +969,6 @@ async function saveCar() {
     status: document.getElementById('c_retired').value ? 'Retired' : document.getElementById('c_status').value,
     available_from: document.getElementById('c_avail_from').value || null,
     suitable_for: suitable,
-    rego_expiry: document.getElementById('c_rego_exp').value || null,
-    service_due: document.getElementById('c_svc').value || null,
-    insurer: document.getElementById('c_insurer').value.trim() || null,
-    policy_number: document.getElementById('c_policy').value.trim() || null,
-    insurance_expiry: document.getElementById('c_ins_exp').value || null,
     retired_reason: document.getElementById('c_retired').value || null,
     retired_date: document.getElementById('c_retired').value ? (document.getElementById('c_retired_date').value || null) : null,
     retired_amount: document.getElementById('c_retired').value ? (parseFloat(document.getElementById('c_retired_amount').value) || null) : null,
@@ -1053,7 +1017,8 @@ async function saveCar() {
     return;
   }
 
-  // Upload helper function
+  // Kept for when the registration and insurance uploads come back: it takes
+  // a file input id and a document type, and is ready to call again.
   async function uploadCarDoc(inputId, docType) {
     const inp = document.getElementById(inputId);
     if (!inp || !inp.files[0]) return;
@@ -1070,8 +1035,6 @@ async function saveCar() {
       }]);
     }
   }
-  await uploadCarDoc('doc_rego', 'registration');
-  await uploadCarDoc('doc_ins', 'insurance');
 
   // Upload any newly selected photos and append them to the gallery
   const photos = document.getElementById('doc_photos');
