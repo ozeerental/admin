@@ -324,6 +324,9 @@ tr:hover td{background:rgba(255,255,255,.03);}
   letter-spacing:.4px;padding:.22rem .55rem;border-radius:100px;white-space:nowrap;}
 .own-ext{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.45);color:#60a5fa;}
 .own-biz{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.45);}
+.own-part{background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.5);color:#a78bfa;}
+.share-split{font-size:.8rem;color:rgba(255,255,255,.55);margin-top:.45rem;line-height:1.45;}
+.share-split b{color:#a78bfa;}
 .retire-intro{font-size:.82rem;color:rgba(255,255,255,.45);line-height:1.5;margin:-.3rem 0 1rem;}
 .retire-hint{font-size:.76rem;color:rgba(255,255,255,.4);margin-top:.35rem;font-style:italic;}
 .section-row td{background:transparent!important;border:none!important;
@@ -507,20 +510,21 @@ tr:hover td{background:rgba(255,255,255,.03);}
           <select class="form-select" id="c_owned" onchange="toggleOwnerName()">
             <option value="false">Owned by the business</option>
             <option value="true">Investor's car (listed on their behalf)</option>
+            <option value="partner">Partnership car (shared with an investor)</option>
           </select>
         </div>
         <div class="form-group" id="ownerNameGroup" style="display:none;">
-          <label class="form-label">Owner Name</label>
+          <label class="form-label" id="lbl_owner_name">Owner Name</label>
           <input class="form-input" id="c_owner_name" placeholder="e.g. Sam Patel">
         </div>
       </div>
       <div class="form-row" id="ownerContactRow" style="display:none;">
         <div class="form-group">
-          <label class="form-label">Owner Email</label>
+          <label class="form-label" id="lbl_owner_email">Owner Email</label>
           <input class="form-input" id="c_owner_email" type="email" placeholder="owner@example.com">
         </div>
         <div class="form-group">
-          <label class="form-label">Owner WhatsApp Number</label>
+          <label class="form-label" id="lbl_owner_mobile">Owner WhatsApp Number</label>
           <input class="form-input" id="c_owner_mobile" placeholder="e.g. 0412 345 678">
         </div>
       </div>
@@ -528,9 +532,16 @@ tr:hover td{background:rgba(255,255,255,.03);}
         Used by the Email Owner and WhatsApp Owner buttons on the Car Finance page.
         Australian numbers can be entered as 0412 345 678 — the country code is added automatically.
       </div>
+      <div class="form-row" id="partnerRow" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Investor's Share (%) <span class="req">*</span></label>
+          <input class="form-input" id="c_inv_share" type="number" min="1" max="99" step="0.1" placeholder="e.g. 40" oninput="updateShareSplit()">
+          <div class="share-split" id="shareSplit">Enter the investor's share. Ozee's share is worked out for you.</div>
+        </div>
+      </div>
       <div class="form-row" id="serviceFeeRow" style="display:none;">
         <div class="form-group">
-          <label class="form-label">Service Fee We Charge the Owner</label>
+          <label class="form-label" id="lbl_service_fee">Service Fee We Charge the Owner</label>
           <select class="form-select" id="c_service_fee" onchange="toggleCustomFee()">
             <option value="">No service fee</option>
             <option value="10">10%</option>
@@ -549,6 +560,9 @@ tr:hover td{background:rgba(255,255,255,.03);}
       </div>
       <div id="ownerHint" class="odo-hint" style="display:none;">
         Rent, expenses and payouts for this car will be shown as an owner statement in Car Finance and on its PDF report.
+      </div>
+      <div id="partnerHint" class="odo-hint" style="display:none;">
+        Rent, running costs, the purchase price and any sale price are split between Ozee and the investor by these shares in Car Finance and on the PDF report. Losses are shared the same way. The service fee is taken from the investor's share only when that share is a profit.
       </div>
 
       <div class="section-divider">Odometer</div>
@@ -673,14 +687,40 @@ function toggleRetire(){
 }
 
 function toggleOwnerName(){
-  const ext = document.getElementById('c_owned').value === 'true';
+  const v = document.getElementById('c_owned').value;
+  const ext = v === 'true' || v === 'partner';     // someone else owns all or part of it
+  const partner = v === 'partner';
   document.getElementById('ownerNameGroup').style.display = ext ? '' : 'none';
   document.getElementById('ownerContactRow').style.display = ext ? '' : 'none';
   document.getElementById('ownerContactHint').style.display = ext ? '' : 'none';
-  document.getElementById('ownerHint').style.display = ext ? '' : 'none';
+  document.getElementById('ownerHint').style.display = (ext && !partner) ? '' : 'none';
+  document.getElementById('partnerHint').style.display = partner ? '' : 'none';
+  document.getElementById('partnerRow').style.display = partner ? '' : 'none';
   const fr = document.getElementById('serviceFeeRow');
   if(fr) fr.style.display = ext ? '' : 'none';
+  // Partnership cars name the other party as the investor.
+  const who = partner ? 'Investor' : 'Owner';
+  document.getElementById('lbl_owner_name').textContent   = who + ' Name';
+  document.getElementById('lbl_owner_email').textContent  = who + ' Email';
+  document.getElementById('lbl_owner_mobile').textContent = who + ' WhatsApp Number';
+  document.getElementById('lbl_service_fee').textContent  = partner
+      ? "Service Fee on the Investor's Share" : 'Service Fee We Charge the Owner';
   toggleCustomFee();
+  updateShareSplit();
+}
+
+// The investor's share as typed, or null when it is not a usable 1-99 figure.
+function investorShareValue(){
+  const v = parseFloat(document.getElementById('c_inv_share').value);
+  return (isNaN(v) || v <= 0 || v >= 100) ? null : Math.round(v * 10) / 10;
+}
+function updateShareSplit(){
+  const el = document.getElementById('shareSplit');
+  if(!el) return;
+  const inv = investorShareValue();
+  el.innerHTML = inv == null
+    ? "Enter the investor's share (1 to 99). Ozee's share is worked out for you."
+    : 'Ozee <b>' + (Math.round((100 - inv) * 10) / 10) + '%</b> &nbsp;/&nbsp; Investor <b>' + inv + '%</b>';
 }
 
 // The dropdown carries the common rates. "Custom percentage..." reveals a
@@ -857,7 +897,10 @@ function openCarModal(car) {
   toggleRetire();
 
   // Ownership
-  document.getElementById('c_owned').value = (car && car.externally_owned) ? 'true' : 'false';
+  const _isPartner = !!(car && car.externally_owned && car.investor_share_pct != null);
+  document.getElementById('c_owned').value = _isPartner ? 'partner'
+                                           : ((car && car.externally_owned) ? 'true' : 'false');
+  document.getElementById('c_inv_share').value = _isPartner ? car.investor_share_pct : '';
   document.getElementById('c_owner_name').value = (car && car.owner_name) ? car.owner_name : '';
   document.getElementById('c_owner_email').value = (car && car.owner_email) ? car.owner_email : '';
   document.getElementById('c_owner_mobile').value = (car && car.owner_mobile) ? car.owner_mobile : '';
@@ -917,8 +960,15 @@ async function outstandingToOwner(carId){
                                   .reduce((s,r)=>s+Number(r.amount||0),0);
     const paidOut = (pay.data||[]).reduce((s,r)=>s+Number(r.amount||0),0);
     const afterCosts = income - costs;
-    const fee = (Number(car.service_fee_pct)||0) > 0
-              ? afterCosts * Number(car.service_fee_pct) / 100 : 0;
+    const feePct = Number(car.service_fee_pct) || 0;
+    if(car.investor_share_pct != null){
+      // Partnership: the investor gets their share of the profit (or carries
+      // their share of a loss). The fee comes only off a share that is a profit.
+      const invShare = afterCosts * Number(car.investor_share_pct) / 100;
+      const fee = (feePct > 0 && invShare > 0) ? invShare * feePct / 100 : 0;
+      return (invShare - fee) - paidOut;
+    }
+    const fee = feePct > 0 ? afterCosts * feePct / 100 : 0;
     return (afterCosts - fee) - paidOut;
   }catch(e){ return 0; }   // never block a save because this check failed
 }
@@ -939,9 +989,11 @@ async function saveCar() {
   const _retireReason = document.getElementById('c_retired').value;
   if (_retireReason && editingCarId) {
     const outstanding = await outstandingToOwner(editingCarId);
+    const _ec = (allCars || []).find(c => c.id === editingCarId);
+    const _ownerWord = (_ec && _ec.investor_share_pct != null) ? 'investor' : 'owner';
     if (outstanding > 0.01) {
       const ok = confirm(
-        'This vehicle still has $' + outstanding.toFixed(2) + ' owing to its owner.\n\n' +
+        'This vehicle still has $' + outstanding.toFixed(2) + ' owing to its ' + _ownerWord + '.\n\n' +
         'Once it is retired the record is closed, and owner payments can no longer ' +
         'be recorded against it.\n\n' +
         'Settle the balance in Car Finance first, then retire the vehicle.\n\n' +
@@ -973,17 +1025,33 @@ async function saveCar() {
     retired_date: document.getElementById('c_retired').value ? (document.getElementById('c_retired_date').value || null) : null,
     retired_amount: document.getElementById('c_retired').value ? (parseFloat(document.getElementById('c_retired_amount').value) || null) : null,
     retired_notes: document.getElementById('c_retired').value ? (document.getElementById('c_retired_notes').value.trim() || null) : null,
-    externally_owned: document.getElementById('c_owned').value === 'true',
+    externally_owned: document.getElementById('c_owned').value !== 'false',
     owner_name: document.getElementById('c_owner_name').value.trim() || null,
     owner_email: document.getElementById('c_owner_email').value.trim() || null,
     owner_mobile: document.getElementById('c_owner_mobile').value.trim() || null,
-    service_fee_pct: document.getElementById('c_owned').value === 'true'
+    service_fee_pct: document.getElementById('c_owned').value !== 'false'
         ? serviceFeeValue()
         : null,
     service_interval_km: parseFloat(document.getElementById('c_svc_km').value) || null,
     last_service_km: parseFloat(document.getElementById('c_last_svc_km').value) || null,
     notes: document.getElementById('c_notes').value || null,
   };
+
+  // Partnership share. It is only sent when it matters, so every other car
+  // still saves normally even before schema-partnership.sql has been run.
+  if (document.getElementById('c_owned').value === 'partner') {
+    const inv = investorShareValue();
+    if (inv == null) {
+      alert("Please enter the investor's share as a percentage between 1 and 99.\n\n" +
+            "For example, 40 means the investor owns 40% of the car and Ozee owns 60%.");
+      document.getElementById('c_inv_share').focus();
+      return;
+    }
+    carData.investor_share_pct = inv;
+  } else if (editingCarId) {
+    const _prev = (allCars || []).find(c => c.id === editingCarId);
+    if (_prev && _prev.investor_share_pct != null) carData.investor_share_pct = null;
+  }
 
   // Odometer reading is required when adding a new car
   if(!editingCarId){
@@ -1011,7 +1079,10 @@ async function saveCar() {
   }
 
   if (error) {
-    alert('Error saving car: ' + error.message);
+    alert('Error saving car: ' + error.message +
+          (/investor_share_pct/.test(error.message || '')
+            ? '\n\nThe partnership column is not in the database yet. Run schema-partnership.sql in Supabase first, then save again.'
+            : ''));
     document.getElementById('saveCarBtn').textContent = 'Save Car';
     document.getElementById('saveCarBtn').disabled = false;
     return;
@@ -1138,7 +1209,9 @@ function renderCars(cars) {
       <td data-mob="Rego"><strong>${c.rego}</strong>${c.retired_reason ? `<span class="retired-tag">${c.retired_reason}</span>` : ''}</td>
       <td data-mob="Make & Model">${c.make_model}</td>
       <td data-mob="Year">${c.year}</td>
-      <td data-mob="Owner">${c.externally_owned
+      <td data-mob="Owner">${c.externally_owned && c.investor_share_pct != null
+        ? `<span class="own-tag own-part">Partnership ${Math.round((100 - Number(c.investor_share_pct)) * 10) / 10}/${Number(c.investor_share_pct)}</span><div style="font-size:.62rem;color:rgba(255,255,255,.4);margin-top:.2rem;">${c.owner_name ? c.owner_name : 'Investor'}${c.service_fee_pct ? ' · ' + c.service_fee_pct + '% fee' : ''}</div>`
+        : c.externally_owned
         ? `<span class="own-tag own-ext">${c.owner_name ? c.owner_name : 'Investor'}</span>${c.service_fee_pct ? `<div style="font-size:.62rem;color:rgba(255,255,255,.4);margin-top:.2rem;">${c.service_fee_pct}% fee</div>` : ''}`
         : `<span class="own-tag own-biz">Business</span>`}</td>
       <td data-mob="Category">${c.category || '—'}</td>
