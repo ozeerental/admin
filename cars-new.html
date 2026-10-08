@@ -1,0 +1,2231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Management — Ozee Rentals Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ── Local calendar date as YYYY-MM-DD ──────────────────────────────
+// Never use toISOString() for a date-only value. It converts to UTC, so in
+// Australia (UTC+10/+11) local midnight lands on the PREVIOUS day in UTC and
+// every date comes out one day early — which is why weeks were being stored
+// as Sunday instead of Monday.
+function localISO(d){
+  return d.getFullYear() + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' +
+         String(d.getDate()).padStart(2,'0');
+}
+function todayISO(){ return localISO(new Date()); }
+</script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:#07101e;border-bottom:1px solid rgba(245,166,35,.15);padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:200;}
+.topbar img{height:36px;filter:brightness(0) invert(1);}
+.topbar-right{display:flex;align-items:center;gap:1rem;}
+.topbar-user{font-size:.82rem;color:rgba(255,255,255,.5);}
+.topbar-logout{font-size:.78rem;color:#F5A623;text-decoration:none;letter-spacing:1px;text-transform:uppercase;padding:.4rem .9rem;border:1px solid rgba(245,166,35,.3);cursor:pointer;background:none;font-family:"Barlow",sans-serif;}
+.app{display:flex;flex:1;}
+.sidebar{width:220px;background:#07101e;border-right:1px solid rgba(255,255,255,.06);padding:1.5rem 0;flex-shrink:0;}
+.sidebar-nav{list-style:none;}
+.sidebar-nav li a{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.5rem;color:rgba(255,255,255,.5);text-decoration:none;font-size:.88rem;font-weight:600;transition:all .2s;border-left:3px solid transparent;}
+.sidebar-nav li a:hover{color:#fff;background:rgba(255,255,255,.04);}
+.sidebar-nav li a.active{color:#F5A623;background:rgba(245,166,35,.08);border-left-color:#F5A623;}
+.sidebar-divider{margin:1rem 1.5rem;border:none;border-top:1px solid rgba(255,255,255,.06);}
+.main{flex:1;padding:2rem;overflow-y:auto;}
+.page-title{font-family:"Barlow Condensed",sans-serif;font-size:2.2rem;font-weight:900;text-transform:uppercase;letter-spacing:-1px;margin-bottom:.3rem;}
+.page-title span{color:#F5A623;}
+.page-sub{color:rgba(255,255,255,.4);font-size:.88rem;margin-bottom:2rem;}
+.table-wrap{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);overflow:hidden;margin-top:1.5rem;}
+.table-header{padding:1.25rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;}
+.table-title{font-family:"Barlow Condensed",sans-serif;font-size:1.2rem;font-weight:900;text-transform:uppercase;letter-spacing:1px;}
+table{width:100%;border-collapse:collapse;}
+.act-share{background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:#00E5FF;}
+.actions-cell{display:flex;gap:.4rem;flex-wrap:wrap;}
+.actions-cell .btn{margin:0;}
+@media(min-width:901px){.actions-cell{flex-direction:column;}.actions-cell .btn{width:100%;}}
+th{text-align:left;padding:.9rem 1rem;font-size:.7rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);border-bottom:1px solid rgba(255,255,255,.07);}
+td{padding:.9rem 1rem;font-size:.88rem;border-bottom:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.8);vertical-align:middle;}
+tr:hover td{background:rgba(255,255,255,.03);}
+.badge{padding:.25rem .7rem;font-size:.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;display:inline-block;}
+.badge-green{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
+.badge-yellow{background:rgba(245,166,35,.15);color:#F5A623;border:1px solid rgba(245,166,35,.3);}
+.badge-red{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.badge-blue{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3);}
+.btn{padding:.5rem 1rem;font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;font-family:"Barlow",sans-serif;transition:all .2s;display:inline-block;}
+.btn-gold{background:linear-gradient(135deg,#F5A623,#D4880A);color:#000;}
+.btn-gold:hover{box-shadow:0 4px 20px rgba(245,166,35,.4);}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);}
+.btn-outline:hover{border-color:#F5A623;color:#F5A623;}
+.btn-danger{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;}
+.btn-sm{padding:.35rem .8rem;font-size:.72rem;}
+.search-input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.6rem 1rem;font-family:"Barlow",sans-serif;font-size:.88rem;min-width:200px;}
+.search-input:focus{outline:none;border-color:#F5A623;}
+.loading-cell{text-align:center;color:rgba(255,255,255,.3);font-style:italic;padding:3rem!important;}
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;}
+.modal-overlay.open{display:flex;align-items:center;justify-content:center;padding:2rem;}
+.modal-box{background:#0d1526;border:1px solid rgba(245,166,35,.3);width:100%;max-width:720px;max-height:90vh;overflow-y:auto;border-radius:4px;}
+.modal-head{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#0d1526;z-index:1;}
+.modal-head h3{font-family:"Barlow Condensed",sans-serif;font-size:1.5rem;font-weight:900;text-transform:uppercase;color:#fff;}
+.modal-close{background:none;border:none;color:rgba(255,255,255,.6);font-size:1.8rem;cursor:pointer;line-height:1;padding:0 .5rem;}
+.modal-close:hover{color:#fff;}
+.modal-body{padding:1.5rem;}
+.modal-foot{padding:1.5rem;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:flex-end;gap:.75rem;background:#0d1526;}
+.form-group{margin-bottom:1.25rem;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;}
+.form-label{display:block;font-size:.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.5rem;}
+.req{color:#F5A623;}
+.form-input,.form-select,.form-textarea{width:100%;padding:.75rem;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:.92rem;font-family:"Barlow",sans-serif;border-radius:2px;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:#F5A623;background:rgba(255,255,255,.1);}
+.form-select option{background:#0d1526;color:#fff;}
+.form-textarea{resize:vertical;min-height:80px;}
+.check-group{display:flex;flex-wrap:wrap;gap:1rem;margin-top:.5rem;}
+.check-item{display:flex;align-items:center;gap:.5rem;}
+.check-item input{width:17px;height:17px;cursor:pointer;accent-color:#F5A623;}
+.check-item label{font-size:.88rem;color:rgba(255,255,255,.7);cursor:pointer;margin:0;}
+.section-divider{font-family:"Barlow Condensed",sans-serif;font-size:.85rem;font-weight:900;text-transform:uppercase;letter-spacing:3px;color:rgba(255,255,255,.25);padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.08);margin:1.5rem 0 1rem;}
+@media(max-width:900px){.form-row,.form-row-3{grid-template-columns:1fr;}}
+
+.share-doc-item{display:flex;align-items:center;gap:12px;padding:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);cursor:pointer;transition:background .2s;margin-bottom:8px;}
+.share-doc-item:hover{background:rgba(255,255,255,.06);}
+.share-doc-item input[type=checkbox]{width:18px;height:18px;accent-color:#00E5FF;cursor:pointer;flex-shrink:0;}
+.share-doc-name{font-size:.9rem;font-weight:600;color:#fff;}
+.share-doc-file{font-size:.75rem;color:rgba(255,255,255,.3);margin-top:2px;}
+.share-preview-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);padding:16px;margin-bottom:8px;border-radius:4px;}
+.share-preview-label{font-size:.65rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:8px;}
+.share-preview-text{font-size:.82rem;color:rgba(255,255,255,.45);line-height:1.7;white-space:pre-wrap;max-height:160px;overflow-y:auto;}
+.btn-whatsapp{background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;border:none;}
+.btn-whatsapp:hover{opacity:.9;}
+
+/* ═══════════════════════════════════════
+   MOBILE RESPONSIVE — ALL ADMIN PAGES
+   Target: iPhone and Android phones
+═══════════════════════════════════════ */
+
+/* Hamburger button */
+.mob-menu-btn{
+  display:none;
+  background:none;border:none;
+  color:#fff;font-size:1.4rem;
+  cursor:pointer;padding:4px 8px;
+  line-height:1;
+}
+
+/* Mobile overlay for sidebar */
+.sidebar-overlay{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  z-index:998;
+}
+.sidebar-overlay.open{display:block;}
+
+@media(max-width:900px){
+  /* ── LAYOUT ── */
+  .app{flex-direction:column;}
+  
+  /* ── SIDEBAR ── */
+  .sidebar{
+    position:fixed;top:0;left:-260px;
+    width:260px!important;height:100vh;
+    z-index:999;transition:left .3s ease;
+    overflow-y:auto;
+  }
+  .sidebar.open{left:0;}
+  .mob-menu-btn{display:block;}
+  
+  /* ── TOP BAR ── */
+  .topbar{
+    display:flex!important;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 16px!important;
+    position:sticky;top:0;z-index:100;
+  }
+  .topbar-left{display:flex;align-items:center;gap:10px;}
+  
+  /* ── MAIN ── */
+  main{padding:20px 16px!important;overflow-x:hidden;}
+  
+  /* ── PAGE HEADER ── */
+  .page-header{margin-bottom:24px!important;}
+  .page-header h1{font-size:1.6rem!important;}
+  .page-header p{font-size:.85rem!important;}
+  
+  /* ── STAT CARDS ── */
+  .stats-row{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:12px!important;
+  }
+  .stat-card{padding:18px!important;}
+  .stat-card .stat-val{font-size:2rem!important;}
+  
+  /* ── DASHBOARD PANELS ── */
+  .dash-panels{
+    grid-template-columns:1fr!important;
+    gap:16px!important;
+  }
+  
+  /* ── TABLES — convert to card view ── */
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  
+  table{width:100%;border-collapse:collapse;}
+  
+  /* Hide less important columns on mobile */
+  table th:nth-child(3),
+  table td:nth-child(3),
+  table th:nth-child(4),
+  table td:nth-child(4){display:none;}
+  
+  /* Make table cells bigger for touch */
+  table td,table th{
+    padding:14px 10px!important;
+    font-size:.82rem!important;
+  }
+  
+  /* ── DRIVERS TABLE — show approve/reject as full-width buttons ── */
+  #driversTable tr{position:relative;}
+  #driversTable td:last-child{
+    display:flex!important;
+    flex-direction:column;
+    gap:8px;
+    padding:10px!important;
+  }
+  #driversTable td:last-child .btn{
+    width:100%!important;
+    text-align:center;
+    padding:10px!important;
+    font-size:.82rem!important;
+  }
+  
+  /* ── CARS TABLE ── */
+  .car-photo-thumb{width:50px!important;height:40px!important;}
+  
+  /* ── MODALS ── */
+  .modal-box{
+    width:95vw!important;
+    max-width:95vw!important;
+    max-height:90vh!important;
+    overflow-y:auto!important;
+    margin:5vh auto!important;
+    padding:20px!important;
+  }
+  .modal-foot{
+    flex-direction:column!important;
+    gap:10px!important;
+  }
+  .modal-foot .btn{
+    width:100%!important;
+    text-align:center;
+    padding:14px!important;
+    font-size:.9rem!important;
+  }
+  
+  /* ── FORM GRIDS ── */
+  .form-grid{grid-template-columns:1fr!important;}
+  .form-grid-2{grid-template-columns:1fr!important;}
+  
+  /* ── BUTTONS ── */
+  .btn-sm{padding:10px 14px!important;font-size:.78rem!important;}
+  
+  /* ── FILTERS ROW ── */
+  .filters-row{
+    flex-direction:column!important;
+    gap:10px!important;
+    align-items:stretch!important;
+  }
+  .filters-row input,
+  .filters-row select{width:100%!important;}
+  
+  /* ── PAGE ACTIONS ── */
+  .page-actions{
+    flex-direction:column!important;
+    gap:10px!important;
+    align-items:stretch!important;
+  }
+  .page-actions .btn{width:100%;text-align:center;}
+  
+  /* ── FINES TABLE ── */
+  .fines-table th:nth-child(5),
+  .fines-table td:nth-child(5),
+  .fines-table th:nth-child(6),
+  .fines-table td:nth-child(6){display:none;}
+  
+  /* ── ASSIGNMENTS ── */
+  .assign-table th:nth-child(4),
+  .assign-table td:nth-child(4){display:none;}
+}
+
+@media(max-width:480px){
+  .stats-row{grid-template-columns:1fr!important;}
+  .page-header h1{font-size:1.4rem!important;}
+  table th:nth-child(2),
+  table td:nth-child(2){font-size:.75rem!important;}
+}
+
+/* ═══ MOBILE APP-STYLE CARDS — rows become cards, no sideways scrolling ═══ */
+@media(max-width:768px){
+  .table-wrap{overflow:visible!important;background:transparent!important;border:none!important;}
+  .table-wrap table{display:block;width:100%;}
+  .table-wrap table thead{display:none;}
+  .table-wrap table tbody,.table-wrap table tr,.table-wrap table td{display:block;width:100%;}
+  .table-wrap table tbody tr{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:14px;margin-bottom:1rem;padding:.9rem .95rem;}
+  .table-wrap table td{display:flex;justify-content:space-between;align-items:center;gap:.8rem;padding:.42rem 0;border:none!important;text-align:right;font-size:.88rem;}
+  .table-wrap table td::before{content:attr(data-mob);font-size:.66rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.45);text-align:left;flex-shrink:0;}
+  .table-wrap table td:first-child{display:block;text-align:left;padding-bottom:.55rem;margin-bottom:.3rem;border-bottom:1px solid rgba(255,255,255,.09)!important;font-size:1rem;}
+  .table-wrap table td:first-child::before{display:none;}
+  .table-wrap table td:last-child{display:flex;flex-wrap:wrap;gap:.5rem;padding-top:.65rem;text-align:left;}
+  .table-wrap table td:last-child::before{display:none;}
+  .table-wrap table td.actions-cell{flex-wrap:wrap;gap:.5rem;}
+  .table-wrap table td.actions-cell .btn{flex:1 1 calc(50% - .25rem);width:auto!important;margin:0!important;padding:.8rem .4rem!important;font-size:.9rem!important;min-height:48px;font-weight:700;}
+  .table-wrap table td.actions-cell .act-edit{flex:1 1 100%;}
+  .table-wrap table td .badge{margin-left:auto;}
+  .table-wrap table .loading-cell{display:block;text-align:center;border:none!important;}
+  .table-wrap table tbody tr.section-row{background:transparent!important;border:none!important;
+    border-radius:0!important;margin:.4rem 0 .2rem!important;padding:0!important;}
+  .table-wrap table tr.section-row td{display:block!important;text-align:left!important;
+    font-size:1rem!important;padding:.6rem .2rem .3rem!important;border-bottom:none!important;}
+  .table-wrap table tr.section-row td::before{display:none!important;}
+  /* modal buttons: stack full-width like an app sheet */
+  .modal-foot{display:flex!important;flex-wrap:wrap;gap:.55rem;}
+  .modal-foot .btn{flex:1 1 100%;margin:0!important;padding:.85rem!important;min-height:48px;font-size:.95rem!important;}
+}
+/* Mobile labels come from each cell's own data-mob attribute. The nth-child
+   overrides that used to live here were left behind when the Owner column was
+   added, so every label from Rego onwards was showing the wrong heading. */
+/* Odometer */
+.odo-hint{font-size:.78rem;color:rgba(255,255,255,.35);margin:-.4rem 0 .9rem;font-style:italic;}
+.odo-log{max-height:170px;overflow-y:auto;margin-bottom:1.25rem;}
+.odo-log:empty{display:none;}
+.odo-item{display:flex;justify-content:space-between;align-items:center;gap:.75rem;
+  padding:.5rem .75rem;border:1px solid rgba(255,255,255,.07);border-radius:6px;margin-bottom:.4rem;
+  background:rgba(255,255,255,.02);font-size:.83rem;}
+.odo-km{font-weight:800;color:#fff;}
+.odo-meta{font-size:.72rem;color:rgba(255,255,255,.4);margin-top:.1rem;}
+.odo-src{font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;
+  padding:.15rem .45rem;border-radius:100px;margin-left:.45rem;
+  background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3);color:#F5A623;}
+.odo-diff{font-size:.72rem;color:#4ade80;font-weight:700;}
+.odo-del{background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:.9rem;padding:0 .2rem;}
+.odo-del:hover{color:#f87171;}
+.odo-summary{display:flex;gap:1.25rem;flex-wrap:wrap;padding:.7rem .85rem;margin-bottom:.7rem;
+  background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.2);border-radius:6px;}
+.odo-stat{font-size:.75rem;color:rgba(255,255,255,.5);}
+.odo-stat b{display:block;font-family:"Barlow Condensed",sans-serif;font-size:1.1rem;
+  font-weight:900;color:#F5A623;margin-top:.1rem;}
+.odo-due{color:#f87171!important;}
+.own-tag{display:inline-block;font-size:.62rem;font-weight:800;text-transform:uppercase;
+  letter-spacing:.4px;padding:.22rem .55rem;border-radius:100px;white-space:nowrap;}
+.own-ext{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.45);color:#60a5fa;}
+/* Ownership colours, used the same way everywhere:
+   gold = business, blue = investor, purple = partnership */
+.own-biz{background:rgba(245,166,35,.14);border:1px solid rgba(245,166,35,.5);color:#F5A623;}
+.own-part{background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.5);color:#a78bfa;}
+.own-cell{display:inline-flex;flex-direction:column;align-items:flex-start;gap:.25rem;}
+.own-who{font-size:.72rem;font-weight:600;color:rgba(255,255,255,.75);line-height:1.3;}
+.own-who small{display:block;font-size:.66rem;font-weight:500;color:rgba(255,255,255,.42);}
+tr.own-row-biz  td:first-child{box-shadow:inset 3px 0 0 #F5A623;}
+tr.own-row-inv  td:first-child{box-shadow:inset 3px 0 0 #60a5fa;}
+tr.own-row-part td:first-child{box-shadow:inset 3px 0 0 #a78bfa;}
+.own-legend{display:flex;flex-wrap:wrap;gap:.9rem;align-items:center;font-size:.74rem;color:rgba(255,255,255,.6);margin-top:.35rem;}
+.own-legend span{display:inline-flex;align-items:center;gap:.4rem;white-space:nowrap;}
+.own-legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+.own-legend b{color:#fff;font-weight:700;}
+@media(max-width:768px){
+  .table-wrap table tbody tr.own-row-biz {border-left:4px solid #F5A623!important;}
+  .table-wrap table tbody tr.own-row-inv {border-left:4px solid #60a5fa!important;}
+  .table-wrap table tbody tr.own-row-part{border-left:4px solid #a78bfa!important;}
+  tr.own-row-biz td:first-child,tr.own-row-inv td:first-child,tr.own-row-part td:first-child{box-shadow:none;}
+  .own-cell{align-items:flex-end;text-align:right;}
+}
+.share-split{font-size:.8rem;color:rgba(255,255,255,.55);margin-top:.45rem;line-height:1.45;}
+.share-split b{color:#a78bfa;}
+/* Website cut-out */
+.cutout-box{display:flex;gap:.9rem;align-items:center;flex-wrap:wrap;}
+.cutout-prev{width:180px;height:120px;flex:0 0 auto;border-radius:10px;border:1px solid rgba(255,255,255,.12);
+  display:flex;align-items:center;justify-content:center;font-size:.75rem;color:rgba(255,255,255,.4);text-align:center;padding:.4rem;
+  background:#10141b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect width='8' height='8' fill='%23171c25'/%3E%3Crect x='8' y='8' width='8' height='8' fill='%23171c25'/%3E%3C/svg%3E");}
+.cutout-prev img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 6px 8px rgba(0,0,0,.5));}
+.cutout-side{flex:1;min-width:200px;}
+.cutout-msg{font-size:.78rem;color:rgba(255,255,255,.55);line-height:1.45;margin-bottom:.6rem;}
+.cutout-btns{display:flex;gap:.5rem;flex-wrap:wrap;}
+.cut-tag{display:inline-block;margin-top:3px;font-size:.6rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#4ade80;}
+.cut-overlay{position:fixed;inset:0;z-index:3000;background:rgba(4,9,15,.82);display:flex;align-items:center;justify-content:center;padding:1.5rem;}
+.cut-card{background:#0d1526;border:1px solid rgba(245,166,35,.35);border-radius:16px;padding:1.6rem 1.5rem;max-width:380px;width:100%;text-align:center;}
+.cut-card h4{font-family:"Barlow Condensed",sans-serif;font-size:1.4rem;font-weight:900;text-transform:uppercase;margin:0 0 .4rem;}
+.cut-card p{font-size:.86rem;color:rgba(255,255,255,.6);line-height:1.5;margin:0;}
+.cut-spin{width:42px;height:42px;border-radius:50%;border:3px solid rgba(245,166,35,.2);border-top-color:#F5A623;margin:0 auto 1rem;animation:cutspin 1s linear infinite;}
+@keyframes cutspin{to{transform:rotate(360deg)}}
+.cut-toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:3001;max-width:92vw;background:#0d1526;border:1px solid rgba(255,255,255,.15);
+  border-radius:12px;padding:.8rem 1.1rem;font-size:.86rem;line-height:1.4;box-shadow:0 12px 30px rgba(0,0,0,.5);}
+.cut-toast.ok{border-color:rgba(74,222,128,.5);} .cut-toast.bad{border-color:rgba(248,113,113,.5);}
+.retire-intro{font-size:.82rem;color:rgba(255,255,255,.45);line-height:1.5;margin:-.3rem 0 1rem;}
+.retire-hint{font-size:.76rem;color:rgba(255,255,255,.4);margin-top:.35rem;font-style:italic;}
+.section-row td{background:transparent!important;border:none!important;
+  padding:1.6rem .2rem .6rem!important;font-family:"Barlow Condensed",sans-serif;
+  font-size:1.05rem;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;
+  color:rgba(255,255,255,.5);}
+.section-row td span{font-size:.7rem;font-weight:600;color:rgba(255,255,255,.28);
+  margin-left:.6rem;text-transform:none;letter-spacing:0;}
+.section-row:hover{background:transparent!important;}
+.retired-tag{display:inline-block;background:rgba(148,163,184,.15);border:1px solid rgba(148,163,184,.4);
+  color:#94a3b8;font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;
+  padding:.15rem .45rem;border-radius:100px;margin-left:.4rem;vertical-align:middle;}
+</style>
+</head>
+<body>
+<div style="background:#7c3aed;color:#fff;text-align:center;font:700 13px Barlow,sans-serif;letter-spacing:.5px;padding:7px 10px;">TEST COPY of Car Management — anything you save here is saved for real. The normal page is <a href="cars.html" style="color:#fff;text-decoration:underline">cars.html</a>.</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <img src="https://ozeerentals.com.au/logo-white.png" alt="Ozee Rentals">
+  <div class="topbar-right">
+    <span class="topbar-user" id="adminEmail">Loading...</span>
+    <button class="topbar-logout" onclick="signOut()">Sign Out</button>
+  </div>
+</div>
+
+<!-- APP LAYOUT -->
+<div class="app">
+  <aside class="sidebar">
+    <ul class="sidebar-nav">
+      <li><a href="dashboard.html"><span>📊</span> Dashboard</a></li>
+      <li><a href="cars.html" class="active"><span>🚗</span> Car Management</a></li>
+      <li><a href="drivers.html"><span>👥</span> Driver Applications</a></li>
+      <li><a href="assignments.html"><span>🔗</span> Car Assignments</a></li>
+      <li><a href="fines.html"><span>🚨</span> Fines &amp; Tolls</a></li>
+      <li><a href="finance.html"><span>💰</span> Car Finance</a></li>
+      <li><a href="rent-tracker.html"><span>🗓️</span> Rent Tracker</a></li>
+      <li><a href="invoices.html"><span>🧾</span> Invoices</a></li>
+      <hr class="sidebar-divider">
+      <li><a href="https://ozeerentals.com.au"><span>🌐</span> View Website</a></li>
+    </ul>
+  </aside>
+
+  <main class="main">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;flex-wrap:wrap;gap:1rem;">
+      <div>
+        <div class="page-title">Car <span>Management</span></div>
+        <div class="page-sub">Add, edit or remove vehicles — changes appear instantly on the public website</div>
+      </div>
+      <button class="btn btn-gold" id="addCarBtn">+ Add New Car</button>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">
+        <div>
+          <div class="table-title">Fleet</div>
+          <div class="own-legend" id="ownLegend"></div>
+        </div>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+          <input class="search-input" placeholder="Search rego, model or name..." oninput="filterCars(this.value)">
+          <select class="search-input" style="min-width:140px;" onchange="filterByStatus(this.value)">
+            <option value="">All Status</option>
+            <option>Available</option><option>Rented</option><option>Maintenance</option>
+          </select>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Photo</th><th>Rego</th><th>Make &amp; Model</th><th>Year</th><th>Owner</th><th>Category</th>
+            <th>Suitable For</th><th>Rate/Week</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="carsTable">
+          <tr><td colspan="8" class="loading-cell">Loading fleet...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- CAR MODAL -->
+<div class="modal-overlay" id="carModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="carModalTitle">Add New Car</h3>
+      <button class="modal-close" id="closeModalBtn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Rego Number <span class="req">*</span></label>
+          <input class="form-input" id="c_rego" placeholder="e.g. ABC123" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Make &amp; Model <span class="req">*</span></label>
+          <input class="form-input" id="c_make" placeholder="e.g. Toyota Camry" required>
+        </div>
+      </div>
+      <div class="form-row-3">
+        <div class="form-group">
+          <label class="form-label">Year <span class="req">*</span></label>
+          <input class="form-input" id="c_year" type="number" placeholder="2023" min="2000" max="2030" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category <span class="req">*</span></label>
+          <select class="form-select" id="c_cat">
+            <option value="">Select...</option>
+            <option>Sedan</option><option>SUV</option><option>Hatchback</option>
+            <option>Hybrid</option><option>Electric</option><option>Wagon</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Condition</label>
+          <select class="form-select" id="c_cond">
+            <option>New</option><option>Used</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row-3">
+        <div class="form-group">
+          <label class="form-label">Transmission</label>
+          <select class="form-select" id="c_trans">
+            <option>Automatic</option><option>Manual</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Seats</label>
+          <select class="form-select" id="c_seats">
+            <option>5</option><option>7</option><option>8</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fuel Type</label>
+          <select class="form-select" id="c_fuel">
+            <option>Petrol</option><option>Diesel</option><option>Hybrid</option><option>Electric</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Weekly Rate (AUD) <span class="req">*</span></label>
+          <input class="form-input" id="c_rate" type="number" placeholder="250" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status <span class="req">*</span></label>
+          <select class="form-select" id="c_status">
+            <option>Available</option><option>Rented</option><option>Maintenance</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Available From <span style="color:#8a929b;font-weight:400;">(shown on website when Rented / Maintenance)</span></label>
+          <input type="date" class="form-input" id="c_avail_from">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Suitable For <span class="req">*</span></label>
+        <div class="check-group">
+          <div class="check-item">
+            <input type="checkbox" id="sf_rideshare" value="Rideshare">
+            <label for="sf_rideshare">Rideshare (Uber, DiDi, Ola)</label>
+          </div>
+          <div class="check-item">
+            <input type="checkbox" id="sf_food" value="Food Delivery">
+            <label for="sf_food">Food Delivery (Uber Eats, DoorDash)</label>
+          </div>
+          <div class="check-item">
+            <input type="checkbox" id="sf_amazon" value="Amazon Flex">
+            <label for="sf_amazon">Amazon Flex</label>
+          </div>
+          <div class="check-item">
+            <input type="checkbox" id="sf_private" value="Private">
+            <label for="sf_private">Private Use</label>
+          </div>
+        </div>
+      </div>
+      <!-- Insurer, policy number, insurance expiry, rego expiry and service
+           due are not in use yet, so they are off the form to keep it short.
+           Their columns and any values already saved are untouched: putting
+           the fields back here is all that is needed to use them again. -->
+      <div class="section-divider">Ownership</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Who owns this car?</label>
+          <select class="form-select" id="c_owned" onchange="toggleOwnerName()">
+            <option value="false">Owned by the business</option>
+            <option value="true">Investor's car (listed on their behalf)</option>
+            <option value="partner">Partnership car (shared with an investor)</option>
+          </select>
+        </div>
+        <div class="form-group" id="ownerNameGroup" style="display:none;">
+          <label class="form-label" id="lbl_owner_name">Owner Name</label>
+          <input class="form-input" id="c_owner_name" placeholder="e.g. Sam Patel">
+        </div>
+      </div>
+      <div class="form-row" id="ownerContactRow" style="display:none;">
+        <div class="form-group">
+          <label class="form-label" id="lbl_owner_email">Owner Email</label>
+          <input class="form-input" id="c_owner_email" type="email" placeholder="owner@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label" id="lbl_owner_mobile">Owner WhatsApp Number</label>
+          <input class="form-input" id="c_owner_mobile" placeholder="e.g. 0412 345 678">
+        </div>
+      </div>
+      <div class="odo-hint" id="ownerContactHint" style="display:none;">
+        Used by the Email Owner and WhatsApp Owner buttons on the Car Finance page.
+        Australian numbers can be entered as 0412 345 678 — the country code is added automatically.
+      </div>
+      <div class="form-row" id="partnerRow" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Investor's Share (%) <span class="req">*</span></label>
+          <input class="form-input" id="c_inv_share" type="number" min="1" max="99" step="0.1" placeholder="e.g. 40" oninput="updateShareSplit()">
+          <div class="share-split" id="shareSplit">Enter the investor's share. Ozee's share is worked out for you.</div>
+        </div>
+      </div>
+      <div class="form-row" id="serviceFeeRow" style="display:none;">
+        <div class="form-group">
+          <label class="form-label" id="lbl_service_fee">Service Fee We Charge the Owner</label>
+          <select class="form-select" id="c_service_fee" onchange="toggleCustomFee()">
+            <option value="">No service fee</option>
+            <option value="10">10%</option>
+            <option value="12.5">12.5%</option>
+            <option value="15">15%</option>
+            <option value="20">20%</option>
+            <option value="25">25%</option>
+            <option value="30">30%</option>
+            <option value="custom">Custom percentage...</option>
+          </select>
+        </div>
+        <div class="form-group" id="customFeeWrap" style="display:none;">
+          <label class="form-label">Custom Percentage (%)</label>
+          <input class="form-input" id="c_service_fee_custom" type="number" min="0" max="100" step="0.1" placeholder="e.g. 17.5">
+        </div>
+      </div>
+      <div id="ownerHint" class="odo-hint" style="display:none;">
+        Rent, expenses and payouts for this car will be shown as an owner statement in Car Finance and on its PDF report.
+      </div>
+      <div id="partnerHint" class="odo-hint" style="display:none;">
+        Rent, running costs, the purchase price and any sale price are split between Ozee and the investor by these shares in Car Finance and on the PDF report. Losses are shared the same way. The service fee is taken from the investor's share only when that share is a profit.
+      </div>
+
+      <div class="section-divider">Odometer</div>
+      <div class="form-row-3">
+        <div class="form-group">
+          <label class="form-label" id="c_odo_label">Odometer at Purchase (km) <span class="req">*</span></label>
+          <input class="form-input" id="c_odo" type="number" min="0" step="1" placeholder="e.g. 84500">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Service Interval (km)</label>
+          <input class="form-input" id="c_svc_km" type="number" min="0" step="500" placeholder="e.g. 10000" oninput="renderOdometer()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Service At (km)</label>
+          <input class="form-input" id="c_last_svc_km" type="number" min="0" step="1" placeholder="e.g. 80000" oninput="renderOdometer()">
+        </div>
+      </div>
+      <div id="odoHint" class="odo-hint">Entering a reading here adds it to this car's odometer history.</div>
+      <div id="odoLog" class="odo-log"></div>
+
+      <div class="form-group">
+        <label class="form-label">Notes (Internal)</label>
+        <textarea class="form-textarea" id="c_notes" placeholder="Any internal notes..."></textarea>
+      </div>
+
+      <div id="retireSection" style="display:none;">
+        <div class="section-divider">Retire This Vehicle</div>
+        <div class="retire-intro">
+          Use this when the car leaves your fleet. The record stays in the system so its full
+          history of costs and earnings is kept, and it is removed from the public website.
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Status of Vehicle</label>
+            <select class="form-select" id="c_retired" onchange="toggleRetire()">
+              <option value="">Still in the fleet</option>
+              <option value="Sold">Sold</option>
+              <option value="Written Off">Written off</option>
+              <option value="Returned to Owner">Returned to its owner</option>
+            </select>
+          </div>
+          <div class="form-group" id="retDateWrap" style="display:none;">
+            <label class="form-label" id="retDateLabel">Date</label>
+            <input class="form-input" id="c_retired_date" type="date">
+          </div>
+        </div>
+        <div class="form-group" id="retAmtWrap" style="display:none;">
+          <label class="form-label" id="retAmtLabel">Amount Received ($)</label>
+          <input class="form-input" id="c_retired_amount" type="number" min="0" step="1" placeholder="e.g. 3800">
+          <div class="retire-hint" id="retAmtHint"></div>
+        </div>
+        <div class="form-group" id="retNotesWrap" style="display:none;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-textarea" id="c_retired_notes" rows="2" placeholder="Buyer, incident details, or anything worth recording"></textarea>
+        </div>
+      </div>
+      <div class="section-divider">Photos</div>
+      <!-- Registration certificate and insurance policy uploads are off for
+           now. Anything already uploaded is still there and still shares. -->
+      <div class="form-group">
+        <label class="form-label">Vehicle Photos (add as many as you like — click any photo to preview)</label>
+        <div id="photoGallery" style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.6rem;"></div>
+        <input type="file" class="form-input" id="doc_photos" accept=".jpg,.jpeg,.png" multiple>
+      </div>
+      <div class="form-group" id="cutoutGroup">
+        <label class="form-label">Website Cut-out</label>
+        <div class="cutout-box">
+          <div class="cutout-prev" id="cutoutPrev">No cut-out yet</div>
+          <div class="cutout-side">
+            <div class="cutout-msg" id="cutoutMsg">Made automatically from the cover photo (the first photo) when you add photos. The public website shows the car without its background.</div>
+            <div class="cutout-btns">
+              <button type="button" class="btn btn-outline btn-sm" id="cutoutMakeBtn" onclick="cutoutMakeNow()">&#9986; Make from cover photo</button>
+              <button type="button" class="btn btn-danger btn-sm" id="cutoutRemoveBtn" onclick="cutoutRemoveNow()">Remove cut-out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" id="cancelModalBtn">Cancel</button>
+      <button class="btn btn-gold" id="saveCarBtn">Save Car</button>
+    </div>
+  </div>
+</div>
+
+<!-- PHOTO LIGHTBOX -->
+<div class="modal-overlay" id="lightboxModal" style="z-index:10000;">
+  <div style="max-width:90vw;max-height:90vh;position:relative;display:flex;align-items:center;justify-content:center;">
+    <button onclick="closeLightbox()" style="position:absolute;top:-2.2rem;right:0;background:none;border:none;color:#fff;font-size:1.8rem;cursor:pointer;">&times;</button>
+    <button onclick="lightboxNav(-1)" id="lbPrev" style="position:absolute;left:-2.5rem;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:none;color:#fff;font-size:1.6rem;width:2.4rem;height:2.4rem;border-radius:50%;cursor:pointer;">&#8249;</button>
+    <img id="lightboxImg" src="" alt="" style="max-width:100%;max-height:85vh;border-radius:8px;object-fit:contain;">
+    <button onclick="lightboxNav(1)" id="lbNext" style="position:absolute;right:-2.5rem;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:none;color:#fff;font-size:1.6rem;width:2.4rem;height:2.4rem;border-radius:50%;cursor:pointer;">&#8250;</button>
+    <div id="lbCounter" style="position:absolute;bottom:-2rem;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.6);font-size:.8rem;"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  CAR CUT-OUT — removes the background from a car photo, in the browser.
+//  Nothing is sent to any outside service: the model files live in this
+//  site's models/ folder and run on this device.
+//    main model : models/car-cutout.onnx.part1 + .part2  (sharp edges)
+//    backup     : models/car-cutout-lite.onnx            (smaller, used if
+//                 the main one cannot run on this device)
+// ═══════════════════════════════════════════════════════════════════
+var OzeeCutout = (function(){
+  var ORT_URL  = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js';
+  var ORT_WASM = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/';
+  var MODELS = {
+    main: { key:'car-cutout-v1', parts:['models/car-cutout.onnx.part1','models/car-cutout.onnx.part2'],
+            size:1024, mean:[0.5,0.5,0.5], std:[1,1,1] },
+    lite: { key:'car-cutout-lite-v1', parts:['models/car-cutout-lite.onnx'],
+            size:320, mean:[0.485,0.456,0.406], std:[0.229,0.224,0.225] }
+  };
+  var sessions = {};
+  var ortPromise = null;
+
+  function loadOrt(){
+    if(window.ort) return Promise.resolve(window.ort);
+    if(ortPromise) return ortPromise;
+    ortPromise = new Promise(function(res, rej){
+      var s = document.createElement('script');
+      s.src = ORT_URL; s.async = true;
+      s.onload = function(){ window.ort ? res(window.ort) : rej(new Error('The cut-out tool did not load.')); };
+      s.onerror = function(){ ortPromise = null; rej(new Error('The cut-out tool could not be downloaded. Check the internet connection.')); };
+      document.head.appendChild(s);
+    });
+    return ortPromise;
+  }
+
+  // The model is kept on this device after the first download, so later
+  // cut-outs start straight away.
+  async function modelBytes(m, onStep){
+    var cache = null;
+    try{ cache = await caches.open('ozee-cutout'); }catch(e){}
+    if(cache){
+      try{ var hit = await cache.match(m.key); if(hit) return new Uint8Array(await hit.arrayBuffer()); }catch(e){}
+    }
+    var chunks = [], total = 0;
+    for(var i = 0; i < m.parts.length; i++){
+      if(onStep) onStep('Downloading the cut-out tool (first time only) — part ' + (i+1) + ' of ' + m.parts.length + '…');
+      var r = await fetch(m.parts[i]);
+      if(!r.ok) throw new Error('The cut-out model file ' + m.parts[i] + ' is missing (' + r.status + '). Upload the models folder to the admin site.');
+      var b = new Uint8Array(await r.arrayBuffer());
+      chunks.push(b); total += b.length;
+    }
+    var all = new Uint8Array(total), off = 0;
+    chunks.forEach(function(c){ all.set(c, off); off += c.length; });
+    if(cache){ try{ await cache.put(m.key, new Response(all.slice(0))); }catch(e){} }
+    return all;
+  }
+
+  async function session(name, onStep){
+    if(sessions[name]) return sessions[name];
+    var ort = await loadOrt();
+    ort.env.wasm.wasmPaths = ORT_WASM;
+    ort.env.wasm.numThreads = 1;
+    var bytes = await modelBytes(MODELS[name], onStep);
+    if(onStep) onStep('Starting the cut-out tool…');
+    sessions[name] = await ort.InferenceSession.create(bytes, { executionProviders:['wasm'], graphOptimizationLevel:'all' });
+    return sessions[name];
+  }
+
+  // Decode a File, Blob or URL into an image, upright, at most maxSide pixels.
+  async function loadImage(src, maxSide){
+    var blob = src;
+    if(typeof src === 'string'){
+      var r = await fetch(src, { mode:'cors' });
+      if(!r.ok) throw new Error('Could not open the photo (' + r.status + ').');
+      blob = await r.blob();
+    }
+    var bmp;
+    try{ bmp = await createImageBitmap(blob, { imageOrientation:'from-image' }); }
+    catch(e){
+      bmp = await new Promise(function(res, rej){
+        var u = URL.createObjectURL(blob), im = new Image();
+        im.onload = function(){ res(im); setTimeout(function(){ URL.revokeObjectURL(u); }, 1000); };
+        im.onerror = function(){ rej(new Error('This photo format cannot be read here. Use a JPG or PNG photo.')); };
+        im.src = u;
+      });
+    }
+    var w = bmp.width, h = bmp.height, k = Math.min(1, maxSide / Math.max(w, h));
+    var c = document.createElement('canvas');
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    if(bmp.close) try{ bmp.close(); }catch(e){}
+    return c;
+  }
+
+  async function predictMask(name, img, onStep){
+    var m = MODELS[name], S = m.size;
+    var s = await session(name, onStep);
+    if(onStep) onStep('Cutting out the car…');
+    var c = document.createElement('canvas'); c.width = S; c.height = S;
+    var g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+    g.drawImage(img, 0, 0, S, S);
+    var px = g.getImageData(0, 0, S, S).data, N = S * S, mx = 1e-6;
+    for(var i = 0; i < N * 4; i++){ if((i & 3) !== 3 && px[i] > mx) mx = px[i]; }
+    var x = new Float32Array(3 * N);
+    for(var p = 0; p < N; p++){
+      for(var ch = 0; ch < 3; ch++) x[ch * N + p] = (px[p * 4 + ch] / mx - m.mean[ch]) / m.std[ch];
+    }
+    var feeds = {}; feeds[s.inputNames[0]] = new window.ort.Tensor('float32', x, [1, 3, S, S]);
+    var out = await s.run(feeds);
+    var d = out[s.outputNames[0]].data, lo = Infinity, hi = -Infinity;
+    for(var j = 0; j < N; j++){ if(d[j] < lo) lo = d[j]; if(d[j] > hi) hi = d[j]; }
+    var mask = new Float32Array(N), span = (hi - lo) || 1;
+    for(var q = 0; q < N; q++) mask[q] = (d[q] - lo) / span;
+    return { mask: mask, size: S };
+  }
+
+  // Keep only the biggest piece (the car); stray specks of background go.
+  function keepLargest(mask, S){
+    var G = 256, f = S / G, bin = new Uint8Array(G * G);
+    for(var y = 0; y < G; y++) for(var x = 0; x < G; x++)
+      bin[y * G + x] = mask[Math.floor(y * f) * S + Math.floor(x * f)] > 0.5 ? 1 : 0;
+    var lab = new Int32Array(G * G), best = 0, bestN = 0, cur = 0, stack = [];
+    for(var s0 = 0; s0 < G * G; s0++){
+      if(!bin[s0] || lab[s0]) continue;
+      cur++; var n = 0; stack.push(s0); lab[s0] = cur;
+      while(stack.length){
+        var k = stack.pop(); n++;
+        var ky = (k / G) | 0, kx = k - ky * G;
+        var nb = [kx > 0 ? k - 1 : -1, kx < G - 1 ? k + 1 : -1, ky > 0 ? k - G : -1, ky < G - 1 ? k + G : -1];
+        for(var t = 0; t < 4; t++){ var z = nb[t]; if(z >= 0 && bin[z] && !lab[z]){ lab[z] = cur; stack.push(z); } }
+      }
+      if(n > bestN){ bestN = n; best = cur; }
+    }
+    if(!best) return null;
+    var keep = new Uint8Array(G * G);
+    for(var y2 = 0; y2 < G; y2++) for(var x2 = 0; x2 < G; x2++){
+      var hit = 0;
+      for(var dy = -2; dy <= 2 && !hit; dy++) for(var dx = -2; dx <= 2 && !hit; dx++){
+        var yy = y2 + dy, xx = x2 + dx;
+        if(yy >= 0 && yy < G && xx >= 0 && xx < G && lab[yy * G + xx] === best) hit = 1;
+      }
+      keep[y2 * G + x2] = hit;
+    }
+    return { keep: keep, G: G, area: bestN / (G * G) };
+  }
+
+  // photo → transparent cut-out of the car, trimmed and at most 1000px wide or tall.
+  async function make(src, opts){
+    opts = opts || {};
+    var onStep = opts.onStep || function(){};
+    onStep('Opening the photo…');
+    var img = await loadImage(src, 1600);
+    var res, used = 'main';
+    try{ res = await predictMask('main', img, onStep); }
+    catch(e){
+      console.warn('Main cut-out model failed, trying the lite one:', e);
+      used = 'lite';
+      res = await predictMask('lite', img, onStep);
+    }
+    onStep('Finishing the cut-out…');
+    var S = res.size, part = keepLargest(res.mask, S);
+    if(!part || part.area < 0.02) throw new Error('No car could be found in this photo. Try a photo that shows the whole car.');
+    // Mask → canvas at model size, then scaled to the photo.
+    var mc = document.createElement('canvas'); mc.width = S; mc.height = S;
+    var mg = mc.getContext('2d'), md = mg.createImageData(S, S), G = part.G, f = G / S;
+    for(var p = 0; p < S * S; p++){
+      var y = (p / S) | 0, x = p - y * S;
+      var a = (res.mask[p] - 0.15) / 0.7; a = a < 0 ? 0 : a > 1 ? 1 : a;
+      if(!part.keep[Math.floor(y * f) * G + Math.floor(x * f)]) a = 0;
+      md.data[p * 4 + 3] = Math.round(a * 255);
+    }
+    mg.putImageData(md, 0, 0);
+    var W = img.width, H = img.height;
+    var oc = document.createElement('canvas'); oc.width = W; oc.height = H;
+    var og = oc.getContext('2d');
+    og.imageSmoothingQuality = 'high';
+    og.drawImage(mc, 0, 0, W, H);                       // the mask, as alpha
+    og.globalCompositeOperation = 'source-in';
+    og.drawImage(img, 0, 0);                            // the photo, only where the mask is
+    // Trim to the car.
+    var a8 = og.getImageData(0, 0, W, H).data, x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for(var yy = 0; yy < H; yy++) for(var xx = 0; xx < W; xx++){
+      if(a8[(yy * W + xx) * 4 + 3] > 24){ if(xx < x0) x0 = xx; if(xx > x1) x1 = xx; if(yy < y0) y0 = yy; if(yy > y1) y1 = yy; }
+    }
+    if(x1 < 0) throw new Error('No car could be found in this photo.');
+    var pad = 4; x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(W - 1, x1 + pad); y1 = Math.min(H - 1, y1 + pad);
+    var cw = x1 - x0 + 1, ch = y1 - y0 + 1, k = Math.min(1, 1000 / Math.max(cw, ch));
+    var fc = document.createElement('canvas'); fc.width = Math.round(cw * k); fc.height = Math.round(ch * k);
+    var fg = fc.getContext('2d'); fg.imageSmoothingQuality = 'high';
+    fg.drawImage(oc, x0, y0, cw, ch, 0, 0, fc.width, fc.height);
+    var blob = await new Promise(function(r){ fc.toBlob(r, 'image/webp', 0.86); });
+    if(!blob || blob.type !== 'image/webp') blob = await new Promise(function(r){ fc.toBlob(r, 'image/png'); });
+    return { blob: blob, width: fc.width, height: fc.height, model: used };
+  }
+
+  return { make: make };
+})();
+</script>
+<script>
+// ─── SUPABASE INIT ───
+var PROJ='tbhqamcuewycaqertpba';
+
+const _db = window.supabase.createClient('https://'+PROJ+'.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U');
+
+// ─── STATE ───
+let allCars = [];
+let editingCarId = null;
+let modalPhotoUrls = [];
+let odoReadings = [];
+
+function toggleRetire(){
+  const v = document.getElementById('c_retired').value;
+  const on = v !== '';
+  document.getElementById('retDateWrap').style.display  = on ? '' : 'none';
+  document.getElementById('retAmtWrap').style.display   = (v === 'Sold' || v === 'Written Off') ? '' : 'none';
+  document.getElementById('retNotesWrap').style.display = on ? '' : 'none';
+
+  const dl = document.getElementById('retDateLabel');
+  const al = document.getElementById('retAmtLabel');
+  const ah = document.getElementById('retAmtHint');
+
+  if(v === 'Sold'){
+    dl.textContent = 'Date Sold';
+    al.textContent = 'Sale Price ($)';
+    ah.textContent = 'Counted as money back on this car when working out whether it made a profit.';
+  } else if(v === 'Written Off'){
+    dl.textContent = 'Date Written Off';
+    al.textContent = 'Insurance Payout ($)';
+    ah.textContent = 'On a car you own this counts as money back. On an owner\'s car it is recorded only — you and the owner settle it between you.';
+  } else if(v === 'Returned to Owner'){
+    dl.textContent = 'Date Returned';
+    ah.textContent = '';
+  }
+  if(on && !document.getElementById('c_retired_date').value){
+    document.getElementById('c_retired_date').value = todayISO();
+  }
+}
+
+function toggleOwnerName(){
+  const v = document.getElementById('c_owned').value;
+  const ext = v === 'true' || v === 'partner';     // someone else owns all or part of it
+  const partner = v === 'partner';
+  document.getElementById('ownerNameGroup').style.display = ext ? '' : 'none';
+  document.getElementById('ownerContactRow').style.display = ext ? '' : 'none';
+  document.getElementById('ownerContactHint').style.display = ext ? '' : 'none';
+  document.getElementById('ownerHint').style.display = (ext && !partner) ? '' : 'none';
+  document.getElementById('partnerHint').style.display = partner ? '' : 'none';
+  document.getElementById('partnerRow').style.display = partner ? '' : 'none';
+  const fr = document.getElementById('serviceFeeRow');
+  if(fr) fr.style.display = ext ? '' : 'none';
+  // Partnership cars name the other party as the investor.
+  const who = partner ? 'Investor' : 'Owner';
+  document.getElementById('lbl_owner_name').textContent   = who + ' Name';
+  document.getElementById('lbl_owner_email').textContent  = who + ' Email';
+  document.getElementById('lbl_owner_mobile').textContent = who + ' WhatsApp Number';
+  document.getElementById('lbl_service_fee').textContent  = partner
+      ? "Service Fee on the Investor's Share" : 'Service Fee We Charge the Owner';
+  toggleCustomFee();
+  updateShareSplit();
+}
+
+// The investor's share as typed, or null when it is not a usable 1-99 figure.
+function investorShareValue(){
+  const v = parseFloat(document.getElementById('c_inv_share').value);
+  return (isNaN(v) || v <= 0 || v >= 100) ? null : Math.round(v * 10) / 10;
+}
+function updateShareSplit(){
+  const el = document.getElementById('shareSplit');
+  if(!el) return;
+  const inv = investorShareValue();
+  el.innerHTML = inv == null
+    ? "Enter the investor's share (1 to 99). Ozee's share is worked out for you."
+    : 'Ozee <b>' + (Math.round((100 - inv) * 10) / 10) + '%</b> &nbsp;/&nbsp; Investor <b>' + inv + '%</b>';
+}
+
+// The dropdown carries the common rates. "Custom percentage..." reveals a
+// free-entry box so any rate can be set without a code change.
+const FEE_PRESETS = ['10','12.5','15','20','25','30'];
+function toggleCustomFee(){
+  const sel = document.getElementById('c_service_fee');
+  const wrap = document.getElementById('customFeeWrap');
+  if(!sel || !wrap) return;
+  wrap.style.display = (sel.value === 'custom') ? '' : 'none';
+}
+
+// Returns the fee to save: the preset, or whatever was typed in the custom box.
+function serviceFeeValue(){
+  const sel = document.getElementById('c_service_fee');
+  if(!sel || sel.value === '') return null;
+  if(sel.value === 'custom'){
+    const v = parseFloat(document.getElementById('c_service_fee_custom').value);
+    return (isNaN(v) || v <= 0) ? null : v;
+  }
+  return parseFloat(sel.value) || null;
+}
+
+// ═══ ODOMETER ═══
+function km(n){ return Number(n||0).toLocaleString('en-AU') + ' km'; }
+
+async function loadOdometer(carId){
+  const { data, error } = await _db.from('odometer_readings')
+    .select('*').eq('car_id', carId).order('reading_date',{ascending:false}).order('reading_km',{ascending:false});
+  if(error){ document.getElementById('odoLog').innerHTML = ''; return; }
+  odoReadings = data || [];
+  renderOdometer();
+}
+
+function renderOdometer(){
+  const el = document.getElementById('odoLog');
+  if(!el) return;
+  if(!odoReadings.length){ el.innerHTML = ''; return; }
+
+  const latest = odoReadings[0];
+  const oldest = odoReadings[odoReadings.length-1];
+  const totalKm = Number(latest.reading_km) - Number(oldest.reading_km);
+
+  // average km per week between first and last reading
+  let avg = null;
+  const d1 = new Date(oldest.reading_date+'T00:00:00'), d2 = new Date(latest.reading_date+'T00:00:00');
+  const days = (d2-d1)/86400000;
+  if(days >= 7 && totalKm > 0) avg = Math.round(totalKm / (days/7));
+
+  // service due?
+  const interval = parseFloat(document.getElementById('c_svc_km').value);
+  const lastSvc  = parseFloat(document.getElementById('c_last_svc_km').value);
+  let svcHtml = '';
+  if(!isNaN(interval) && interval > 0 && !isNaN(lastSvc)){
+    const nextAt = lastSvc + interval;
+    const remaining = nextAt - Number(latest.reading_km);
+    svcHtml = `<div class="odo-stat">Next service<b class="${remaining<=0?'odo-due':''}">${
+      remaining <= 0 ? 'OVERDUE by '+km(Math.abs(remaining)) : 'in '+km(remaining)
+    }</b></div>`;
+  }
+
+  let html = `<div class="odo-summary">
+    <div class="odo-stat">Current<b>${km(latest.reading_km)}</b></div>
+    ${odoReadings.length>1 ? `<div class="odo-stat">Driven since first reading<b>${km(totalKm)}</b></div>` : ''}
+    ${avg ? `<div class="odo-stat">Average<b>${avg.toLocaleString('en-AU')} km/wk</b></div>` : ''}
+    ${svcHtml}
+  </div>`;
+
+  html += odoReadings.map((r,i) => {
+    const prev = odoReadings[i+1];
+    const diff = prev ? Number(r.reading_km) - Number(prev.reading_km) : null;
+    const dt = new Date(r.reading_date+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+    return `<div class="odo-item">
+      <div>
+        <span class="odo-km">${km(r.reading_km)}</span>
+        <span class="odo-src">${r.source||'Check'}</span>
+        <div class="odo-meta">${dt}${r.note? ' · '+r.note : ''}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        ${diff!=null && diff>0 ? `<span class="odo-diff">+${diff.toLocaleString('en-AU')}</span>` : ''}
+        <button type="button" class="odo-del" onclick="deleteOdoReading('${r.id}')">&#10005;</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = html;
+}
+
+async function deleteOdoReading(id){
+  if(!confirm('Delete this odometer reading?')) return;
+  const { error } = await _db.from('odometer_readings').delete().eq('id', id);
+  if(error){ alert('Could not delete: '+error.message); return; }
+  if(editingCarId) await loadOdometer(editingCarId);
+}
+
+// ─── PHOTO GALLERY (inside add/edit car modal) ───
+function renderPhotoGallery(){
+  const g = document.getElementById('photoGallery');
+  if(!modalPhotoUrls.length){ g.innerHTML = '<span style="color:rgba(255,255,255,.3);font-size:.8rem;">No photos yet</span>'; return; }
+  g.innerHTML = modalPhotoUrls.map((url, i) => `
+    <div style="position:relative;width:72px;height:72px;">
+      <img src="${url}" onclick="openLightbox(modalPhotoUrls, ${i})" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:pointer;border:2px solid ${i===0?'#F5A623':'transparent'};">
+      ${i===0 ? '<span style="position:absolute;bottom:-2px;left:2px;background:#F5A623;color:#000;font-size:.55rem;font-weight:800;padding:0 4px;border-radius:3px;">COVER</span>' : ''}
+      <button type="button" onclick="removeGalleryPhoto(${i})" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:.7rem;cursor:pointer;line-height:1;">&times;</button>
+    </div>`).join('');
+}
+function removeGalleryPhoto(i){ modalPhotoUrls.splice(i,1); renderPhotoGallery(); }
+
+// ─── LIGHTBOX ───
+let lbPhotos = [], lbIndex = 0;
+function openLightbox(photos, index){
+  if(typeof event !== 'undefined' && event) event.stopPropagation();
+  lbPhotos = photos; lbIndex = index;
+  document.getElementById('lightboxModal').classList.add('open');
+  updateLightbox();
+}
+function closeLightbox(){ document.getElementById('lightboxModal').classList.remove('open'); }
+function lightboxNav(dir){ lbIndex = (lbIndex + dir + lbPhotos.length) % lbPhotos.length; updateLightbox(); }
+function updateLightbox(){
+  document.getElementById('lightboxImg').src = lbPhotos[lbIndex];
+  document.getElementById('lbCounter').textContent = lbPhotos.length>1 ? (lbIndex+1)+' / '+lbPhotos.length : '';
+  document.getElementById('lbPrev').style.display = lbPhotos.length>1 ? 'block' : 'none';
+  document.getElementById('lbNext').style.display = lbPhotos.length>1 ? 'block' : 'none';
+}
+document.addEventListener('keydown', function(e){
+  var m = document.getElementById('lightboxModal');
+  if(!m || !m.classList.contains('open')) return;
+  if(e.key==='Escape') closeLightbox();
+  if(e.key==='ArrowLeft') lightboxNav(-1);
+  if(e.key==='ArrowRight') lightboxNav(1);
+});
+
+// ─── MODAL HELPERS ───
+function openModal() {
+  document.getElementById('carModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  document.getElementById('carModal').classList.remove('open');
+  document.body.style.overflow = '';
+  editingCarId = null;
+}
+
+// ─── OPEN CAR FORM ───
+function openCarModal(car) {
+  // Reset form
+  document.getElementById('carModalTitle').textContent = car ? 'Edit Car' : 'Add New Car';
+  document.getElementById('c_rego').value = car ? car.rego : '';
+  document.getElementById('c_make').value = car ? car.make_model : '';
+  document.getElementById('c_year').value = car ? car.year : '';
+  document.getElementById('c_cat').value = car ? (car.category || '') : '';
+  document.getElementById('c_cond').value = car ? (car.condition || 'New') : 'New';
+  document.getElementById('c_trans').value = car ? (car.transmission || 'Automatic') : 'Automatic';
+  document.getElementById('c_seats').value = car ? String(car.seats || 5) : '5';
+  document.getElementById('c_fuel').value = car ? (car.fuel_type || 'Petrol') : 'Petrol';
+  document.getElementById('c_rate').value = car ? car.weekly_rate : '';
+  document.getElementById('c_status').value = car ? car.status : 'Available';
+  document.getElementById('c_avail_from').value = car && car.available_from ? car.available_from : '';
+  document.getElementById('c_notes').value = car ? (car.notes || '') : '';
+  editingCarId = car ? car.id : null;
+
+  modalPhotoUrls = car && Array.isArray(car.photo_urls) ? car.photo_urls.slice() : (car && car.photo_url ? [car.photo_url] : []);
+  renderPhotoGallery();
+  renderCutoutBox(car || null);
+  document.getElementById('doc_photos').value = '';
+
+  // Insurance
+
+  // Retire — only offered for a car that already exists
+  document.getElementById('retireSection').style.display = car ? '' : 'none';
+  document.getElementById('c_retired').value        = (car && car.retired_reason) ? car.retired_reason : '';
+  document.getElementById('c_retired_date').value   = (car && car.retired_date) ? car.retired_date : '';
+  document.getElementById('c_retired_amount').value = (car && car.retired_amount != null) ? car.retired_amount : '';
+  document.getElementById('c_retired_notes').value  = (car && car.retired_notes) ? car.retired_notes : '';
+  toggleRetire();
+
+  // Ownership
+  const _isPartner = !!(car && car.externally_owned && car.investor_share_pct != null);
+  document.getElementById('c_owned').value = _isPartner ? 'partner'
+                                           : ((car && car.externally_owned) ? 'true' : 'false');
+  document.getElementById('c_inv_share').value = _isPartner ? car.investor_share_pct : '';
+  document.getElementById('c_owner_name').value = (car && car.owner_name) ? car.owner_name : '';
+  document.getElementById('c_owner_email').value = (car && car.owner_email) ? car.owner_email : '';
+  document.getElementById('c_owner_mobile').value = (car && car.owner_mobile) ? car.owner_mobile : '';
+  // A saved rate that isn't one of the presets (e.g. 17.5) loads into the
+  // custom box rather than being silently lost from the dropdown.
+  const savedFee = (car && car.service_fee_pct != null) ? String(car.service_fee_pct) : '';
+  document.getElementById('c_service_fee_custom').value = '';
+  if(savedFee === ''){
+    document.getElementById('c_service_fee').value = '';
+  } else if(FEE_PRESETS.indexOf(savedFee) !== -1){
+    document.getElementById('c_service_fee').value = savedFee;
+  } else {
+    document.getElementById('c_service_fee').value = 'custom';
+    document.getElementById('c_service_fee_custom').value = savedFee;
+  }
+  toggleOwnerName();
+
+  // Odometer
+  document.getElementById('c_odo').value = '';
+  document.getElementById('c_svc_km').value = car && car.service_interval_km != null ? car.service_interval_km : '';
+  document.getElementById('c_last_svc_km').value = car && car.last_service_km != null ? car.last_service_km : '';
+  document.getElementById('c_odo_label').innerHTML = car
+    ? 'Add New Reading (km)'
+    : 'Odometer at Purchase (km) <span class="req">*</span>';
+  document.getElementById('odoHint').textContent = car
+    ? 'Leave blank to keep the existing reading. Entering a value adds a new reading to the history below.'
+    : 'Entering a reading here records the odometer at purchase.';
+  odoReadings = [];
+  document.getElementById('odoLog').innerHTML = '';
+  if(car) loadOdometer(car.id);
+
+  const sf = car ? (car.suitable_for || []) : [];
+  document.getElementById('sf_rideshare').checked = sf.some(s => s.includes('Rideshare'));
+  document.getElementById('sf_food').checked = sf.some(s => s.includes('Food'));
+  document.getElementById('sf_amazon').checked = sf.some(s => s.includes('Amazon'));
+  document.getElementById('sf_private').checked = sf.some(s => s.includes('Private'));
+
+  openModal();
+}
+
+// ─── SAVE CAR ───
+
+// What is still owed to this vehicle's owner, using the same basis as the
+// Owner Settlement Statement: rental income, less operating expenses, less
+// the service fee, plus any disposal proceeds, less what has already been paid.
+async function outstandingToOwner(carId){
+  try{
+    const car = (allCars || []).find(c => c.id === carId);
+    if(!car || !car.externally_owned) return 0;
+    const [inc, exp, pay] = await Promise.all([
+      _db.from('rent_payments').select('amount').eq('car_id', carId),
+      _db.from('car_expenses').select('amount,category').eq('car_id', carId),
+      _db.from('owner_payouts').select('amount').eq('car_id', carId)
+    ]);
+    const income  = (inc.data||[]).reduce((s,r)=>s+Number(r.amount||0),0);
+    const costs   = (exp.data||[]).filter(e => (e.category||'') !== 'Purchase Price')
+                                  .reduce((s,r)=>s+Number(r.amount||0),0);
+    const paidOut = (pay.data||[]).reduce((s,r)=>s+Number(r.amount||0),0);
+    const afterCosts = income - costs;
+    const feePct = Number(car.service_fee_pct) || 0;
+    if(car.investor_share_pct != null){
+      // Partnership: the investor gets their share of the profit (or carries
+      // their share of a loss). The fee comes only off a share that is a profit.
+      const invShare = afterCosts * Number(car.investor_share_pct) / 100;
+      const fee = (feePct > 0 && invShare > 0) ? invShare * feePct / 100 : 0;
+      return (invShare - fee) - paidOut;
+    }
+    const fee = feePct > 0 ? afterCosts * feePct / 100 : 0;
+    return (afterCosts - fee) - paidOut;
+  }catch(e){ return 0; }   // never block a save because this check failed
+}
+
+async function saveCar() {
+  const rego = document.getElementById('c_rego').value.trim().toUpperCase();
+  const make = document.getElementById('c_make').value.trim();
+  const year = parseInt(document.getElementById('c_year').value);
+  const rate = parseFloat(document.getElementById('c_rate').value);
+
+  if (!rego || !make || !year || !rate) {
+    alert('Please fill in all required fields (Rego, Make & Model, Year, Weekly Rate)');
+    return;
+  }
+
+  // Retiring closes the record for good, including owner payments. Warn while
+  // there is still money outstanding, so it can be settled first.
+  const _retireReason = document.getElementById('c_retired').value;
+  if (_retireReason && editingCarId) {
+    const outstanding = await outstandingToOwner(editingCarId);
+    const _ec = (allCars || []).find(c => c.id === editingCarId);
+    const _ownerWord = (_ec && _ec.investor_share_pct != null) ? 'investor' : 'owner';
+    if (outstanding > 0.01) {
+      const ok = confirm(
+        'This vehicle still has $' + outstanding.toFixed(2) + ' owing to its ' + _ownerWord + '.\n\n' +
+        'Once it is retired the record is closed, and owner payments can no longer ' +
+        'be recorded against it.\n\n' +
+        'Settle the balance in Car Finance first, then retire the vehicle.\n\n' +
+        'Retire it anyway?');
+      if (!ok) return;
+    }
+  }
+
+  const suitable = [];
+  if (document.getElementById('sf_rideshare').checked) suitable.push('Rideshare');
+  if (document.getElementById('sf_food').checked) suitable.push('Food Delivery');
+  if (document.getElementById('sf_amazon').checked) suitable.push('Amazon Flex');
+  if (document.getElementById('sf_private').checked) suitable.push('Private');
+
+  const carData = {
+    rego,
+    make_model: make,
+    year,
+    category: document.getElementById('c_cat').value || null,
+    condition: document.getElementById('c_cond').value,
+    transmission: document.getElementById('c_trans').value,
+    seats: parseInt(document.getElementById('c_seats').value),
+    fuel_type: document.getElementById('c_fuel').value,
+    weekly_rate: rate,
+    status: document.getElementById('c_retired').value ? 'Retired' : document.getElementById('c_status').value,
+    available_from: document.getElementById('c_avail_from').value || null,
+    suitable_for: suitable,
+    retired_reason: document.getElementById('c_retired').value || null,
+    retired_date: document.getElementById('c_retired').value ? (document.getElementById('c_retired_date').value || null) : null,
+    retired_amount: document.getElementById('c_retired').value ? (parseFloat(document.getElementById('c_retired_amount').value) || null) : null,
+    retired_notes: document.getElementById('c_retired').value ? (document.getElementById('c_retired_notes').value.trim() || null) : null,
+    externally_owned: document.getElementById('c_owned').value !== 'false',
+    owner_name: document.getElementById('c_owner_name').value.trim() || null,
+    owner_email: document.getElementById('c_owner_email').value.trim() || null,
+    owner_mobile: document.getElementById('c_owner_mobile').value.trim() || null,
+    service_fee_pct: document.getElementById('c_owned').value !== 'false'
+        ? serviceFeeValue()
+        : null,
+    service_interval_km: parseFloat(document.getElementById('c_svc_km').value) || null,
+    last_service_km: parseFloat(document.getElementById('c_last_svc_km').value) || null,
+    notes: document.getElementById('c_notes').value || null,
+  };
+
+  // Partnership share. It is only sent when it matters, so every other car
+  // still saves normally even before schema-partnership.sql has been run.
+  if (document.getElementById('c_owned').value === 'partner') {
+    const inv = investorShareValue();
+    if (inv == null) {
+      alert("Please enter the investor's share as a percentage between 1 and 99.\n\n" +
+            "For example, 40 means the investor owns 40% of the car and Ozee owns 60%.");
+      document.getElementById('c_inv_share').focus();
+      return;
+    }
+    carData.investor_share_pct = inv;
+  } else if (editingCarId) {
+    const _prev = (allCars || []).find(c => c.id === editingCarId);
+    if (_prev && _prev.investor_share_pct != null) carData.investor_share_pct = null;
+  }
+
+  // Odometer reading is required when adding a new car
+  if(!editingCarId){
+    const odoCheck = parseFloat(document.getElementById('c_odo').value);
+    if(isNaN(odoCheck) || odoCheck < 0){
+      alert('Please enter the odometer reading at purchase.\n\nThis is the starting point for tracking how far this car has been driven.');
+      document.getElementById('c_odo').focus();
+      return;
+    }
+  }
+
+  document.getElementById('saveCarBtn').textContent = 'Saving...';
+  document.getElementById('saveCarBtn').disabled = true;
+
+  let carId = editingCarId;
+  let error;
+
+  if (editingCarId) {
+    const res = await _db.from('cars').update(carData).eq('id', editingCarId);
+    error = res.error;
+  } else {
+    const res = await _db.from('cars').insert([carData]).select().single();
+    error = res.error;
+    if (res.data) carId = res.data.id;
+  }
+
+  if (error) {
+    alert('Error saving car: ' + error.message +
+          (/investor_share_pct/.test(error.message || '')
+            ? '\n\nThe partnership column is not in the database yet. Run schema-partnership.sql in Supabase first, then save again.'
+            : ''));
+    document.getElementById('saveCarBtn').textContent = 'Save Car';
+    document.getElementById('saveCarBtn').disabled = false;
+    return;
+  }
+
+  // Kept for when the registration and insurance uploads come back: it takes
+  // a file input id and a document type, and is ready to call again.
+  async function uploadCarDoc(inputId, docType) {
+    const inp = document.getElementById(inputId);
+    if (!inp || !inp.files[0]) return;
+    const file = inp.files[0];
+    const path = `car_${carId}/${docType}_${Date.now()}_${file.name}`;
+    const { data: up } = await _db.storage.from('car-documents').upload(path, file, {upsert: true});
+    if (up) {
+      const { data: { publicUrl } } = _db.storage.from('car-documents').getPublicUrl(path);
+      await _db.from('documents').delete().eq('entity_id', carId).eq('document_type', docType);
+      await _db.from('documents').insert([{
+        entity_type: 'car', entity_id: carId,
+        document_type: docType, file_name: file.name,
+        file_url: publicUrl, file_size: file.size
+      }]);
+    }
+  }
+
+  // Upload any newly selected photos and append them to the gallery
+  const photos = document.getElementById('doc_photos');
+  const newPhotoFiles = {};          // public URL → the file just uploaded, for the cut-out
+  if (photos.files.length && carId) {
+    for (const file of photos.files) {
+      const path = `car_${carId}/photo_${Date.now()}_${file.name}`;
+      const { data: up } = await _db.storage.from('car-documents').upload(path, file, {upsert: true});
+      if (up) {
+        const { data: { publicUrl } } = _db.storage.from('car-documents').getPublicUrl(path);
+        modalPhotoUrls.push(publicUrl);
+        newPhotoFiles[publicUrl] = file;
+        await _db.from('documents').insert([{
+          entity_type: 'car', entity_id: carId,
+          document_type: 'photo', file_name: file.name,
+          file_url: publicUrl, file_size: file.size
+        }]);
+      }
+    }
+  }
+  // Record an odometer reading if one was entered
+  const odoVal = parseFloat(document.getElementById('c_odo').value);
+  if (carId && !isNaN(odoVal) && odoVal >= 0) {
+    const isNewCar = !editingCarId;
+    const { error: odoErr } = await _db.from('odometer_readings').insert({
+      car_id: carId,
+      reading_km: odoVal,
+      reading_date: todayISO(),
+      source: isNewCar ? 'Purchase' : 'Check',
+      note: isNewCar ? 'Reading at purchase' : null
+    });
+    if (odoErr) {
+      alert('Car saved, but the odometer reading could not be recorded: ' + odoErr.message);
+    }
+  }
+
+  // Save final photo list (respects deletions). First photo = cover.
+  if (carId) {
+    await _db.from('cars').update({
+      photo_urls: modalPhotoUrls,
+      photo_url: modalPhotoUrls[0] || null
+    }).eq('id', carId);
+  }
+
+  // Work out the message BEFORE closing: closeModal() clears editingCarId,
+  // so reading it afterwards always said "added" — even on an edit or a
+  // retirement.
+  const wasEdit    = !!editingCarId;
+  const wasRetired = !!document.getElementById('c_retired').value;
+  const regoSaved  = document.getElementById('c_rego').value.trim() || 'The car';
+  // allCars still holds the state from before this save, so this tells us
+  // whether the car has just been retired or was already out of the fleet.
+  const alreadyRetired = wasEdit &&
+        !!(allCars.find(c => c.id === editingCarId) || {}).retired_reason;
+
+  // Website cut-out: made when photos were added and the car either has no
+  // cut-out yet or now has a new cover photo. It never blocks the save.
+  const _prevCar  = wasEdit ? (allCars.find(c => c.id === editingCarId) || {}) : {};
+  const _cover    = modalPhotoUrls[0] || null;
+  const _addedAny = Object.keys(newPhotoFiles).length > 0;
+  const autoCut   = (carId && _cover && _addedAny && !wasRetired && (!_prevCar.cutout_url || newPhotoFiles[_cover]))
+        ? { carId, rego: regoSaved, source: newPhotoFiles[_cover] || _cover } : null;
+
+  closeModal();
+  await loadCars();
+
+  if (wasRetired && alreadyRetired) {
+    alert('✅ Retired vehicle updated.');
+  } else if (wasRetired) {
+    alert('✅ ' + regoSaved + ' has been retired.\n\n'
+        + 'It is no longer available for rent and has been removed from your '
+        + 'public website. Its full history is kept, and you can still open '
+        + 'its finance report at any time.');
+  } else if (wasEdit) {
+    alert('✅ Car updated successfully!');
+  } else {
+    alert('✅ Car added! It is now live on your public website.');
+  }
+  document.getElementById('saveCarBtn').textContent = 'Save Car';
+  document.getElementById('saveCarBtn').disabled = false;
+
+  if (autoCut) runCutout(autoCut.carId, autoCut.source, autoCut.rego);
+}
+
+// ─── WEBSITE CUT-OUT ───
+// The car with its background removed, shown on the public website instead
+// of the plain photo. Made on this device by OzeeCutout (see below); the file
+// goes into storage beside the photos and its address into cars.cutout_url.
+let cutoutBusy = false;
+
+function renderCutoutBox(car){
+  const prev = document.getElementById('cutoutPrev');
+  const msg  = document.getElementById('cutoutMsg');
+  const make = document.getElementById('cutoutMakeBtn');
+  const rem  = document.getElementById('cutoutRemoveBtn');
+  if (!prev) return;
+  const url = car && car.cutout_url;
+  prev.innerHTML = url ? `<img src="${url}" alt="Website cut-out">` : 'No cut-out yet';
+  rem.style.display = url ? '' : 'none';
+  make.textContent = url ? '\u2702 Make again from cover photo' : '\u2702 Make from cover photo';
+  make.disabled = !car;
+  msg.textContent = !car
+    ? 'Add photos and save. The cut-out is then made from the cover photo (the first photo) automatically.'
+    : url ? 'This is what the public website shows. Make it again after changing the cover photo, or remove it to show the normal photo.'
+          : 'Made automatically from the cover photo (the first photo) when you add photos. You can also make it now.';
+}
+
+function cutToast(text, kind){
+  let t = document.getElementById('cutToast');
+  if (!t) { t = document.createElement('div'); t.id = 'cutToast'; document.body.appendChild(t); }
+  t.className = 'cut-toast ' + (kind || '');
+  t.textContent = text;
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.remove(), kind === 'bad' ? 12000 : 7000);
+}
+
+function cutOverlay(show, line){
+  let o = document.getElementById('cutOverlay');
+  if (!show) { if (o) o.remove(); return; }
+  if (!o) {
+    o = document.createElement('div'); o.id = 'cutOverlay'; o.className = 'cut-overlay';
+    o.innerHTML = '<div class="cut-card"><div class="cut-spin"></div><h4>Making the cut-out</h4>'
+                + '<p id="cutLine"></p><p style="margin-top:.6rem;font-size:.76rem;color:rgba(255,255,255,.4)">'
+                + 'Usually 15 to 40 seconds. The screen may pause for a moment while the car is cut out. Please keep this page open.</p></div>';
+    document.body.appendChild(o);
+  }
+  document.getElementById('cutLine').textContent = line || '';
+}
+
+// Let the browser paint the overlay before the heavy work starts.
+const _paint = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 60)));
+
+async function runCutout(carId, source, rego){
+  if (cutoutBusy) return false;
+  cutoutBusy = true;
+  try {
+    cutOverlay(true, 'Opening the photo of ' + rego + '…');
+    await _paint();
+    const out = await OzeeCutout.make(source, { onStep: async s => { const l = document.getElementById('cutLine'); if (l) l.textContent = s; } });
+    cutOverlay(true, 'Saving the cut-out…'); await _paint();
+    const ext  = out.blob.type === 'image/webp' ? 'webp' : 'png';
+    const path = `car_${carId}/cutout_${Date.now()}.${ext}`;
+    const up = await _db.storage.from('car-documents').upload(path, out.blob, { upsert: true, contentType: out.blob.type });
+    if (up.error) throw new Error('The cut-out could not be uploaded: ' + up.error.message);
+    const { data: { publicUrl } } = _db.storage.from('car-documents').getPublicUrl(path);
+    const { error } = await _db.from('cars').update({ cutout_url: publicUrl }).eq('id', carId);
+    if (error) throw new Error(/cutout_url/.test(error.message || '')
+        ? 'The cut-out column is not in the database yet. Run schema-cutout.sql in Supabase, then try again.'
+        : 'The cut-out could not be saved: ' + error.message);
+    const c = allCars.find(x => x.id === carId); if (c) c.cutout_url = publicUrl;
+    if (editingCarId === carId) renderCutoutBox(c || { id: carId, cutout_url: publicUrl });
+    cutOverlay(false);
+    renderCars(allCars);
+    cutToast('\u2705 Cut-out ready for ' + rego + '. It now shows on the public website.', 'ok');
+    return true;
+  } catch (e) {
+    console.error('Cut-out failed:', e);
+    cutOverlay(false);
+    cutToast('Could not make the cut-out for ' + rego + '. ' + (e && e.message ? e.message : '')
+           + ' The website shows the normal photo instead.', 'bad');
+    return false;
+  } finally {
+    cutoutBusy = false;
+  }
+}
+
+// Buttons in the Edit Car form. These act straight away, separate from Save.
+async function cutoutMakeNow(){
+  if (!editingCarId) return;
+  const car = allCars.find(c => c.id === editingCarId) || {};
+  const files = document.getElementById('doc_photos').files;
+  const source = modalPhotoUrls[0] || (files && files[0]) || null;
+  if (!source) { alert('Add a photo of the car first. The cut-out is made from the cover photo.'); return; }
+  await runCutout(editingCarId, source, car.rego || 'this car');
+}
+async function cutoutRemoveNow(){
+  if (!editingCarId) return;
+  if (!confirm('Remove the cut-out? The public website will show the normal cover photo instead.')) return;
+  const { error } = await _db.from('cars').update({ cutout_url: null }).eq('id', editingCarId);
+  if (error) { alert('Could not remove the cut-out: ' + error.message); return; }
+  const c = allCars.find(x => x.id === editingCarId); if (c) c.cutout_url = null;
+  renderCutoutBox(c || null);
+  renderCars(allCars);
+  cutToast('Cut-out removed. The website shows the normal photo.', 'ok');
+}
+
+// ─── LOAD & RENDER CARS ───
+async function loadCars() {
+  document.getElementById('carsTable').innerHTML = '<tr><td colspan="8" class="loading-cell">Loading...</td></tr>';
+  const { data, error } = await _db.from('cars').select('*').order('created_at', {ascending: false});
+  if (error) {
+    document.getElementById('carsTable').innerHTML = `<tr><td colspan="8" class="loading-cell">Error: ${error.message}</td></tr>`;
+    return;
+  }
+  allCars = data || [];
+  renderCars(allCars);
+}
+
+function renderCars(cars) {
+  const tb = document.getElementById('carsTable');
+  if (!cars.length) {
+    tb.innerHTML = '<tr><td colspan="8" class="loading-cell">No cars yet. Click "+ Add New Car" to add your first vehicle.</td></tr>';
+    return;
+  }
+  const badge = s => s === 'Available' ? 'badge-green' : s === 'Rented' ? 'badge-yellow' : 'badge-red';
+  const ownerCell = c => {
+    const t = ownType(c);
+    const fee = c.service_fee_pct ? `<small>${c.service_fee_pct}% service fee</small>` : '';
+    if (t === 'part') {
+      const inv = Number(c.investor_share_pct), biz = Math.round((100 - inv) * 10) / 10;
+      return `<div class="own-cell"><span class="own-tag own-part">Partnership</span>`
+           + `<div class="own-who">${escHtml(c.owner_name || 'Investor name not added')} ${inv}% · Ozee ${biz}%${fee}</div></div>`;
+    }
+    if (t === 'inv') {
+      return `<div class="own-cell"><span class="own-tag own-ext">Investor</span>`
+           + `<div class="own-who">${escHtml(c.owner_name || 'Investor name not added')}${fee}</div></div>`;
+    }
+    return `<div class="own-cell"><span class="own-tag own-biz">Business</span><div class="own-who">Ozee Rentals</div></div>`;
+  };
+  const rowFor = c => {
+    const photos = (Array.isArray(c.photo_urls) && c.photo_urls.length) ? c.photo_urls : (c.photo_url ? [c.photo_url] : []);
+    const thumb = photos.length
+      ? `<img src="${photos[0]}" onclick='openLightbox(${JSON.stringify(photos)}, 0)' style="width:52px;height:52px;object-fit:cover;border-radius:6px;cursor:pointer;">`
+      : `<div style="width:52px;height:52px;background:rgba(255,255,255,.05);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🚗</div>`;
+    const more = (photos.length>1 ? `<div style="font-size:.65rem;color:rgba(255,255,255,.4);margin-top:2px;">+${photos.length-1} more</div>` : '')
+               + (c.cutout_url ? `<div class="cut-tag">&#9986; Cut-out</div>` : '');
+    return `
+    <tr class="own-row own-row-${ownType(c)}">
+      <td data-mob="Photo">${thumb}${more}</td>
+      <td data-mob="Rego"><strong>${c.rego}</strong>${c.retired_reason ? `<span class="retired-tag">${c.retired_reason}</span>` : ''}</td>
+      <td data-mob="Make & Model">${c.make_model}</td>
+      <td data-mob="Year">${c.year}</td>
+      <td data-mob="Owner">${ownerCell(c)}</td>
+      <td data-mob="Category">${c.category || '—'}</td>
+      <td data-mob="Suitable For">${(c.suitable_for || []).map(t => `<span class="badge badge-blue" style="margin:1px 2px;font-size:.6rem;">${t}</span>`).join('')||'—'}</td>
+      <td data-mob="Rate/Week"><strong style="color:#F5A623;">$${c.weekly_rate}/wk</strong></td>
+      <td data-mob="Status"><span class="badge ${badge(c.status)}">${c.status}</span></td>
+      <td class="actions-cell">
+        <button class="btn btn-outline btn-sm act-edit" onclick="editCar('${c.id}')">✏️ Edit</button>
+        <button class="btn btn-sm act-share" onclick="openShareDocs('${c.id}','${c.rego}','${c.make_model}')">📤 Share</button>
+        <button class="btn btn-danger btn-sm act-del" onclick="deleteCar('${c.id}','${c.rego}')">🗑️ Delete</button>
+      </td>
+    </tr>`;
+  };
+
+  // Vehicles that have left the fleet sit in their own section underneath, so
+  // the working list is only the cars actually on the road.
+  // Newest model year first in both sections.
+  const active  = cars.filter(c => !c.retired_reason).sort(byYearDesc);
+  const retired = cars.filter(c =>  c.retired_reason).sort(byYearDesc);
+
+  let html = active.length
+        ? active.map(rowFor).join('')
+        : '<tr><td colspan="10" class="loading-cell">No vehicles in the active fleet.</td></tr>';
+
+  if(retired.length){
+    html += '<tr class="section-row"><td colspan="10">Retired Vehicles'
+          + '<span>' + retired.length + (retired.length === 1 ? ' vehicle' : ' vehicles') + '</span></td></tr>'
+          + retired.map(rowFor).join('');
+  }
+  tb.innerHTML = html;
+  renderOwnLegend();
+}
+
+// Ownership type of a car: 'biz' (business), 'inv' (investor) or 'part' (partnership).
+function ownType(c){
+  return !c.externally_owned ? 'biz' : (c.investor_share_pct != null ? 'part' : 'inv');
+}
+// Newest model year first; within a year by make and model, then rego.
+function byYearDesc(a, b){
+  return (Number(b.year) || 0) - (Number(a.year) || 0)
+      || String(a.make_model || '').localeCompare(String(b.make_model || ''))
+      || String(a.rego || '').localeCompare(String(b.rego || ''));
+}
+function escHtml(t){
+  return String(t).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+// Colour key with how many cars of each type are in the whole fleet.
+function renderOwnLegend(){
+  const el = document.getElementById('ownLegend');
+  if (!el) return;
+  const all = allCars || [];
+  const n = t => all.filter(c => ownType(c) === t).length;
+  el.innerHTML =
+      `<span><i style="background:#F5A623"></i>Business <b>${n('biz')}</b></span>`
+    + `<span><i style="background:#60a5fa"></i>Investor <b>${n('inv')}</b></span>`
+    + `<span><i style="background:#a78bfa"></i>Partnership <b>${n('part')}</b></span>`;
+}
+
+function filterCars(q) { renderCars(allCars.filter(c => (c.rego + ' ' + c.make_model + ' ' + (c.year || '') + ' ' + (c.owner_name || '')).toLowerCase().includes(q.toLowerCase()))); }
+function filterByStatus(s) { renderCars(s ? allCars.filter(c => c.status === s) : allCars); }
+
+function editCar(id) {
+  const car = allCars.find(c => c.id === id);
+  if (car) openCarModal(car);
+}
+
+// ─── DELETING A CAR ─────────────────────────────────────────────────
+// A car can be removed even after it has earned money, but never by
+// accident. Everything that would go is counted and shown first, and a
+// car with history has to be confirmed by typing its rego.
+//
+// If the car has simply left the fleet, Retire is still the right
+// choice — it keeps the full history and the reports. Delete is for a
+// car that should never have been in the system.
+
+// Any step that fails stops the whole delete, so a record is never
+// left half removed.
+async function _step(label, run){
+  const res = await run();
+  if (res && res.error) throw new Error(label + ': ' + res.error.message);
+  return res;
+}
+
+async function _carFootprint(id){
+  const asg  = await _db.from('car_assignments').select('id').eq('car_id', id);
+  const asgIds = (asg.data || []).map(a => a.id);
+
+  let weekIds = [];
+  if (asgIds.length){
+    const w = await _db.from('rent_weeks').select('id').in('assignment_id', asgIds);
+    weekIds = (w.data || []).map(x => x.id);
+  }
+
+  const countOf = async (table, col, val) => {
+    const { count } = await _db.from(table)
+      .select('id', { count: 'exact', head: true }).eq(col, val);
+    return count || 0;
+  };
+
+  const [expenses, payments, fines, odo, payouts] = await Promise.all([
+    countOf('car_expenses',      'car_id', id),
+    countOf('rent_payments',     'car_id', id),
+    countOf('fines_tolls',       'car_id', id),
+    countOf('odometer_readings', 'car_id', id),
+    countOf('owner_payouts',     'car_id', id)
+  ]);
+
+  const docs = await _db.from('documents')
+    .select('id', { count:'exact', head:true })
+    .eq('entity_type','car').eq('entity_id', id);
+
+  return {
+    asgIds, weekIds,
+    rentals:  asgIds.length,
+    weeks:    weekIds.length,
+    expenses, payments, fines, odo, payouts,
+    docs: docs.count || 0
+  };
+}
+
+async function deleteCar(id, rego) {
+  let f;
+  try {
+    f = await _carFootprint(id);
+  } catch(e){
+    alert('Could not check what is attached to ' + rego + ', so nothing was deleted.\n\n' + e.message);
+    return;
+  }
+
+  const lines = [];
+  if (f.rentals)  lines.push('• ' + f.rentals  + (f.rentals === 1 ? ' rental' : ' rentals'));
+  if (f.weeks)    lines.push('• ' + f.weeks    + (f.weeks === 1 ? ' rent week' : ' rent weeks'));
+  if (f.payments) lines.push('• ' + f.payments + (f.payments === 1 ? ' rent payment' : ' rent payments'));
+  if (f.expenses) lines.push('• ' + f.expenses + (f.expenses === 1 ? ' expense' : ' expenses'));
+  if (f.payouts)  lines.push('• ' + f.payouts  + (f.payouts === 1 ? ' owner payout' : ' owner payouts'));
+  if (f.fines)    lines.push('• ' + f.fines    + (f.fines === 1 ? ' fine or toll' : ' fines and tolls'));
+  if (f.odo)      lines.push('• ' + f.odo      + (f.odo === 1 ? ' odometer reading' : ' odometer readings'));
+  if (f.docs)     lines.push('• ' + f.docs     + (f.docs === 1 ? ' document' : ' documents'));
+
+  // Only money and rental history make a delete serious. Photos and
+  // papers are part of the car record itself, so a car added by mistake
+  // stays a one-click job even after something was uploaded to it.
+  const history = f.rentals + f.weeks + f.payments + f.expenses + f.payouts + f.fines;
+
+  if (!history){
+    if (!confirm('Delete ' + rego + '?\n\n'
+               + 'No rentals, costs or earnings are recorded against this car, '
+               + 'so only the car itself and anything uploaded to it will be '
+               + 'removed.\n\nThis cannot be undone.')) return;
+    return _deleteCarNow(id, rego, f);
+  }
+
+  // History exists, so make it deliberate.
+  const typed = prompt(
+      'DELETE ' + rego + ' AND ITS WHOLE HISTORY\n\n'
+    + 'This will permanently destroy:\n'
+    + lines.join('\n') + '\n'
+    + '• the car, its photos and documents\n\n'
+    + 'Its earnings and costs disappear from the finance reports. '
+    + 'This cannot be undone.\n\n'
+    + 'If the car has just left your fleet, cancel and use Retire instead — '
+    + 'that keeps everything.\n\n'
+    + 'To go ahead, type the rego exactly:  ' + rego);
+
+  if (typed === null) return;                         // cancelled
+  if (typed.trim().toUpperCase() !== String(rego).trim().toUpperCase()){
+    alert('That did not match ' + rego + ', so nothing was deleted.');
+    return;
+  }
+  return _deleteCarNow(id, rego, f);
+}
+
+async function _deleteCarNow(id, rego, f) {
+  try {
+    // Children first, in an order that never leaves a dangling link.
+    if (f.weekIds.length){
+      await _step('rent payments', () =>
+        _db.from('rent_payments').delete().in('rent_week_id', f.weekIds));
+    }
+    await _step('rent payments', () =>
+      _db.from('rent_payments').delete().eq('car_id', id));
+
+    if (f.asgIds.length){
+      await _step('rent weeks', () =>
+        _db.from('rent_weeks').delete().in('assignment_id', f.asgIds));
+      await _step('odometer readings', () =>
+        _db.from('odometer_readings').delete().in('assignment_id', f.asgIds));
+    }
+
+    await _step('expenses',          () => _db.from('car_expenses').delete().eq('car_id', id));
+    await _step('owner payouts',     () => _db.from('owner_payouts').delete().eq('car_id', id));
+    await _step('odometer readings', () => _db.from('odometer_readings').delete().eq('car_id', id));
+    await _step('fines and tolls',   () => _db.from('fines_tolls').delete().eq('car_id', id));
+    await _step('documents',         () =>
+      _db.from('documents').delete().eq('entity_type','car').eq('entity_id', id));
+
+    // Uploaded photos and papers.
+    const folder = 'car_' + id;
+    const { data: files } = await _db.storage.from('car-documents').list(folder, {limit:1000});
+    if (files && files.length){
+      await _db.storage.from('car-documents')
+        .remove(files.map(file => folder + '/' + file.name));
+    }
+
+    await _step('rentals', () => _db.from('car_assignments').delete().eq('car_id', id));
+    await _step('the car', () => _db.from('cars').delete().eq('id', id));
+
+    await loadCars();
+    alert(rego + ' and everything recorded against it has been deleted.');
+  } catch(e) {
+    await loadCars();
+    alert('The delete stopped partway through and ' + rego + ' is still here.\n\n'
+        + 'Could not remove ' + e.message + '\n\n'
+        + 'Nothing further was touched. Try again, or use delete-test-data.sql.');
+  }
+}
+
+// ─── EVENT LISTENERS ───
+document.addEventListener('DOMContentLoaded', async () => {
+  // Auth check
+  const { data: { session } } = await _db.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  document.getElementById('adminEmail').textContent = session.user.email;
+
+  // Wire up buttons using addEventListener (most reliable)
+  document.getElementById('addCarBtn').addEventListener('click', () => openCarModal());
+  document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+  document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
+  document.getElementById('saveCarBtn').addEventListener('click', saveCar);
+
+  // Close modal on overlay click
+  document.getElementById('carModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // Load cars
+  await loadCars();
+});
+
+async function signOut() {
+  await _db.auth.signOut();
+  localStorage.clear();
+  sessionStorage.clear();
+  window.location.href = 'index.html';
+}
+</script>
+
+<!-- ── SHARE DOCUMENTS MODAL ── -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal-box" style="max-width:580px;">
+    <div class="modal-head">
+      <h3 id="shareModalTitle">Share Documents</h3>
+      <button class="modal-close" id="closeShareBtn">&times;</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Car Info -->
+      <div style="background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.15);padding:14px 18px;border-radius:4px;margin-bottom:20px;">
+        <div style="font-size:.65rem;letter-spacing:3px;text-transform:uppercase;color:rgba(0,229,255,.6);margin-bottom:4px;">Vehicle</div>
+        <div id="shareCarName" style="font-size:1.1rem;font-weight:700;color:#fff;"></div>
+      </div>
+
+      <!-- Document Checklist -->
+      <div class="section-divider" style="margin-bottom:14px;">Select Documents to Share</div>
+      <div id="shareDocsList">
+        <div style="color:rgba(255,255,255,.3);font-style:italic;font-size:.9rem;padding:20px;text-align:center;">Loading documents...</div>
+      </div>
+
+      <!-- Custom Message -->
+      <div class="section-divider" style="margin:16px 0 12px;">Personal Message (Optional)</div>
+      <textarea id="shareCustomMsg" class="form-textarea" rows="3"
+        placeholder="e.g. Hi John, here are your car documents. Let me know if you need anything." 
+        oninput="updateSharePreview()" style="margin-bottom:16px;"></textarea>
+
+      <!-- Preview -->
+      <div class="share-preview-box">
+        <div class="share-preview-label">Message Preview</div>
+        <div id="shareMsgPreview" class="share-preview-text">Select documents above to see preview...</div>
+      </div>
+    </div>
+
+    <div class="modal-foot" style="gap:8px;">
+      <button class="btn btn-outline" id="cancelShareBtn">Cancel</button>
+      <button class="btn btn-whatsapp" id="shareWhatsAppBtn">📱 WhatsApp</button>
+      <button class="btn btn-gold" id="shareEmailBtn">✉️ Email</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ════════════════════════════════
+// SHARE DOCUMENTS FEATURE
+// ════════════════════════════════
+var _shareCarId = null;
+var _shareCarRego = null;
+var _shareCarLabel = null;
+var _shareDocs = [];
+
+async function openShareModal(carId, rego, makeName) {
+  _shareCarId = carId;
+  _shareCarRego = rego;
+  _shareCarLabel = makeName + ' (' + rego + ')';
+
+  document.getElementById('shareModalTitle').textContent = 'Share Docs — ' + rego;
+  document.getElementById('shareCarName').textContent = _shareCarLabel;
+  document.getElementById('shareDocsList').innerHTML = '<div style="color:rgba(255,255,255,.3);font-style:italic;font-size:.9rem;padding:20px;text-align:center;">Loading...</div>';
+  document.getElementById('shareCustomMsg').value = '';
+  document.getElementById('shareMsgPreview').textContent = 'Select documents above to see preview...';
+  document.getElementById('shareModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Fetch documents for this car
+  var r = await _db.from('documents').select('*').eq('entity_type','car').eq('entity_id', carId).neq('document_type','photo');
+  _shareDocs = r.data || [];
+
+  var list = document.getElementById('shareDocsList');
+  if (!_shareDocs.length) {
+    list.innerHTML = '<div style="color:rgba(255,166,35,.7);padding:20px;text-align:center;border:1px solid rgba(255,166,35,.2);border-radius:4px;">⚠️ No documents uploaded for this car yet.<br><small style="opacity:.6;">Go to Edit Car and upload Registration, Insurance etc. first.</small></div>';
+    return;
+  }
+
+  var docIcons = {
+    registration:'📋', rego_certificate:'📋', insurance:'🛡️',
+    insurance_policy:'🛡️', inspection:'🔍', roadworthy:'🔍', other:'📄'
+  };
+
+  list.innerHTML = _shareDocs.map(function(doc, i) {
+    var icon = docIcons[doc.document_type] || '📄';
+    var label = doc.document_type.replace(/_/g,' ').replace(/\b\w/g,function(l){return l.toUpperCase();});
+    return '<label class="share-doc-item" for="sdoc_'+i+'">' +
+      '<input type="checkbox" id="sdoc_'+i+'" value="'+i+'" onchange="updateSharePreview()">' +
+      '<div><div class="share-doc-name">'+icon+' '+label+'</div>' +
+      '<div class="share-doc-file">'+( doc.file_name||'Document')+'</div></div>' +
+    '</label>';
+  }).join('');
+}
+
+function getCheckedDocs() {
+  return _shareDocs.filter(function(_,i){
+    var el = document.getElementById('sdoc_'+i);
+    return el && el.checked;
+  });
+}
+
+function buildShareMessage(docs, customMsg) {
+  if (!docs.length) return '';
+  var docIcons = {registration:'📋',rego_certificate:'📋',insurance:'🛡️',insurance_policy:'🛡️',inspection:'🔍',roadworthy:'🔍',other:'📄'};
+  var lines = [];
+  lines.push('Hi,');
+  lines.push(customMsg || ('Here are your car documents for ' + _shareCarLabel + ' from Ozee Car Rent.'));
+  lines.push('');
+  docs.forEach(function(doc){
+    var icon = docIcons[doc.document_type]||'📄';
+    var label = doc.document_type.replace(/_/g,' ').replace(/\b\w/g,function(l){return l.toUpperCase();});
+    lines.push(icon + ' ' + label + ':');
+    lines.push(doc.file_url);
+    lines.push('');
+  });
+  lines.push('──────────────────');
+  lines.push('Ozee Car Rent — Newcastle NSW');
+  lines.push('📞 0450 786 145');
+  lines.push('✉️ omer@ozeerentals.com.au');
+  return lines.join('\n');
+}
+
+function updateSharePreview() {
+  var docs = getCheckedDocs();
+  var msg = buildShareMessage(docs, document.getElementById('shareCustomMsg').value.trim());
+  document.getElementById('shareMsgPreview').textContent = msg || 'Select at least one document to preview...';
+}
+
+function closeShareModal() {
+  document.getElementById('shareModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('closeShareBtn').addEventListener('click', closeShareModal);
+  document.getElementById('cancelShareBtn').addEventListener('click', closeShareModal);
+  document.getElementById('shareModal').addEventListener('click', function(e){ if(e.target===this) closeShareModal(); });
+
+  document.getElementById('shareWhatsAppBtn').addEventListener('click', function(){
+    var docs = getCheckedDocs();
+    if (!docs.length) { alert('Please select at least one document to share.'); return; }
+    var msg = buildShareMessage(docs, document.getElementById('shareCustomMsg').value.trim());
+    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+  });
+
+  document.getElementById('shareEmailBtn').addEventListener('click', function(){
+    var docs = getCheckedDocs();
+    if (!docs.length) { alert('Please select at least one document to share.'); return; }
+    var msg = buildShareMessage(docs, document.getElementById('shareCustomMsg').value.trim());
+    var subject = 'Car Documents — ' + _shareCarLabel + ' — Ozee Car Rent';
+    window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(msg);
+  });
+});
+
+</script>
+
+<!-- SHARE DOCS MODAL -->
+<div class="modal-overlay" id="shareDocsModal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-head">
+      <h3 id="shareDocsTitle">Share Documents</h3>
+      <button class="modal-close" onclick="closeShareDocs()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="shareDocsLoading" style="text-align:center;padding:2rem;color:rgba(255,255,255,.4);font-size:.85rem;letter-spacing:2px;">Loading documents...</div>
+      <div id="shareDocsList" style="display:none;">
+        <p style="font-size:.85rem;color:rgba(255,255,255,.45);margin-bottom:1.25rem;line-height:1.6;">Select the documents you want to share with the driver:</p>
+        <div id="shareDocsCheckboxes" style="display:flex;flex-direction:column;gap:.75rem;margin-bottom:1.5rem;"></div>
+        <div id="shareDocsNone" style="display:none;text-align:center;padding:2rem;color:rgba(255,255,255,.3);font-size:.9rem;">
+          No documents uploaded for this car yet.<br>
+          <span style="font-size:.8rem;">Edit the car and upload documents first.</span>
+        </div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);padding:1.25rem;border-radius:4px;margin-bottom:1.25rem;">
+          <label class="form-label" style="margin-bottom:.5rem;">Custom Message (optional)</label>
+          <textarea id="shareCustomMsg" class="form-textarea" rows="3" placeholder="Add a personal note to the driver..."></textarea>
+        </div>
+        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);padding:1.25rem;border-radius:4px;">
+          <label class="form-label" style="margin-bottom:.5rem;">Driver Contact</label>
+          <input id="shareDriverPhone" class="form-input" placeholder="Driver WhatsApp number (e.g. 0412345678)" style="margin-bottom:.75rem;">
+          <input id="shareDriverEmail" class="form-input" placeholder="Driver email address">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot" id="shareDocsFoot" style="display:none;">
+      <button class="btn btn-outline" onclick="closeShareDocs()">Cancel</button>
+      <button class="btn" style="background:rgba(37,211,102,.15);border:1px solid rgba(37,211,102,.3);color:#25D366;" onclick="sendWhatsApp()">📱 WhatsApp</button>
+      <button class="btn btn-gold" onclick="sendEmail()">✉️ Email</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ─── SHARE DOCUMENTS ───
+var _shareCarId = null;
+var _shareRego = null;
+var _shareMake = null;
+var _shareDocs = [];
+
+async function openShareDocs(carId, rego, make) {
+  _shareCarId = carId;
+  _shareRego = rego;
+  _shareMake = make;
+
+  document.getElementById('shareDocsTitle').textContent = 'Share Docs — ' + rego + ' ' + make;
+  document.getElementById('shareDocsLoading').style.display = 'block';
+  document.getElementById('shareDocsList').style.display = 'none';
+  document.getElementById('shareDocsFoot').style.display = 'none';
+  document.getElementById('shareDocsCheckboxes').innerHTML = '';
+  document.getElementById('shareCustomMsg').value = '';
+  document.getElementById('shareDriverPhone').value = '';
+  document.getElementById('shareDriverEmail').value = '';
+  document.getElementById('shareDocsModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Load documents for this car
+  var { data: docs, error } = await _db.from('documents')
+    .select('*')
+    .eq('entity_type', 'car')
+    .eq('entity_id', carId);
+
+  document.getElementById('shareDocsLoading').style.display = 'none';
+  document.getElementById('shareDocsList').style.display = 'block';
+  document.getElementById('shareDocsList').style.visibility = 'visible';
+  document.getElementById('shareDocsList').style.opacity = '1';
+  document.getElementById('shareDocsFoot').style.display = 'flex';
+
+  _shareDocs = (docs || []).filter(function(d){ return d.document_type !== 'photo' || true; });
+
+  if (!_shareDocs.length) {
+    document.getElementById('shareDocsNone').style.display = 'block';
+    document.getElementById('shareDocsCheckboxes').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('shareDocsNone').style.display = 'none';
+  document.getElementById('shareDocsCheckboxes').style.display = 'flex';
+  document.getElementById('shareDocsCheckboxes').style.flexDirection = 'column';
+  document.getElementById('shareDocsCheckboxes').style.gap = '10px';
+
+  var typeLabels = {
+    'registration': '📋 Registration Certificate',
+    'insurance': '🛡️ Insurance Policy',
+    'inspection': '🔍 Inspection Report',
+    'photo': '📸 Vehicle Photo',
+    'roadworthy': '✅ Roadworthy Certificate',
+    'other': '📄 Document'
+  };
+
+  document.getElementById('shareDocsCheckboxes').innerHTML = _shareDocs.map(function(doc, i) {
+    var label = typeLabels[doc.document_type] || ('📄 ' + doc.document_type.replace(/_/g,' '));
+    var name = doc.file_name || doc.document_type;
+    var checked = doc.document_type !== 'photo' ? 'checked' : 'checked';
+    return '<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:4px;margin-bottom:8px;">' +
+      '<input type="checkbox" id="doc_' + i + '" value="' + i + '" style="width:20px;height:20px;accent-color:#F5A623;cursor:pointer;flex-shrink:0;" ' + checked + '>' +
+      '<label for="doc_' + i + '" style="flex:1;cursor:pointer;display:block;">' +
+        '<div style="font-size:14px;font-weight:600;color:#ffffff;margin-bottom:3px;">' + label + '</div>' +
+        '<div style="font-size:12px;color:rgba(255,255,255,.4);">' + name + '</div>' +
+      '</label>' +
+    '</div>';
+  }).join('');
+}
+
+function closeShareDocs() {
+  document.getElementById('shareDocsModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function getSelectedDocs() {
+  return _shareDocs.filter(function(doc, i) {
+    var cb = document.getElementById('doc_' + i);
+    return cb && cb.checked;
+  });
+}
+
+function buildMessage(selected) {
+  var typeLabels = {
+    'registration': 'Registration Certificate',
+    'insurance': 'Insurance Policy',
+    'inspection': 'Inspection Report',
+    'photo': 'Vehicle Photo',
+    'roadworthy': 'Roadworthy Certificate',
+    'other': 'Document'
+  };
+
+  var custom = document.getElementById('shareCustomMsg').value.trim();
+  var msg = 'Hi, here are the car documents for *' + _shareMake + '* (Rego: *' + _shareRego + '*):\n\n';
+
+  selected.forEach(function(doc) {
+    var label = typeLabels[doc.document_type] || doc.document_type.replace(/_/g,' ');
+    msg += '📄 *' + label + '*\n' + doc.file_url + '\n\n';
+  });
+
+  if (custom) {
+    msg += custom + '\n\n';
+  }
+
+  msg += 'Contact us anytime:\n📞 0450 786 145\n📧 omer@ozeerentals.com.au\n\n— Ozee Car Rent';
+  return msg;
+}
+
+function sendWhatsApp() {
+  var selected = getSelectedDocs();
+  if (!selected.length) { alert('Please select at least one document to share.'); return; }
+
+  var phone = document.getElementById('shareDriverPhone').value.trim().replace(/\s/g,'').replace(/^0/,'61');
+  var msg = buildMessage(selected);
+  var url = 'https://wa.me/' + (phone || '') + '?text=' + encodeURIComponent(msg.replace(/\\n/g,'\n'));
+  window.open(url, '_blank');
+}
+
+function sendEmail() {
+  var selected = getSelectedDocs();
+  if (!selected.length) { alert('Please select at least one document to share.'); return; }
+
+  var email = document.getElementById('shareDriverEmail').value.trim();
+  var typeLabels = {
+    'registration': 'Registration Certificate',
+    'insurance': 'Insurance Policy',
+    'inspection': 'Inspection Report',
+    'photo': 'Vehicle Photo',
+    'roadworthy': 'Roadworthy Certificate',
+    'other': 'Document'
+  };
+
+  var subject = 'Car Documents — ' + _shareMake + ' (' + _shareRego + ') — Ozee Car Rent';
+  var custom = document.getElementById('shareCustomMsg').value.trim();
+
+  var body = 'Hi,\n\nHere are the car documents for ' + _shareMake + ' (Rego: ' + _shareRego + '):\n\n';
+  selected.forEach(function(doc) {
+    var label = typeLabels[doc.document_type] || doc.document_type.replace(/_/g,' ');
+    body += label + ':\n' + doc.file_url + '\n\n';
+  });
+
+  if (custom) body += custom + '\n\n';
+  body += 'Contact us anytime:\nPhone: 0450 786 145\nEmail: omer@ozeerentals.com.au\n\nOzee Car Rent\n17A Drift St, West Wallsend NSW 2286';
+
+  var mailto = 'mailto:' + email + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  var a = document.createElement('a');
+  a.href = mailto;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+</script>
+
+<script>
+// Mobile sidebar toggle
+(function(){
+  // Add overlay div
+  var overlay = document.createElement('div');
+  overlay.className = 'sidebar-overlay';
+  overlay.id = 'sidebarOverlay';
+  overlay.onclick = function(){ closeSidebar(); };
+  document.body.appendChild(overlay);
+
+  // Add hamburger button to topbar
+  var topbar = document.querySelector('.topbar');
+  if(topbar){
+    var btn = document.createElement('button');
+    btn.className = 'mob-menu-btn';
+    btn.innerHTML = '☰';
+    btn.onclick = function(){ toggleSidebar(); };
+    // Wrap existing content in topbar-left
+    var existing = topbar.firstElementChild;
+    var wrap = document.createElement('div');
+    wrap.className = 'topbar-left';
+    wrap.appendChild(btn);
+    if(existing) wrap.appendChild(existing);
+    topbar.insertBefore(wrap, topbar.firstChild);
+  }
+
+  function toggleSidebar(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('sidebarOverlay');
+    if(sb){ sb.classList.toggle('open'); }
+    if(ov){ ov.classList.toggle('open'); }
+  }
+  function closeSidebar(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('sidebarOverlay');
+    if(sb){ sb.classList.remove('open'); }
+    if(ov){ ov.classList.remove('open'); }
+  }
+  // Close sidebar when nav link clicked
+  document.querySelectorAll('.sidebar-nav a').forEach(function(a){
+    a.addEventListener('click', function(){ if(window.innerWidth<=900) closeSidebar(); });
+  });
+})();
+</script>
+
+</body>
+</html>
