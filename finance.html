@@ -290,7 +290,7 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
           <div class="summary-val" id="sumIncome">$0</div>
         </div>
         <div class="summary-box" id="sumFeeBox" style="display:none;">
-          <div class="summary-label">Commission Earned</div>
+          <div class="summary-label">Service Fee</div>
           <div class="summary-val pos" id="sumFee">$0</div>
         </div>
         <div class="summary-box">
@@ -632,7 +632,7 @@ function renderDetail(){
             ? '<div class="sale-pay">The full amount of ' + money(_saleAmt)
               + ' will be transferred to the owner within two weeks.</div>' : '')
         + '<div class="sale-note">Shown separately. Not included in any rent, '
-        + 'commission, expense or position figure.</div>'
+        + 'service fee, expense or position figure.</div>'
         + '</div>';
       salePane.style.display = '';
     } else {
@@ -657,7 +657,7 @@ function renderDetail(){
           <div class="settle-line"><span>Gross rental income</span><b class="pos">${money(S.income)}</b></div>
           <div class="settle-line"><span>Less: operating expenses</span><b class="neg">−${money(S.costs)}</b></div>
           <div class="settle-line"><span>Net rental income</span><b>${money(S.afterCosts)}</b></div>
-          ${S.fee > 0 ? `<div class="settle-line"><span>Management commission (${S.feePct}%)</span><b class="neg">−${money(S.fee)}</b></div>` : ''}
+          ${S.fee > 0 ? `<div class="settle-line"><span>Less: service fee (${S.feePct}%)</span><b class="neg">−${money(S.fee)}</b></div>` : ''}
           <div class="settle-line settle-sub"><span>Total due to owner</span><b>${money(S.dueToOwner)}</b></div>
           <div class="settle-line"><span>Less: payments already remitted</span><b class="neg">−${money(S.paidOut)}</b></div>
           ${S.excluded > 0 ? `<div class="settle-note">The vehicle purchase price of ${money(S.excluded)} is excluded — this vehicle was not acquired by the business.</div>` : ''}
@@ -1125,7 +1125,7 @@ async function exportPDF(mode){
       cards = [
         {label:'TOTAL EXPENSES',   val:'$'+pdfMoney(totalCost),    col:CLR.dark},
         {label:'RENT COLLECTED',   val:'$'+pdfMoney(totalIncome),  col:CLR.dark},
-        {label:'COMMISSION EARNED',val:'$'+pdfMoney(_S0.fee),      col:CLR.green},
+        {label:'SERVICE FEE',      val:'$'+pdfMoney(_S0.fee),      col:CLR.green},
         {label: car.retired_reason ? 'FINAL POSITION' : 'POSITION TO DATE',
          val:(ownerFinal>=0?'+$':'-$')+pdfMoney(Math.abs(ownerFinal)),
          col: ownerFinal>=0?CLR.green:CLR.red, accent:true}
@@ -1351,7 +1351,7 @@ async function exportPDF(mode){
 
     // ─────────── VEHICLE SALE ───────────
     // Stated entirely on its own. The sale is money for the vehicle, not rent,
-    // so folding it into commission, expenses and the running position made
+    // so folding it into the service fee, expenses and the running position made
     // both figures impossible to read. It is counted nowhere else in this report.
     const saleAmt = (car.retired_reason === 'Sold' || car.retired_reason === 'Written Off')
           ? (Number(car.retired_amount) || 0) : 0;
@@ -1379,7 +1379,7 @@ async function exportPDF(mode){
       const pLines = payLine ? doc.splitTextToSize(payLine, CW - 12) : [];
 
       const footLine = 'Shown separately. This amount is not included in any rent, '
-                     + 'commission, expense or position figure in this report.';
+                     + 'service fee, expense or position figure in this report.';
       doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
       const fLines = doc.splitTextToSize(footLine, CW - 12);
 
@@ -1425,7 +1425,7 @@ async function exportPDF(mode){
         ['Gross rental income',                    '$'+pdfMoney(S.income),   CLR.green],
         ['Less: operating expenses',               '-$'+pdfMoney(S.costs),   CLR.red],
         ['Net rental income',                      '$'+pdfMoney(S.afterCosts), CLR.dark],
-        ...(S.fee > 0 ? [['Less: management commission ('+S.feePct+'%)', '-$'+pdfMoney(S.fee), CLR.red]] : []),
+        ...(S.fee > 0 ? [['Less: service fee ('+S.feePct+'%)', '-$'+pdfMoney(S.fee), CLR.red]] : []),
         ['Total due to owner',                     '$'+pdfMoney(S.dueToOwner), CLR.dark],
         ['Less: payments already remitted',        '-$'+pdfMoney(S.paidOut), CLR.red]
       ];
@@ -1508,21 +1508,21 @@ async function exportPDF(mode){
       let bottomLabel, bottomValue;
 
       if(ownerCar){
-        // The commission the business retained is shown so the owner can see
+        // The service fee the business retained is shown so the owner can see
         // the complete rental picture in one place. The sale price is not part
         // of this — it has its own statement above.
-        const commission = (activeIncome.reduce((s,i)=>s+Number(i.amount),0) - runningCost)
+        const serviceFee = (activeIncome.reduce((s,i)=>s+Number(i.amount),0) - runningCost)
                            * (Number(car.service_fee_pct)||0) / 100;
-        const rentalToOwner = totalIncome - runningCost - commission;
+        const rentalToOwner = totalIncome - runningCost - serviceFee;
         // The sale price is stated on its own page block, never folded in here.
         const ownerPosition = -purchaseCost + rentalToOwner;
 
         if(purchaseCost > 0) rows.push(['Vehicle purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
         rows.push(['Gross rental income', '$'+pdfMoney(totalIncome), CLR.green]);
         rows.push(['Less: operating expenses', '-$'+pdfMoney(runningCost), CLR.red]);
-        if(commission > 0)
-          rows.push(['Less: management commission (' + (Number(car.service_fee_pct)||0) + '%)',
-                     '-$'+pdfMoney(commission), CLR.red]);
+        if(serviceFee > 0)
+          rows.push(['Less: service fee (' + (Number(car.service_fee_pct)||0) + '%)',
+                     '-$'+pdfMoney(serviceFee), CLR.red]);
         rows.push(['Net rental earnings to owner', '$'+pdfMoney(rentalToOwner), CLR.dark, true]);
 
         bottomLabel = purchaseCost > 0
@@ -1580,7 +1580,7 @@ async function exportPDF(mode){
               + (car.retired_reason === 'Sold' ? 'sale price' : 'insurance settlement')
               + ' is set out on its own earlier in this report and is deliberately '
               + 'kept out of these figures'
-              + (ownerCar ? '; no commission is taken on it' : '') + '. ';
+              + (ownerCar ? '; no service fee is taken on it' : '') + '. ';
       }
       if(ownerCar && purchaseCost > 0){
         note += 'The purchase price shown was funded by the owner, not by the business. ';
@@ -1626,7 +1626,7 @@ async function exportPDF(mode){
         'Finance report - ' + vehicleLabel,
         '<p>Hello' + (car.owner_name ? ' ' + car.owner_name : '') + ',</p>'
         + '<p>Please find attached the current finance report for <strong>' + vehicleLabel + '</strong>, '
-        + 'covering rental income, operating expenses, commission and the overall position of the vehicle.</p>'
+        + 'covering rental income, operating expenses, service fee and the overall position of the vehicle.</p>'
         + '<p>Kind regards,<br>Ozee Rentals</p>');
       alert('The finance report has been emailed to ' + car.owner_email + '.');
     } else if(mode === 'whatsapp'){
