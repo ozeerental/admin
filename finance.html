@@ -231,8 +231,20 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
   text-transform:uppercase;letter-spacing:.5px;padding:.25rem .6rem;border-radius:100px;
   margin-left:.6rem;vertical-align:middle;}
 .own-ext{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.45);color:#60a5fa;}
-.own-biz{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);}
+/* Ownership colours, used the same way everywhere:
+   gold = business, blue = investor, purple = partnership */
+.own-biz{background:rgba(245,166,35,.14);border:1px solid rgba(245,166,35,.5);color:#F5A623;}
 .own-part{background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.5);color:#a78bfa;}
+.car-card.own-card-biz{border-top:3px solid #F5A623;}
+.car-card.own-card-inv{border-top:3px solid #60a5fa;}
+.car-card.own-card-part{border-top:3px solid #a78bfa;}
+.cc-own{display:inline-block;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  padding:.22rem .55rem;border-radius:100px;margin:-.35rem 0 .8rem;max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.own-legend{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:1rem;align-items:center;font-size:.76rem;color:rgba(255,255,255,.6);margin-bottom:-.2rem;}
+.own-legend span{display:inline-flex;align-items:center;gap:.4rem;white-space:nowrap;}
+.own-legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+.own-legend b{color:#fff;font-weight:700;}
 .owner-badge.part-badge{background:rgba(167,139,250,.15);border-color:rgba(167,139,250,.45);color:#a78bfa;}
 .settle-share span{color:rgba(255,255,255,.55);}
 .settle-share b{color:#a78bfa;}
@@ -378,6 +390,17 @@ function partnerPct(car){
        ? Number(car.investor_share_pct) : null;
 }
 function pctTxt(n){ return (Math.round(Number(n) * 10) / 10) + '%'; }
+// 'biz' (business), 'inv' (investor) or 'part' (partnership).
+function ownType(c){ return !c.externally_owned ? 'biz' : (partnerPct(c) != null ? 'part' : 'inv'); }
+// Newest model year first; within a year by make and model, then rego.
+function byYearDesc(a, b){
+  return (Number(b.year) || 0) - (Number(a.year) || 0)
+      || String(a.make_model || '').localeCompare(String(b.make_model || ''))
+      || String(a.rego || '').localeCompare(String(b.rego || ''));
+}
+function esc(t){
+  return String(t).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
 function investorName(car){ return (car && car.owner_name) ? car.owner_name : 'the investor'; }
 
 // Owner settlement figures for the selected car
@@ -484,9 +507,17 @@ async function loadCars(){
     const cost = expTotals[c.id] || 0;
     const income = incTotals[c.id] || 0;
     const net = income - cost;
-    return `<div class="car-card${c.retired_reason ? ' is-retired' : ''}" data-id="${c.id}" onclick="openDetail('${c.id}')">
-      <div class="cc-name">${c.make_model} ${c.year||''}${partnerPct(c) != null ? '<span class="owner-badge part-badge">Partner</span>' : (c.externally_owned ? '<span class="owner-badge">Owner</span>' : '')}${c.retired_reason ? `<span class="retired-badge">${c.retired_reason}</span>` : ''}</div>
+    const t = ownType(c);
+    const who = esc(c.owner_name || 'name not added');
+    const ownLine = t === 'part'
+          ? `<div class="cc-own own-part">Partnership · ${who} ${pctTxt(partnerPct(c))}</div>`
+          : t === 'inv'
+          ? `<div class="cc-own own-ext">Investor · ${who}</div>`
+          : `<div class="cc-own own-biz">Business</div>`;
+    return `<div class="car-card own-card-${t}${c.retired_reason ? ' is-retired' : ''}" data-id="${c.id}" onclick="openDetail('${c.id}')">
+      <div class="cc-name">${c.make_model} ${c.year||''}${c.retired_reason ? `<span class="retired-badge">${c.retired_reason}</span>` : ''}</div>
       <div class="cc-rego">${c.rego||''}</div>
+      ${ownLine}
       <div class="cc-row"><span>Total Cost</span><b>${money(cost)}</b></div>
       <div class="cc-row"><span>Total Earned</span><b>${money(income)}</b></div>
       <div class="cc-net">
@@ -498,10 +529,17 @@ async function loadCars(){
 
   // Vehicles that have left the fleet get their own section below, so the
   // working grid holds only the cars still earning.
-  const active  = allCars.filter(c => !c.retired_reason);
-  const retired = allCars.filter(c =>  c.retired_reason);
+  // Newest model year first in both sections.
+  const active  = allCars.filter(c => !c.retired_reason).sort(byYearDesc);
+  const retired = allCars.filter(c =>  c.retired_reason).sort(byYearDesc);
 
-  let html = active.length
+  const nOf = t => allCars.filter(c => ownType(c) === t).length;
+  let html = '<div class="own-legend">'
+        + '<span><i style="background:#F5A623"></i>Business <b>' + nOf('biz') + '</b></span>'
+        + '<span><i style="background:#60a5fa"></i>Investor <b>' + nOf('inv') + '</b></span>'
+        + '<span><i style="background:#a78bfa"></i>Partnership <b>' + nOf('part') + '</b></span>'
+        + '</div>';
+  html += active.length
         ? active.map(cardFor).join('')
         : '<div class="empty-msg" style="grid-column:1/-1;">No vehicles in the active fleet.</div>';
 
@@ -1118,11 +1156,12 @@ async function exportPDF(mode){
         ? ("INVESTOR'S CAR" + (car.owner_name ? '  ·  ' + car.owner_name.toUpperCase() : '')
              + (car.service_fee_pct ? '  ·  ' + car.service_fee_pct + '% SERVICE FEE' : ''))
         : 'OWNED BY THE BUSINESS';
-    const ownCol = _pp != null ? [109,40,217] : (car.externally_owned ? [37,99,235] : CLR.grey);
+    const ownCol = _pp != null ? [109,40,217] : (car.externally_owned ? [37,99,235] : [176,108,0]);
     doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
     const ownW = doc.getTextWidth(ownLabel) + 7;
     if(_pp != null) doc.setFillColor(243,238,255);
-    else doc.setFillColor(car.externally_owned ? 232 : 240, car.externally_owned ? 240 : 241, car.externally_owned ? 254 : 243);
+    else if(car.externally_owned) doc.setFillColor(232,240,254);
+    else doc.setFillColor(255,245,224);
     doc.setDrawColor.apply(doc, ownCol);
     doc.setLineWidth(0.3);
     doc.roundedRect(M, y+3.5, ownW, 6.2, 1.2, 1.2, 'FD');
