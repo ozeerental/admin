@@ -902,7 +902,7 @@ function openCarModal(car) {
 
 // What is still owed to this vehicle's owner, using the same basis as the
 // Owner Settlement Statement: rental income, less operating expenses, less
-// commission, plus any disposal proceeds, less what has already been paid.
+// the service fee, plus any disposal proceeds, less what has already been paid.
 async function outstandingToOwner(carId){
   try{
     const car = (allCars || []).find(c => c.id === carId);
