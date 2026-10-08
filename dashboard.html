@@ -273,6 +273,141 @@ tr:hover td{background:rgba(255,255,255,.03);}
   table th:nth-child(2),
   table td:nth-child(2){font-size:.75rem!important;}
 }
+
+/* ═══ DASHBOARD ═══ */
+.dash-head{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;margin-bottom:1.6rem;}
+.dash-hello{font-size:.8rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:.35rem;}
+.dash-date{color:rgba(255,255,255,.45);font-size:.88rem;margin-top:.2rem;}
+.quick{display:flex;gap:.5rem;flex-wrap:wrap;}
+.quick a{display:inline-flex;align-items:center;gap:.45rem;padding:.6rem .95rem;font-size:.75rem;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;text-decoration:none;color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.14);border-radius:10px;
+  background:rgba(255,255,255,.03);transition:all .2s;}
+.quick a:hover{border-color:#F5A623;color:#F5A623;}
+.quick a.primary{background:linear-gradient(135deg,#F5A623,#D4880A);color:#000;border-color:transparent;}
+
+.panel{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.3rem;min-width:0;}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem .75rem;margin-bottom:1rem;flex-wrap:wrap;}
+.panel-title{font-family:"Barlow Condensed",sans-serif;font-size:1.15rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;}
+.panel-link{font-size:.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#F5A623;text-decoration:none;white-space:nowrap;}
+.panel-link:hover{text-decoration:underline;}
+.panel-sub{font-size:.78rem;color:rgba(255,255,255,.45);}
+
+/* KPI row */
+.kpis{display:grid;grid-template-columns:1.35fr 1fr 1fr 1fr;gap:1rem;margin-bottom:1rem;}
+.kpi{position:relative;overflow:hidden;}
+.kpi-label{font-size:.68rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.5);}
+.kpi-val{font-family:"Barlow Condensed",sans-serif;font-size:2.4rem;font-weight:900;line-height:1;margin-top:.55rem;letter-spacing:-.5px;font-variant-numeric:tabular-nums;}
+.kpi.hero .kpi-val{font-size:3.4rem;color:#F5A623;}
+.kpi-note{font-size:.8rem;color:rgba(255,255,255,.5);margin-top:.45rem;line-height:1.35;}
+.kpi-note b{color:rgba(255,255,255,.85);font-weight:600;}
+.delta{display:inline-flex;align-items:center;gap:.25rem;font-weight:700;font-size:.78rem;padding:.12rem .45rem;border-radius:6px;}
+.delta.up{color:#4ade80;background:rgba(74,222,128,.1);}
+.delta.down{color:#f87171;background:rgba(248,113,113,.1);}
+.delta.flat{color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);}
+.kpi.bad .kpi-val{color:#f87171;}
+.kpi.good .kpi-val{color:#4ade80;}
+.meter{height:8px;border-radius:8px;background:rgba(245,166,35,.16);margin-top:.9rem;overflow:hidden;}
+.meter i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#F5A623,#ffc861);}
+
+/* Two-column rows */
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:1rem;margin-bottom:1rem;}
+.row2b{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:1rem;}
+
+/* Fleet */
+.util-num{font-family:"Barlow Condensed",sans-serif;font-size:3rem;font-weight:900;line-height:1;}
+.util-num small{font-size:1.1rem;color:rgba(255,255,255,.5);font-weight:700;margin-left:.3rem;letter-spacing:0;}
+.segbar{display:flex;gap:2px;height:14px;margin:1rem 0 .8rem;}
+.segbar i{display:block;height:100%;min-width:4px;}
+.segbar i:first-child{border-radius:7px 0 0 7px;}
+.segbar i:last-child{border-radius:0 7px 7px 0;}
+.segbar i:only-child{border-radius:7px;}
+.key{display:grid;grid-template-columns:1fr auto;gap:.45rem .75rem;font-size:.85rem;}
+.key span{display:flex;align-items:center;gap:.55rem;color:rgba(255,255,255,.75);}
+.key i{width:10px;height:10px;border-radius:3px;display:inline-block;flex:0 0 auto;}
+.key b{text-align:right;font-variant-numeric:tabular-nums;}
+.fleet-split{border-top:1px solid rgba(255,255,255,.07);margin-top:1rem;padding-top:.9rem;display:flex;flex-wrap:wrap;gap:.5rem .9rem;font-size:.78rem;color:rgba(255,255,255,.6);}
+.fleet-split span{display:inline-flex;align-items:center;gap:.4rem;}
+.fleet-split i{width:9px;height:9px;border-radius:50%;}
+.fleet-split b{color:#fff;}
+
+/* Rent chart */
+.chart{position:relative;height:210px;margin-top:.4rem;padding-left:42px;}
+.chart .grid{position:absolute;left:42px;right:0;height:1px;background:rgba(255,255,255,.07);}
+.chart .tick{position:absolute;left:0;width:36px;text-align:right;font-size:.68rem;color:rgba(255,255,255,.4);transform:translateY(-50%);font-variant-numeric:tabular-nums;}
+.cols{position:absolute;left:42px;right:0;top:0;bottom:22px;display:flex;align-items:flex-end;}
+.col{flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center;position:relative;cursor:pointer;}
+.col .due{position:absolute;bottom:0;width:min(22px,62%);border-radius:4px 4px 0 0;background:rgba(255,255,255,.09);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);}
+.col .got{position:absolute;bottom:0;width:min(22px,62%);border-radius:4px 4px 0 0;background:#F5A623;}
+.col.now .got{background:repeating-linear-gradient(135deg,#F5A623 0 4px,#c98612 4px 7px);}
+.col:hover .due,.col.on .due{background:rgba(255,255,255,.16);}
+.col .lbl{position:absolute;bottom:-20px;font-size:.66rem;color:rgba(255,255,255,.45);white-space:nowrap;}
+.chart-legend{display:flex;gap:1rem;flex-wrap:wrap;font-size:.75rem;color:rgba(255,255,255,.6);}
+.chart-legend span{display:inline-flex;align-items:center;gap:.4rem;}
+.chart-legend i{width:12px;height:10px;border-radius:2px;display:inline-block;}
+.tip{position:absolute;z-index:5;pointer-events:none;background:#0d1526;border:1px solid rgba(245,166,35,.35);border-radius:10px;padding:.55rem .7rem;
+  font-size:.78rem;line-height:1.45;min-width:150px;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;}
+.tip b{display:block;font-size:.8rem;margin-bottom:.15rem;}
+.tip .row{display:flex;justify-content:space-between;gap:1rem;color:rgba(255,255,255,.7);}
+.tip .row em{font-style:normal;color:#fff;font-variant-numeric:tabular-nums;}
+.chart-foot{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-top:1.6rem;padding-top:.8rem;border-top:1px solid rgba(255,255,255,.07);font-size:.8rem;color:rgba(255,255,255,.55);}
+.chart-foot b{color:#fff;}
+
+/* Needs attention */
+.alerts{display:flex;flex-direction:column;gap:.55rem;}
+.alert{display:flex;align-items:center;gap:.8rem;padding:.75rem .85rem;border-radius:11px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);text-decoration:none;color:#fff;transition:border-color .2s;}
+.alert:hover{border-color:rgba(245,166,35,.45);}
+.alert .ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:.95rem;}
+.alert.red .ic{background:rgba(248,113,113,.14);color:#f87171;}
+.alert.amber .ic{background:rgba(245,166,35,.14);color:#F5A623;}
+.alert.blue .ic{background:rgba(96,165,250,.14);color:#60a5fa;}
+.alert.purple .ic{background:rgba(167,139,250,.14);color:#a78bfa;}
+.alert .tx{flex:1;min-width:0;}
+.alert .t1{font-weight:600;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert .t2{font-size:.76rem;color:rgba(255,255,255,.5);margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert .amt{font-family:"Barlow Condensed",sans-serif;font-size:1.25rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.alert.red .amt{color:#f87171;}
+.all-clear{padding:1.4rem;text-align:center;color:rgba(255,255,255,.5);font-size:.9rem;border:1px dashed rgba(255,255,255,.12);border-radius:11px;}
+.all-clear b{display:block;color:#4ade80;font-size:1rem;margin-bottom:.2rem;}
+
+/* On the road */
+.road{display:flex;flex-direction:column;}
+.road a{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.85rem;padding:.75rem .2rem;border-bottom:1px solid rgba(255,255,255,.06);text-decoration:none;color:#fff;}
+.road a:last-child{border-bottom:none;}
+.road a:hover{background:rgba(255,255,255,.025);}
+.road .own{width:4px;height:34px;border-radius:4px;}
+.road .nm{font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.road .car{font-size:.76rem;color:rgba(255,255,255,.5);margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.road .rt{text-align:right;}
+.road .rate{font-weight:700;font-size:.9rem;font-variant-numeric:tabular-nums;}
+.pill{display:inline-flex;align-items:center;gap:.35rem;font-size:.66rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;margin-top:.25rem;padding:.15rem .45rem;border-radius:6px;white-space:nowrap;}
+.pill i{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.pill.paid{color:#4ade80;background:rgba(74,222,128,.1);}
+.pill.part{color:#F5A623;background:rgba(245,166,35,.12);}
+.pill.unpaid{color:rgba(255,255,255,.65);background:rgba(255,255,255,.07);}
+.pill.behind{color:#f87171;background:rgba(248,113,113,.12);}
+.road-empty{color:rgba(255,255,255,.45);font-size:.88rem;padding:1rem 0;}
+.loading{color:rgba(255,255,255,.35);font-style:italic;font-size:.85rem;padding:.5rem 0;}
+
+@media(max-width:1100px){
+  .kpis{grid-template-columns:1fr 1fr;grid-auto-flow:dense;}
+  .kpi.hero,#kOverdueBox{grid-column:1/-1;}
+  .row2,.row2b{grid-template-columns:1fr;}
+}
+@media(max-width:600px){
+  .dash-head{align-items:flex-start;}
+  .quick{width:100%;}
+  .quick a{flex:1 1 auto;justify-content:center;padding:.7rem .6rem;}
+  .kpis{gap:.7rem;}
+  .panel{padding:1rem;}
+  .kpi-val{font-size:1.9rem;}
+  .kpi.hero .kpi-val{font-size:2.9rem;}
+  .chart{padding-left:34px;}
+  .chart .grid,.cols{left:34px;}
+  .chart .tick{width:30px;}
+  .col .lbl{display:none;}
+  .col:nth-child(3n+1) .lbl{display:block;}
+  .alert .amt{font-size:1.1rem;}
+}
 </style>
 </head>
 <body>
@@ -303,58 +438,337 @@ tr:hover td{background:rgba(255,255,255,.03);}
   </aside>
   <!-- MAIN -->
   <main class="main">
-    
-<div class="page-title">Dashboard <span>Overview</span></div>
-<div class="page-sub">Welcome to Ozee Rentals admin portal — ozeerentals.com.au</div>
-<div class="stat-grid" id="statsGrid">
-  <div class="stat-card"><div class="stat-label">Total Cars</div><div class="stat-val" id="s_cars">—</div><div class="stat-sub">In fleet</div></div>
-  <div class="stat-card"><div class="stat-label">Available</div><div class="stat-val" id="s_avail">—</div><div class="stat-sub">Ready to rent</div></div>
-  <div class="stat-card"><div class="stat-label">Currently Rented</div><div class="stat-val" id="s_rented">—</div><div class="stat-sub">Active rentals</div></div>
-  <div class="stat-card"><div class="stat-label">Maintenance</div><div class="stat-val" id="s_maint">—</div><div class="stat-sub">In service</div></div>
-  <div class="stat-card"><div class="stat-label">Driver Applications</div><div class="stat-val" id="s_apps">—</div><div class="stat-sub">Total</div></div>
-  <div class="stat-card"><div class="stat-label">Pending Review</div><div class="stat-val" id="s_pending">—</div><div class="stat-sub">Awaiting approval</div></div>
-  <div class="stat-card"><div class="stat-label">Active Assignments</div><div class="stat-val" id="s_assign">—</div><div class="stat-sub">Cars with drivers</div></div>
-  <div class="stat-card"><div class="stat-label">Pending Fines</div><div class="stat-val" id="s_fines">—</div><div class="stat-sub">Needs action</div></div>
-</div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;flex-wrap:wrap;">
-  <div class="table-wrap">
-    <div class="table-header"><div class="table-title">Recent Applications</div><a href="drivers.html" class="btn btn-outline btn-sm">View All</a></div>
-    <table><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Date</th></tr></thead>
-    <tbody id="recentApps"><tr class="loading-row"><td colspan="4">Loading...</td></tr></tbody></table>
+
+<div class="dash-head">
+  <div>
+    <div class="dash-hello" id="dHello">Welcome back</div>
+    <div class="page-title" style="margin-bottom:0">Dashboard <span>Overview</span></div>
+    <div class="dash-date" id="dDate"></div>
   </div>
-  <div class="table-wrap">
-    <div class="table-header"><div class="table-title">Pending Fines & Tolls</div><a href="fines.html" class="btn btn-outline btn-sm">View All</a></div>
-    <table><thead><tr><th>Car</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
-    <tbody id="recentFines"><tr class="loading-row"><td colspan="4">Loading...</td></tr></tbody></table>
+  <div class="quick">
+    <a class="primary" href="rent-tracker.html">Record rent</a>
+    <a href="assignments.html">Assign a car</a>
+    <a href="cars.html">Add a car</a>
   </div>
 </div>
+
+<!-- MONEY -->
+<div class="kpis">
+  <div class="panel kpi hero">
+    <div class="kpi-label">Rent received this week</div>
+    <div class="kpi-val" id="kWeek">—</div>
+    <div class="kpi-note" id="kWeekNote">&nbsp;</div>
+    <div class="meter"><i id="kWeekBar" style="width:0%"></i></div>
+  </div>
+  <div class="panel kpi">
+    <div class="kpi-label">Received this month</div>
+    <div class="kpi-val" id="kMonth">—</div>
+    <div class="kpi-note" id="kMonthNote">&nbsp;</div>
+  </div>
+  <div class="panel kpi" id="kOverdueBox">
+    <div class="kpi-label">Overdue rent</div>
+    <div class="kpi-val" id="kOverdue">—</div>
+    <div class="kpi-note" id="kOverdueNote">&nbsp;</div>
+  </div>
+  <div class="panel kpi" id="kNetBox">
+    <div class="kpi-label">Net this month so far</div>
+    <div class="kpi-val" id="kNet">—</div>
+    <div class="kpi-note" id="kNetNote">&nbsp;</div>
+  </div>
+</div>
+
+<!-- FLEET + TREND -->
+<div class="row2">
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">Fleet</div><a class="panel-link" href="cars.html">Cars &rsaquo;</a></div>
+    <div class="util-num" id="fUtil">—</div>
+    <div class="panel-sub" id="fUtilSub">&nbsp;</div>
+    <div class="segbar" id="fBar"></div>
+    <div class="key" id="fKey"></div>
+    <div class="fleet-split" id="fSplit"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div><div class="panel-title">Weekly rent</div><div class="panel-sub">Due against collected, last 12 weeks</div></div>
+      <div class="chart-legend"><span><i style="background:#F5A623"></i>Collected</span><span><i style="background:rgba(255,255,255,.09);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)"></i>Due</span></div>
+    </div>
+    <div class="chart" id="chart"><div class="loading">Loading…</div></div>
+    <div class="chart-foot" id="chartFoot"></div>
+  </div>
+</div>
+
+<!-- ATTENTION + ON THE ROAD -->
+<div class="row2b">
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">Needs attention</div><span class="panel-sub" id="aCount"></span></div>
+    <div class="alerts" id="alerts"><div class="loading">Checking…</div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">On the road now</div><a class="panel-link" href="rent-tracker.html">Rent tracker &rsaquo;</a></div>
+    <div class="road" id="road"><div class="loading">Loading…</div></div>
+  </div>
+</div>
+
 <script>
+// ── Dates are worked out in local time. toISOString() would shift them to UTC
+//    and put Monday mornings in Newcastle into the previous week.
+function dISO(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function dParse(s){ return new Date(String(s).slice(0,10) + 'T00:00:00'); }
+function dAdd(s, n){ const d = dParse(s); d.setDate(d.getDate() + n); return dISO(d); }
+function mondayISO(d){ const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return dISO(x); }
+function daysBetween(a, b){ return Math.round((dParse(b) - dParse(a)) / 86400000); }
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function shortDate(s){ const d = dParse(s); return d.getDate() + ' ' + MON[d.getMonth()]; }
+function $m(n){ return '$' + Math.round(Number(n) || 0).toLocaleString('en-AU'); }
+function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function sum(arr, f){ return arr.reduce((s, x) => s + (Number(f(x)) || 0), 0); }
+const OWN_COL = { biz:'#F5A623', inv:'#60a5fa', part:'#a78bfa' };
+function ownType(c){ return !c || !c.externally_owned ? 'biz' : (c.investor_share_pct != null ? 'part' : 'inv'); }
+
 async function loadStats(){
-  const [cars, drivers, assignments, fines] = await Promise.all([
-    window._sb.from('cars').select('status'),
-    window._sb.from('drivers').select('status'),
-    window._sb.from('car_assignments').select('status').eq('status','Active'),
-    window._sb.from('fines_tolls').select('status').eq('status','Pending'),
+  const sb = window._sb;
+  const today = dISO(new Date());
+  const thisMon = mondayISO(new Date());
+  const lastMon = dAdd(thisMon, -7);
+  const firstWeek = dAdd(thisMon, -77);                 // 12 weeks including this one
+  const t = new Date();
+  const monthStart = dISO(new Date(t.getFullYear(), t.getMonth(), 1));
+  const prevStart  = dISO(new Date(t.getFullYear(), t.getMonth() - 1, 1));
+
+  // Greeting
+  const hr = t.getHours();
+  const who = (document.getElementById('adminEmail').textContent || '').split('@')[0];
+  const name = who && who !== 'Loading...' ? who.charAt(0).toUpperCase() + who.slice(1) : '';
+  document.getElementById('dHello').textContent = (hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (name ? ', ' + name : '');
+  document.getElementById('dDate').textContent = t.toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long', year:'numeric'})
+      + ' · rent week ' + shortDate(thisMon) + ' – ' + shortDate(dAdd(thisMon, 6));
+
+  const [carsR, asgR, recentWkR, owingWkR, payR, expR, poR, appsR] = await Promise.all([
+    // '*' on purpose: the page keeps working whichever optional columns have been added so far.
+    sb.from('cars').select('*'),
+    sb.from('car_assignments').select('*,cars(*),drivers(first_name,last_name)'),
+    sb.from('rent_weeks').select('assignment_id,week_start,amount_due,amount_paid,status').gte('week_start', firstWeek),
+    sb.from('rent_weeks').select('assignment_id,week_start,amount_due,amount_paid,status').lt('week_start', thisMon).neq('status', 'Paid'),
+    sb.from('rent_payments').select('car_id,amount,payment_date'),
+    sb.from('car_expenses').select('car_id,amount,category,expense_date'),
+    sb.from('owner_payouts').select('car_id,amount'),
+    sb.from('drivers').select('id').eq('status', 'Pending')
   ]);
-  const c = cars.data || [];
-  const d = drivers.data || [];
-  document.getElementById('s_cars').textContent = c.length;
-  document.getElementById('s_avail').textContent = c.filter(x=>x.status==='Available').length;
-  document.getElementById('s_rented').textContent = c.filter(x=>x.status==='Rented').length;
-  document.getElementById('s_maint').textContent = c.filter(x=>x.status==='Maintenance').length;
-  document.getElementById('s_apps').textContent = d.length;
-  document.getElementById('s_pending').textContent = d.filter(x=>x.status==='Pending').length;
-  document.getElementById('s_assign').textContent = (assignments.data||[]).length;
-  document.getElementById('s_fines').textContent = (fines.data||[]).length;
+  const failed = [carsR, asgR, recentWkR, owingWkR, payR, expR, poR, appsR].filter(r => r && r.error);
+  if(failed.length){
+    console.error('Dashboard: some data could not be loaded', failed.map(r => r.error.message));
+    const n = document.createElement('div');
+    n.style.cssText = 'margin:-.6rem 0 1rem;padding:.6rem .85rem;border-radius:10px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#fca5a5;font-size:.82rem;';
+    n.textContent = 'Some figures could not be loaded just now (' + failed[0].error.message + '). Refresh the page to try again.';
+    const k = document.querySelector('.kpis'); k.parentNode.insertBefore(n, k);
+  }
+  const cars = carsR.data || [], asg = asgR.data || [], recentWk = recentWkR.data || [], owingWk = owingWkR.data || [];
+  const pays = payR.data || [], exps = expR.data || [], pos = poR.data || [], pendingApps = (appsR.data || []).length;
+  const asgById = {}; asg.forEach(a => asgById[a.id] = a);
+  const active = asg.filter(a => a.status === 'Active');
+  const drv = a => a && a.drivers ? (a.drivers.first_name + ' ' + (a.drivers.last_name || '')).trim() : 'Unknown driver';
 
-  // Recent apps
-  const {data:apps} = await window._sb.from('drivers').select('first_name,last_name,email,status,created_at').order('created_at',{ascending:false}).limit(5);
-  const statusBadge = s => s==='Pending'?'badge-yellow':s==='Approved'?'badge-green':'badge-red';
-  document.getElementById('recentApps').innerHTML = (apps||[]).length ? apps.map(a=>`<tr><td>${a.first_name} ${a.last_name}</td><td>${a.email}</td><td><span class="badge ${statusBadge(a.status)}">${a.status}</span></td><td>${new Date(a.created_at).toLocaleDateString('en-AU')}</td></tr>`).join('') : '<tr class="loading-row"><td colspan="4">No applications yet</td></tr>';
+  // ── Shared figures, worked out once ──
+  const thisRows = {}; recentWk.filter(w => w.week_start === thisMon).forEach(w => thisRows[w.assignment_id] = w);
+  const monthGot = sum(pays.filter(p => p.payment_date >= monthStart && p.payment_date <= today), p => p.amount);
+  // Overdue: weeks that have finished and are not fully paid
+  const owing = {};
+  owingWk.forEach(w => {
+    const left = Number(w.amount_due) - Number(w.amount_paid || 0);
+    if(!(left > 0.005)) return;
+    (owing[w.assignment_id] = owing[w.assignment_id] || { amt:0, weeks:0 });
+    owing[w.assignment_id].amt += left; owing[w.assignment_id].weeks += 1;
+  });
+  const owingList = Object.keys(owing).map(id => Object.assign({ a: asgById[id] }, owing[id])).filter(o => o.a)
+                          .sort((x, y) => y.amt - x.amt);
+  const fleet = cars.filter(c => !c.retired_reason);
 
-  // Recent fines
-  const {data:ft} = await window._sb.from('fines_tolls').select('cars(rego),type,amount,status').order('created_at',{ascending:false}).limit(5);
-  document.getElementById('recentFines').innerHTML = (ft||[]).length ? ft.map(f=>`<tr><td>${f.cars?.rego||'—'}</td><td>${f.type}</td><td>$${f.amount}</td><td><span class="badge badge-yellow">${f.status}</span></td></tr>`).join('') : '<tr class="loading-row"><td colspan="4">No fines recorded</td></tr>';
+  // Each panel is drawn on its own, so a problem in one never blanks the others.
+  const panel = (label, fn) => { try { fn(); } catch(e){ console.error('Dashboard — ' + label + ':', e); } };
+
+  panel('this week', () => {
+    const weekGot  = sum(pays.filter(p => p.payment_date >= thisMon && p.payment_date <= today), p => p.amount);
+    const lastWeekGot = sum(pays.filter(p => p.payment_date >= lastMon && p.payment_date < thisMon), p => p.amount);
+    const weekDue = sum(active, a => thisRows[a.id] ? thisRows[a.id].amount_due : a.weekly_rate);
+    document.getElementById('kWeek').textContent = $m(weekGot);
+    const toCome = Math.max(0, weekDue - weekGot);
+    document.getElementById('kWeekNote').innerHTML = 'of <b>' + $m(weekDue) + '</b> due this week'
+        + (toCome > 0 ? ' · <b>' + $m(toCome) + '</b> still to come' : ' · <span class="delta up">all in</span>')
+        + '<br>Last week: <b>' + $m(lastWeekGot) + '</b> received';
+    document.getElementById('kWeekBar').style.width = (weekDue > 0 ? Math.min(100, weekGot / weekDue * 100) : 0) + '%';
+  });
+
+  panel('this month', () => {
+    const prevTotal = sum(pays.filter(p => p.payment_date >= prevStart && p.payment_date < monthStart), p => p.amount);
+    document.getElementById('kMonth').textContent = $m(monthGot);
+    document.getElementById('kMonthNote').innerHTML = 'So far in ' + t.toLocaleDateString('en-AU', {month:'long'})
+        + '<br>' + dParse(prevStart).toLocaleDateString('en-AU', {month:'long'}) + ' total: <b>' + $m(prevTotal) + '</b>';
+  });
+
+  panel('overdue', () => {
+    const overdueTotal = sum(owingList, o => o.amt);
+    document.getElementById('kOverdue').textContent = $m(overdueTotal);
+    document.getElementById('kOverdueBox').classList.toggle('bad', overdueTotal > 0);
+    document.getElementById('kOverdueBox').classList.toggle('good', overdueTotal <= 0);
+    document.getElementById('kOverdueNote').innerHTML = overdueTotal > 0
+        ? '<b>' + owingList.length + '</b> driver' + (owingList.length === 1 ? '' : 's') + ' behind on finished weeks'
+        : 'Everyone is paid up';
+  });
+
+  panel('net', () => {
+    // Rent received less running costs; car purchases are left out.
+    const monthCosts = sum(exps.filter(e => e.expense_date >= monthStart && e.expense_date <= today && (e.category || '') !== 'Purchase Price'), e => e.amount);
+    const net = monthGot - monthCosts;
+    document.getElementById('kNet').textContent = (net < 0 ? '-' : '') + $m(Math.abs(net));
+    document.getElementById('kNetBox').classList.toggle('bad', net < 0);
+    document.getElementById('kNetNote').innerHTML = 'Rent <b>' + $m(monthGot) + '</b> less running costs <b>' + $m(monthCosts) + '</b>';
+  });
+
+  panel('fleet', () => {
+    const n = st => fleet.filter(c => c.status === st).length;
+    const rented = n('Rented'), avail = n('Available'), maint = n('Maintenance');
+    const other = fleet.length - rented - avail - maint;
+    const util = fleet.length ? Math.round(rented / fleet.length * 100) : 0;
+    document.getElementById('fUtil').innerHTML = util + '%<small>earning</small>';
+    document.getElementById('fUtilSub').textContent = rented + ' of ' + fleet.length + ' cars are rented out right now';
+    const segs = [['Rented', rented, '#F5A623'], ['Available', avail, '#4ade80'], ['Maintenance', maint, '#94a3b8']];
+    if(other > 0) segs.push(['Other', other, '#475569']);
+    document.getElementById('fBar').innerHTML = segs.filter(x => x[1] > 0)
+        .map(x => '<i title="' + x[0] + ': ' + x[1] + '" style="flex:' + x[1] + ';background:' + x[2] + '"></i>').join('');
+    document.getElementById('fKey').innerHTML = segs.map(x => '<span><i style="background:' + x[2] + '"></i>' + x[0] + '</span><b>' + x[1] + '</b>').join('');
+    const ot = t2 => fleet.filter(c => ownType(c) === t2).length;
+    document.getElementById('fSplit').innerHTML =
+        '<span><i style="background:' + OWN_COL.biz + '"></i>Business <b>' + ot('biz') + '</b></span>'
+      + '<span><i style="background:' + OWN_COL.inv + '"></i>Investor <b>' + ot('inv') + '</b></span>'
+      + '<span><i style="background:' + OWN_COL.part + '"></i>Partnership <b>' + ot('part') + '</b></span>';
+  });
+
+  panel('weekly rent chart', () => {
+    const weeks = []; for(let i = 11; i >= 0; i--) weeks.push(dAdd(thisMon, -7 * i));
+    const byWeek = weeks.map(ws => {
+      const rows = recentWk.filter(w => w.week_start === ws);
+      return { ws, due: sum(rows, w => w.amount_due), got: sum(rows, w => w.amount_paid) };
+    });
+    drawChart(byWeek, thisMon);
+    const done = byWeek.filter(w => w.ws < thisMon);
+    const dueAll = sum(done, w => w.due), gotAll = sum(done, w => w.got);
+    document.getElementById('chartFoot').innerHTML =
+        '<span>Collected <b>' + (dueAll ? Math.round(gotAll / dueAll * 100) : 0) + '%</b> of rent due over the last 11 finished weeks</span>'
+      + '<span>Average <b>' + $m(done.length ? gotAll / done.length : 0) + '</b> a week</span>';
+  });
+
+  panel('needs attention', () => {
+    const items = [];
+    owingList.forEach(o => {
+      const c = o.a.cars || {};
+      items.push({ cls:'red', ic:'$', href:'rent-tracker.html',
+        t1: drv(o.a) + ' owes rent', t2: (c.rego || '') + ' · ' + o.weeks + ' unpaid week' + (o.weeks === 1 ? '' : 's') + (o.a.status !== 'Active' ? ' · rental ended' : ''),
+        amt: $m(o.amt), sort: 1e9 + o.amt });
+    });
+    // Cars standing idle: available, no active rental, free since the last return
+    fleet.filter(c => c.status === 'Available' && !active.some(a => a.car_id === c.id)).forEach(c => {
+      const ends = asg.filter(a => a.car_id === c.id && a.end_date && a.status !== 'Active').map(a => String(a.end_date).slice(0, 10)).sort();
+      const cands = [];
+      if(ends.length) cands.push(ends[ends.length - 1]);
+      if(c.available_from) cands.push(String(c.available_from).slice(0, 10));
+      const since = cands.length ? cands.sort()[cands.length - 1] : String(c.created_at || today).slice(0, 10);
+      const days = Math.max(0, daysBetween(since, today));
+      if(!(days >= 3)) return;
+      const missed = Number(c.weekly_rate || 0) * days / 7;
+      items.push({ cls:'amber', ic:'⏱', href:'cars.html',
+        t1: (c.rego || 'A car') + ' is free', t2: 'About ' + $m(missed) + ' rent missed · ' + (c.make_model || '') + ' ' + (c.year || ''),
+        amt: days + ' days', sort: 5e8 + days });
+    });
+    // Money still to pay investors and partners
+    cars.filter(c => c.externally_owned).forEach(c => {
+      const inc = sum(pays.filter(p => p.car_id === c.id), p => p.amount);
+      const costs = sum(exps.filter(e => e.car_id === c.id && (e.category || '') !== 'Purchase Price'), e => e.amount);
+      const paid = sum(pos.filter(p => p.car_id === c.id), p => p.amount);
+      const after = inc - costs, feePct = Number(c.service_fee_pct) || 0;
+      const part = c.investor_share_pct != null;
+      let due;
+      if(part){
+        const share = after * Number(c.investor_share_pct) / 100;
+        due = share - ((feePct > 0 && share > 0) ? share * feePct / 100 : 0);
+      } else {
+        due = after - (feePct > 0 ? after * feePct / 100 : 0);
+      }
+      const left = due - paid;
+      if(!(left >= 1)) return;
+      items.push({ cls: part ? 'purple' : 'blue', ic: part ? '⇄' : '↗', href:'finance.html',
+        t1: 'Pay ' + (c.owner_name || 'the investor'), t2: (c.rego || '') + ' · ' + (part ? 'partnership ' + Number(c.investor_share_pct) + '%' : 'investor car'),
+        amt: $m(left), sort: 1e8 + left });
+    });
+    if(pendingApps > 0){
+      items.push({ cls:'amber', ic:'✎', href:'drivers.html',
+        t1: pendingApps + ' driver application' + (pendingApps === 1 ? '' : 's') + ' waiting', t2: 'Most drivers expect an answer within the hour',
+        amt: '', sort: 9e8 });
+    }
+    items.sort((x, y) => y.sort - x.sort);
+    document.getElementById('aCount').textContent = items.length ? items.length + ' item' + (items.length === 1 ? '' : 's') : '';
+    document.getElementById('alerts').innerHTML = items.length
+      ? items.map(i => '<a class="alert ' + i.cls + '" href="' + i.href + '"><span class="ic">' + i.ic + '</span>'
+          + '<span class="tx"><div class="t1">' + esc(i.t1) + '</div><div class="t2">' + esc(i.t2) + '</div></span>'
+          + (i.amt ? '<span class="amt">' + esc(i.amt) + '</span>' : '') + '</a>').join('')
+      : '<div class="all-clear"><b>All clear</b>Nobody owes rent, no car is standing idle, and nothing is waiting.</div>';
+  });
+
+  panel('on the road', () => {
+    const road = active.slice().sort((a, b) => drv(a).localeCompare(drv(b)));
+    document.getElementById('road').innerHTML = road.length ? road.map(a => {
+      const c = a.cars || {}, wk = thisRows[a.id], ow = owing[a.id];
+      let pill;
+      if(ow && ow.amt > 0) pill = '<span class="pill behind"><i></i>Behind ' + $m(ow.amt) + '</span>';
+      else if(wk && wk.status === 'Paid') pill = '<span class="pill paid"><i></i>Paid this week</span>';
+      else if(wk && wk.status === 'Partial') pill = '<span class="pill part"><i></i>Part paid</span>';
+      else pill = '<span class="pill unpaid"><i></i>Due this week</span>';
+      return '<a href="rent-tracker.html"><span class="own" style="background:' + OWN_COL[ownType(c)] + '"></span>'
+        + '<span style="min-width:0"><div class="nm">' + esc(drv(a)) + '</div><div class="car">' + esc((c.rego || '') + ' · ' + (c.make_model || '') + ' ' + (c.year || '')) + (a.start_date ? ' · since ' + shortDate(a.start_date) : '') + '</div></span>'
+        + '<span class="rt"><div class="rate">$' + Number(a.weekly_rate || 0) + '/wk</div>' + pill + '</span></a>';
+    }).join('') : '<div class="road-empty">No cars are out with drivers right now.</div>';
+  });
+}
+
+function drawChart(data, thisMon){
+  const el = document.getElementById('chart');
+  const top = Math.max(1, ...data.map(d => Math.max(d.due, d.got)));
+  const step = top <= 500 ? 100 : top <= 1500 ? 250 : top <= 3000 ? 500 : 1000;
+  const max = Math.ceil(top / step) * step;
+  const plotH = el.clientHeight - 22;
+  let html = '';
+  for(let v = 0; v <= max; v += step * (max / step > 4 ? 2 : 1)){
+    const y = plotH - (v / max) * plotH;
+    html += '<div class="grid" style="top:' + y + 'px"></div><div class="tick" style="top:' + y + 'px">' + (v >= 1000 ? '$' + (v / 1000) + 'k' : '$' + v) + '</div>';
+  }
+  html += '<div class="cols">' + data.map((d, i) =>
+      '<div class="col' + (d.ws === thisMon ? ' now' : '') + '" data-i="' + i + '">'
+    + '<span class="due" style="height:' + (d.due / max * 100) + '%"></span>'
+    + '<span class="got" style="height:' + (d.got / max * 100) + '%"></span>'
+    + '<span class="lbl">' + shortDate(d.ws) + '</span></div>').join('') + '</div>'
+    + '<div class="tip" id="tip"></div>';
+  el.innerHTML = html;
+  const tip = document.getElementById('tip');
+  const show = col => {
+    el.querySelectorAll('.col.on').forEach(c => c.classList.remove('on'));
+    if(!col){ tip.style.display = 'none'; return; }
+    col.classList.add('on');
+    const d = data[+col.dataset.i], short = d.due - d.got;
+    tip.innerHTML = '<b>Week of ' + shortDate(d.ws) + (d.ws === thisMon ? ' (this week)' : '') + '</b>'
+      + '<div class="row"><span>Due</span><em>' + $m(d.due) + '</em></div>'
+      + '<div class="row"><span>Collected</span><em>' + $m(d.got) + '</em></div>'
+      + (short > 0.5 ? '<div class="row"><span>' + (d.ws === thisMon ? 'Still to come' : 'Short') + '</span><em>' + $m(short) + '</em></div>' : '');
+    tip.style.display = 'block';
+    const r = col.getBoundingClientRect(), pr = el.getBoundingClientRect();
+    let x = r.left - pr.left + r.width / 2 - tip.offsetWidth / 2;
+    x = Math.max(0, Math.min(x, el.clientWidth - tip.offsetWidth));
+    tip.style.left = x + 'px'; tip.style.top = '0px';
+  };
+  el.querySelectorAll('.col').forEach(c => {
+    c.addEventListener('mouseenter', () => show(c));
+    c.addEventListener('click', e => { e.stopPropagation(); show(c.classList.contains('on') ? null : c); });
+  });
+  el.addEventListener('mouseleave', () => show(null));
+  document.addEventListener('click', () => show(null));
 }
 </script>
 
