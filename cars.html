@@ -323,8 +323,27 @@ tr:hover td{background:rgba(255,255,255,.03);}
 .own-tag{display:inline-block;font-size:.62rem;font-weight:800;text-transform:uppercase;
   letter-spacing:.4px;padding:.22rem .55rem;border-radius:100px;white-space:nowrap;}
 .own-ext{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.45);color:#60a5fa;}
-.own-biz{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.45);}
+/* Ownership colours, used the same way everywhere:
+   gold = business, blue = investor, purple = partnership */
+.own-biz{background:rgba(245,166,35,.14);border:1px solid rgba(245,166,35,.5);color:#F5A623;}
 .own-part{background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.5);color:#a78bfa;}
+.own-cell{display:inline-flex;flex-direction:column;align-items:flex-start;gap:.25rem;}
+.own-who{font-size:.72rem;font-weight:600;color:rgba(255,255,255,.75);line-height:1.3;}
+.own-who small{display:block;font-size:.66rem;font-weight:500;color:rgba(255,255,255,.42);}
+tr.own-row-biz  td:first-child{box-shadow:inset 3px 0 0 #F5A623;}
+tr.own-row-inv  td:first-child{box-shadow:inset 3px 0 0 #60a5fa;}
+tr.own-row-part td:first-child{box-shadow:inset 3px 0 0 #a78bfa;}
+.own-legend{display:flex;flex-wrap:wrap;gap:.9rem;align-items:center;font-size:.74rem;color:rgba(255,255,255,.6);margin-top:.35rem;}
+.own-legend span{display:inline-flex;align-items:center;gap:.4rem;white-space:nowrap;}
+.own-legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+.own-legend b{color:#fff;font-weight:700;}
+@media(max-width:768px){
+  .table-wrap table tbody tr.own-row-biz {border-left:4px solid #F5A623!important;}
+  .table-wrap table tbody tr.own-row-inv {border-left:4px solid #60a5fa!important;}
+  .table-wrap table tbody tr.own-row-part{border-left:4px solid #a78bfa!important;}
+  tr.own-row-biz td:first-child,tr.own-row-inv td:first-child,tr.own-row-part td:first-child{box-shadow:none;}
+  .own-cell{align-items:flex-end;text-align:right;}
+}
 .share-split{font-size:.8rem;color:rgba(255,255,255,.55);margin-top:.45rem;line-height:1.45;}
 .share-split b{color:#a78bfa;}
 .retire-intro{font-size:.82rem;color:rgba(255,255,255,.45);line-height:1.5;margin:-.3rem 0 1rem;}
@@ -380,9 +399,12 @@ tr:hover td{background:rgba(255,255,255,.03);}
 
     <div class="table-wrap">
       <div class="table-header">
-        <div class="table-title">Fleet</div>
+        <div>
+          <div class="table-title">Fleet</div>
+          <div class="own-legend" id="ownLegend"></div>
+        </div>
         <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
-          <input class="search-input" placeholder="Search by rego or model..." oninput="filterCars(this.value)">
+          <input class="search-input" placeholder="Search rego, model or name..." oninput="filterCars(this.value)">
           <select class="search-input" style="min-width:140px;" onchange="filterByStatus(this.value)">
             <option value="">All Status</option>
             <option>Available</option><option>Rented</option><option>Maintenance</option>
@@ -1197,6 +1219,20 @@ function renderCars(cars) {
     return;
   }
   const badge = s => s === 'Available' ? 'badge-green' : s === 'Rented' ? 'badge-yellow' : 'badge-red';
+  const ownerCell = c => {
+    const t = ownType(c);
+    const fee = c.service_fee_pct ? `<small>${c.service_fee_pct}% service fee</small>` : '';
+    if (t === 'part') {
+      const inv = Number(c.investor_share_pct), biz = Math.round((100 - inv) * 10) / 10;
+      return `<div class="own-cell"><span class="own-tag own-part">Partnership</span>`
+           + `<div class="own-who">${escHtml(c.owner_name || 'Investor name not added')} ${inv}% · Ozee ${biz}%${fee}</div></div>`;
+    }
+    if (t === 'inv') {
+      return `<div class="own-cell"><span class="own-tag own-ext">Investor</span>`
+           + `<div class="own-who">${escHtml(c.owner_name || 'Investor name not added')}${fee}</div></div>`;
+    }
+    return `<div class="own-cell"><span class="own-tag own-biz">Business</span><div class="own-who">Ozee Rentals</div></div>`;
+  };
   const rowFor = c => {
     const photos = (Array.isArray(c.photo_urls) && c.photo_urls.length) ? c.photo_urls : (c.photo_url ? [c.photo_url] : []);
     const thumb = photos.length
@@ -1204,16 +1240,12 @@ function renderCars(cars) {
       : `<div style="width:52px;height:52px;background:rgba(255,255,255,.05);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🚗</div>`;
     const more = photos.length>1 ? `<div style="font-size:.65rem;color:rgba(255,255,255,.4);margin-top:2px;">+${photos.length-1} more</div>` : '';
     return `
-    <tr>
+    <tr class="own-row own-row-${ownType(c)}">
       <td data-mob="Photo">${thumb}${more}</td>
       <td data-mob="Rego"><strong>${c.rego}</strong>${c.retired_reason ? `<span class="retired-tag">${c.retired_reason}</span>` : ''}</td>
       <td data-mob="Make & Model">${c.make_model}</td>
       <td data-mob="Year">${c.year}</td>
-      <td data-mob="Owner">${c.externally_owned && c.investor_share_pct != null
-        ? `<span class="own-tag own-part">Partnership ${Math.round((100 - Number(c.investor_share_pct)) * 10) / 10}/${Number(c.investor_share_pct)}</span><div style="font-size:.62rem;color:rgba(255,255,255,.4);margin-top:.2rem;">${c.owner_name ? c.owner_name : 'Investor'}${c.service_fee_pct ? ' · ' + c.service_fee_pct + '% fee' : ''}</div>`
-        : c.externally_owned
-        ? `<span class="own-tag own-ext">${c.owner_name ? c.owner_name : 'Investor'}</span>${c.service_fee_pct ? `<div style="font-size:.62rem;color:rgba(255,255,255,.4);margin-top:.2rem;">${c.service_fee_pct}% fee</div>` : ''}`
-        : `<span class="own-tag own-biz">Business</span>`}</td>
+      <td data-mob="Owner">${ownerCell(c)}</td>
       <td data-mob="Category">${c.category || '—'}</td>
       <td data-mob="Suitable For">${(c.suitable_for || []).map(t => `<span class="badge badge-blue" style="margin:1px 2px;font-size:.6rem;">${t}</span>`).join('')||'—'}</td>
       <td data-mob="Rate/Week"><strong style="color:#F5A623;">$${c.weekly_rate}/wk</strong></td>
@@ -1228,8 +1260,9 @@ function renderCars(cars) {
 
   // Vehicles that have left the fleet sit in their own section underneath, so
   // the working list is only the cars actually on the road.
-  const active  = cars.filter(c => !c.retired_reason);
-  const retired = cars.filter(c =>  c.retired_reason);
+  // Newest model year first in both sections.
+  const active  = cars.filter(c => !c.retired_reason).sort(byYearDesc);
+  const retired = cars.filter(c =>  c.retired_reason).sort(byYearDesc);
 
   let html = active.length
         ? active.map(rowFor).join('')
@@ -1241,9 +1274,35 @@ function renderCars(cars) {
           + retired.map(rowFor).join('');
   }
   tb.innerHTML = html;
+  renderOwnLegend();
 }
 
-function filterCars(q) { renderCars(allCars.filter(c => (c.rego + c.make_model).toLowerCase().includes(q.toLowerCase()))); }
+// Ownership type of a car: 'biz' (business), 'inv' (investor) or 'part' (partnership).
+function ownType(c){
+  return !c.externally_owned ? 'biz' : (c.investor_share_pct != null ? 'part' : 'inv');
+}
+// Newest model year first; within a year by make and model, then rego.
+function byYearDesc(a, b){
+  return (Number(b.year) || 0) - (Number(a.year) || 0)
+      || String(a.make_model || '').localeCompare(String(b.make_model || ''))
+      || String(a.rego || '').localeCompare(String(b.rego || ''));
+}
+function escHtml(t){
+  return String(t).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+// Colour key with how many cars of each type are in the whole fleet.
+function renderOwnLegend(){
+  const el = document.getElementById('ownLegend');
+  if (!el) return;
+  const all = allCars || [];
+  const n = t => all.filter(c => ownType(c) === t).length;
+  el.innerHTML =
+      `<span><i style="background:#F5A623"></i>Business <b>${n('biz')}</b></span>`
+    + `<span><i style="background:#60a5fa"></i>Investor <b>${n('inv')}</b></span>`
+    + `<span><i style="background:#a78bfa"></i>Partnership <b>${n('part')}</b></span>`;
+}
+
+function filterCars(q) { renderCars(allCars.filter(c => (c.rego + ' ' + c.make_model + ' ' + (c.year || '') + ' ' + (c.owner_name || '')).toLowerCase().includes(q.toLowerCase()))); }
 function filterByStatus(s) { renderCars(s ? allCars.filter(c => c.status === s) : allCars); }
 
 function editCar(id) {
