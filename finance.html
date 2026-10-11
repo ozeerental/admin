@@ -46,13 +46,15 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 .car-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:1.2rem;cursor:pointer;transition:all .2s;}
 .car-card:hover{border-color:#F5A623;background:rgba(245,166,35,.05);}
 .car-card.active{border-color:#F5A623;background:rgba(245,166,35,.08);}
-.cc-name{font-family:"Barlow Condensed",sans-serif;font-size:1.15rem;font-weight:800;text-transform:uppercase;margin-bottom:.15rem;}
-.cc-rego{font-size:.98rem;font-weight:800;color:rgba(255,255,255,.88);letter-spacing:2px;margin-bottom:.8rem;font-variant-numeric:tabular-nums;}
+.cc-name{font-family:"Barlow Condensed",sans-serif;font-size:1.15rem;font-weight:800;text-transform:uppercase;margin-bottom:.15rem;color:#fff;}
+/* Three different looks: car name in white, rego as a number plate, driver in teal */
+.cc-rego{display:inline-block;font-size:.95rem;font-weight:800;color:#0b0f14;background:#F4F5F7;border:1px solid rgba(255,255,255,.6);
+  border-radius:5px;padding:.08rem .5rem;letter-spacing:2px;margin:.2rem 0 .8rem;font-variant-numeric:tabular-nums;box-shadow:inset 0 0 0 2px #F4F5F7,inset 0 0 0 3px rgba(11,15,20,.25);}
 .cc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.8rem;}
 .cc-head-main{min-width:0;flex:1;}
 .cc-driver{flex:0 1 44%;text-align:right;padding-top:.15rem;min-width:0;}
 .cc-driver small{display:block;font-size:.6rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.2rem;}
-.cc-driver b{display:block;font-size:.95rem;font-weight:700;color:#fff;line-height:1.25;overflow-wrap:anywhere;}
+.cc-driver b{display:block;font-size:.95rem;font-weight:700;color:#5eead4;line-height:1.25;overflow-wrap:anywhere;}
 .cc-driver.none b{color:rgba(255,255,255,.35);font-weight:600;}
 .cc-row{display:flex;justify-content:space-between;font-size:.82rem;padding:.25rem 0;color:rgba(255,255,255,.6);}
 .cc-row b{color:#fff;}
