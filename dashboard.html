@@ -292,8 +292,22 @@ tr:hover td{background:rgba(255,255,255,.03);}
 .panel-link:hover{text-decoration:underline;}
 .panel-sub{font-size:.78rem;color:rgba(255,255,255,.45);}
 
-/* KPI row */
-.kpis{display:grid;grid-template-columns:1.35fr 1fr 1fr 1fr;gap:1rem;margin-bottom:1rem;}
+/* KPI row — this week and overdue side by side, the two monthly figures stacked */
+.kpis{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.3fr) minmax(0,1fr);grid-template-areas:"week over month" "week over net";gap:1rem;margin-bottom:1rem;}
+#kWeekBox{grid-area:week;} #kOverdueBox{grid-area:over;} #kMonthBox{grid-area:month;} #kNetBox{grid-area:net;}
+.wk-figs{display:flex;align-items:flex-end;gap:.6rem 1.6rem;flex-wrap:wrap;}
+.wk-cap{font-size:.68rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.45);margin-top:.3rem;}
+.kpi.hero .kpi-val.wk-paid{font-size:2.4rem;color:#fff;}
+.od-list{display:flex;flex-direction:column;gap:.45rem;margin-top:.85rem;}
+.od{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.7rem;padding:.6rem .75rem;border-radius:10px;
+  background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.18);text-decoration:none;color:#fff;transition:border-color .2s;}
+.od:hover{border-color:rgba(248,113,113,.5);}
+.od .nm{font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.od .sub{font-size:.74rem;color:rgba(255,255,255,.5);margin-top:.08rem;line-height:1.35;}
+.od .amt{font-family:"Barlow Condensed",sans-serif;font-size:1.2rem;font-weight:800;color:#f87171;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.od-more{font-size:.76rem;color:rgba(255,255,255,.5);text-decoration:none;padding:.1rem .2rem;}
+.od-more:hover{color:#F5A623;}
+.od-caught{font-size:.76rem;color:#4ade80;margin-top:.7rem;}
 .kpi{position:relative;overflow:hidden;}
 .kpi-label{font-size:.68rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.5);}
 .kpi-val{font-family:"Barlow Condensed",sans-serif;font-size:2.4rem;font-weight:900;line-height:1;margin-top:.55rem;letter-spacing:-.5px;font-variant-numeric:tabular-nums;}
@@ -388,12 +402,26 @@ tr:hover td{background:rgba(255,255,255,.03);}
 .road-empty{color:rgba(255,255,255,.45);font-size:.88rem;padding:1rem 0;}
 .loading{color:rgba(255,255,255,.35);font-style:italic;font-size:.85rem;padding:.5rem 0;}
 
+/* Overpaid investors & partners */
+.over-panel{margin-top:1rem;}
+.over-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.6rem;}
+.over{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.85rem;padding:.8rem .9rem;border-radius:11px;
+  background:rgba(248,113,113,.05);border:1px solid rgba(248,113,113,.2);text-decoration:none;color:#fff;transition:border-color .2s;}
+.over:hover{border-color:rgba(248,113,113,.5);}
+.over .own{width:4px;height:38px;border-radius:4px;}
+.over .nm{font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.over .sub{font-size:.76rem;color:rgba(255,255,255,.5);margin-top:.1rem;line-height:1.35;}
+.over .rt{text-align:right;}
+.over .amt{font-family:"Barlow Condensed",sans-serif;font-size:1.3rem;font-weight:800;color:#f87171;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.over .lbl{font-size:.62rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:rgba(248,113,113,.8);}
+.over-ok{padding:1rem;text-align:center;color:rgba(255,255,255,.5);font-size:.88rem;border:1px dashed rgba(255,255,255,.12);border-radius:11px;}
+.over-ok b{color:#4ade80;}
 @media(max-width:1100px){
-  .kpis{grid-template-columns:1fr 1fr;grid-auto-flow:dense;}
-  .kpi.hero,#kOverdueBox{grid-column:1/-1;}
+  .kpis{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"week week" "over over" "month net";}
   .row2,.row2b{grid-template-columns:1fr;}
 }
 @media(max-width:600px){
+  .over-list{grid-template-columns:1fr;}
   .dash-head{align-items:flex-start;}
   .quick{width:100%;}
   .quick a{flex:1 1 auto;justify-content:center;padding:.7rem .6rem;}
@@ -401,6 +429,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
   .panel{padding:1rem;}
   .kpi-val{font-size:1.9rem;}
   .kpi.hero .kpi-val{font-size:2.9rem;}
+  .kpi.hero .kpi-val.wk-paid{font-size:2rem;}
   .chart{padding-left:34px;}
   .chart .grid,.cols{left:34px;}
   .chart .tick{width:30px;}
@@ -454,21 +483,25 @@ tr:hover td{background:rgba(255,255,255,.03);}
 
 <!-- MONEY -->
 <div class="kpis">
-  <div class="panel kpi hero">
-    <div class="kpi-label">Rent received this week</div>
-    <div class="kpi-val" id="kWeek">—</div>
-    <div class="kpi-note" id="kWeekNote">&nbsp;</div>
+  <div class="panel kpi hero" id="kWeekBox">
+    <div class="kpi-label">Rent for this week</div>
+    <div class="wk-figs">
+      <div><div class="kpi-val" id="kWeekExp">—</div><div class="wk-cap">Expected</div></div>
+      <div><div class="kpi-val wk-paid" id="kWeek">—</div><div class="wk-cap">Paid so far</div></div>
+    </div>
     <div class="meter"><i id="kWeekBar" style="width:0%"></i></div>
-  </div>
-  <div class="panel kpi">
-    <div class="kpi-label">Received this month</div>
-    <div class="kpi-val" id="kMonth">—</div>
-    <div class="kpi-note" id="kMonthNote">&nbsp;</div>
+    <div class="kpi-note" id="kWeekNote">&nbsp;</div>
   </div>
   <div class="panel kpi" id="kOverdueBox">
     <div class="kpi-label">Overdue rent</div>
     <div class="kpi-val" id="kOverdue">—</div>
     <div class="kpi-note" id="kOverdueNote">&nbsp;</div>
+    <div class="od-list" id="odList"></div>
+  </div>
+  <div class="panel kpi" id="kMonthBox">
+    <div class="kpi-label">Received this month</div>
+    <div class="kpi-val" id="kMonth">—</div>
+    <div class="kpi-note" id="kMonthNote">&nbsp;</div>
   </div>
   <div class="panel kpi" id="kNetBox">
     <div class="kpi-label">Net this month so far</div>
@@ -509,6 +542,15 @@ tr:hover td{background:rgba(255,255,255,.03);}
   </div>
 </div>
 
+<!-- OVERPAID INVESTORS & PARTNERS -->
+<div class="panel over-panel">
+  <div class="panel-head">
+    <div><div class="panel-title">Investors &amp; partners paid ahead</div><div class="panel-sub">Advance, upfront or extra payments that are more than their share of the rent so far</div></div>
+    <a class="panel-link" href="finance.html">Car Finance &rsaquo;</a>
+  </div>
+  <div class="over-list" id="overList"><div class="loading">Checking…</div></div>
+</div>
+
 <script>
 // ── Dates are worked out in local time. toISOString() would shift them to UTC
 //    and put Monday mornings in Newcastle into the previous week.
@@ -543,15 +585,33 @@ async function loadStats(){
   document.getElementById('dDate').textContent = t.toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long', year:'numeric'})
       + ' · rent week ' + shortDate(thisMon) + ' – ' + shortDate(dAdd(thisMon, 6));
 
+  // Supabase hands back at most 1,000 rows per request, so the all-time lists
+  // are read page by page. Otherwise, once there are more than 1,000 rent
+  // payments, totals would quietly leave some out. (Read only — nothing is written.)
+  const readAll = async (make) => {
+    const all = [], seen = new Set();
+    for(let from = 0; from < 500000; ){
+      const r = await make().order('id', { ascending: true }).range(from, from + 999);
+      if(r.error) return r;
+      const got = r.data || [];
+      const fresh = got.filter(x => !seen.has(x.id));          // never count a row twice
+      fresh.forEach(x => seen.add(x.id));
+      all.push(...fresh);
+      if(!fresh.length) break;
+      from += got.length;
+    }
+    return { data: all, error: null };
+  };
+
   const [carsR, asgR, recentWkR, owingWkR, payR, expR, poR, appsR] = await Promise.all([
     // '*' on purpose: the page keeps working whichever optional columns have been added so far.
     sb.from('cars').select('*'),
     sb.from('car_assignments').select('*,cars(*),drivers(first_name,last_name)'),
-    sb.from('rent_weeks').select('assignment_id,week_start,amount_due,amount_paid,status').gte('week_start', firstWeek),
+    sb.from('rent_weeks').select('id,assignment_id,week_start,amount_due,amount_paid,status').gte('week_start', firstWeek),
     sb.from('rent_weeks').select('assignment_id,week_start,amount_due,amount_paid,status').lt('week_start', thisMon).neq('status', 'Paid'),
-    sb.from('rent_payments').select('car_id,amount,payment_date'),
-    sb.from('car_expenses').select('car_id,amount,category,expense_date'),
-    sb.from('owner_payouts').select('car_id,amount'),
+    readAll(() => sb.from('rent_payments').select('id,car_id,amount,payment_date,rent_week_id')),
+    readAll(() => sb.from('car_expenses').select('id,car_id,amount,category,expense_date')),
+    readAll(() => sb.from('owner_payouts').select('id,car_id,amount,payout_date')),
     sb.from('drivers').select('id').eq('status', 'Pending')
   ]);
   const failed = [carsR, asgR, recentWkR, owingWkR, payR, expR, poR, appsR].filter(r => r && r.error);
@@ -576,8 +636,11 @@ async function loadStats(){
   owingWk.forEach(w => {
     const left = Number(w.amount_due) - Number(w.amount_paid || 0);
     if(!(left > 0.005)) return;
-    (owing[w.assignment_id] = owing[w.assignment_id] || { amt:0, weeks:0 });
-    owing[w.assignment_id].amt += left; owing[w.assignment_id].weeks += 1;
+    (owing[w.assignment_id] = owing[w.assignment_id] || { amt:0, weeks:0, oldest:w.week_start, part:false });
+    const o = owing[w.assignment_id];
+    o.amt += left; o.weeks += 1;
+    if(w.week_start < o.oldest) o.oldest = w.week_start;
+    if(Number(w.amount_paid || 0) > 0) o.part = true;
   });
   const owingList = Object.keys(owing).map(id => Object.assign({ a: asgById[id] }, owing[id])).filter(o => o.a)
                           .sort((x, y) => y.amt - x.amt);
@@ -586,16 +649,52 @@ async function loadStats(){
   // Each panel is drawn on its own, so a problem in one never blanks the others.
   const panel = (label, fn) => { try { fn(); } catch(e){ console.error('Dashboard — ' + label + ':', e); } };
 
+  // ── Rent for one week only ──
+  // Taken from that week's rent records, so a late payment for an earlier week
+  // never counts here, even when it is paid this week (it is in Overdue rent
+  // until it is paid). A driver whose week the Rent Tracker has not set up yet
+  // counts at the same amount the Rent Tracker will set: the weekly rate, or
+  // the part-week / agreed first-week amount in the week the car went out.
+  const firstWeekDue = a => {
+    if(!a.start_date) return Number(a.weekly_rate) || 0;
+    const startMon = mondayISO(dParse(a.start_date));
+    if(startMon > thisMon) return 0;                               // starts after this week
+    const days = 7 - ((dParse(a.start_date).getDay() + 6) % 7);    // Mon→7 … Sun→1
+    if(startMon === thisMon && days < 7){
+      if(a.first_week_amount != null && a.first_week_amount !== '') return Number(a.first_week_amount) || 0;
+      return Math.round((Number(a.weekly_rate) || 0) / 7 * days * 100) / 100;
+    }
+    return Number(a.weekly_rate) || 0;
+  };
+  const weekRent = (ws) => {
+    const rows = recentWk.filter(w => w.week_start === ws && asgById[w.assignment_id]);
+    const per = {};                                                  // assignment → { due, paid }
+    rows.forEach(w => {
+      const x = per[w.assignment_id] = per[w.assignment_id] || { due:0, paid:0 };
+      x.due += Number(w.amount_due) || 0; x.paid += Math.min(Number(w.amount_paid) || 0, Number(w.amount_due) || 0);
+    });
+    if(ws === thisMon) active.forEach(a => {
+      if(per[a.id]) return;
+      const due = firstWeekDue(a);
+      if(due > 0) per[a.id] = { due, paid:0 };
+    });
+    const list = Object.values(per);
+    return { due: sum(list, x => x.due), paid: sum(list, x => x.paid),
+             left: list.filter(x => x.due - x.paid > 0.005).length, drivers: list.length };
+  };
+
   panel('this week', () => {
-    const weekGot  = sum(pays.filter(p => p.payment_date >= thisMon && p.payment_date <= today), p => p.amount);
-    const lastWeekGot = sum(pays.filter(p => p.payment_date >= lastMon && p.payment_date < thisMon), p => p.amount);
-    const weekDue = sum(active, a => thisRows[a.id] ? thisRows[a.id].amount_due : a.weekly_rate);
-    document.getElementById('kWeek').textContent = $m(weekGot);
-    const toCome = Math.max(0, weekDue - weekGot);
-    document.getElementById('kWeekNote').innerHTML = 'of <b>' + $m(weekDue) + '</b> due this week'
-        + (toCome > 0 ? ' · <b>' + $m(toCome) + '</b> still to come' : ' · <span class="delta up">all in</span>')
-        + '<br>Last week: <b>' + $m(lastWeekGot) + '</b> received';
-    document.getElementById('kWeekBar').style.width = (weekDue > 0 ? Math.min(100, weekGot / weekDue * 100) : 0) + '%';
+    const wk = weekRent(thisMon), last = weekRent(lastMon);
+    const toCome = Math.max(0, wk.due - wk.paid);
+    document.getElementById('kWeekExp').textContent = $m(wk.due);
+    document.getElementById('kWeek').textContent = $m(wk.paid);
+    document.getElementById('kWeekNote').innerHTML =
+        (wk.drivers === 0 ? 'No rent is due this week'
+          : toCome > 0.5 ? '<b>' + $m(toCome) + '</b> still to come from <b>' + wk.left + '</b> driver' + (wk.left === 1 ? '' : 's')
+          : '<span class="delta up">All paid for this week</span>')
+      + '<br>Last week: <b>' + $m(last.paid) + '</b> of ' + $m(last.due) + ' paid'
+      + (last.due - last.paid > 0.5 ? ' · the rest is in Overdue rent' : '');
+    document.getElementById('kWeekBar').style.width = (wk.due > 0 ? Math.min(100, wk.paid / wk.due * 100) : 0) + '%';
   });
 
   panel('this month', () => {
@@ -606,13 +705,38 @@ async function loadStats(){
   });
 
   panel('overdue', () => {
+    // A driver is overdue once a rent week has finished (Sunday has passed) and
+    // it is not fully paid — that is, they are a week or more late.
     const overdueTotal = sum(owingList, o => o.amt);
     document.getElementById('kOverdue').textContent = $m(overdueTotal);
     document.getElementById('kOverdueBox').classList.toggle('bad', overdueTotal > 0);
     document.getElementById('kOverdueBox').classList.toggle('good', overdueTotal <= 0);
     document.getElementById('kOverdueNote').innerHTML = overdueTotal > 0
-        ? '<b>' + owingList.length + '</b> driver' + (owingList.length === 1 ? '' : 's') + ' behind on finished weeks'
+        ? '<b>' + owingList.length + '</b> driver' + (owingList.length === 1 ? ' is' : 's are') + ' a week or more late'
         : 'Everyone is paid up';
+    const SHOW = 6;
+    let html = owingList.slice(0, SHOW).map(o => {
+      const c = o.a.cars || {};
+      const late = o.weeks === 1
+          ? 'week of ' + shortDate(o.oldest) + (o.part ? ' part paid' : ' unpaid')
+          : o.weeks + ' weeks unpaid since ' + shortDate(o.oldest);
+      return '<a class="od" href="rent-tracker.html"><span style="min-width:0">'
+        + '<div class="nm">' + esc(drv(o.a)) + '</div>'
+        + '<div class="sub">' + esc((c.rego ? c.rego + ' · ' : '') + late + (o.a.status !== 'Active' ? ' · rental ended' : '')) + '</div></span>'
+        + '<span class="amt">' + $m(o.amt) + '</span></a>';
+    }).join('');
+    if(owingList.length > SHOW){
+      const rest = owingList.slice(SHOW);
+      html += '<a class="od-more" href="rent-tracker.html">+ ' + rest.length + ' more driver' + (rest.length === 1 ? '' : 's')
+            + ' owing ' + $m(sum(rest, o => o.amt)) + ' — see Rent Tracker ›</a>';
+    }
+    // Late rent that came in this week (paid this week for an earlier week).
+    // It is not counted in this week's rent, so it is shown here instead.
+    const weekById = {}; recentWk.forEach(w => weekById[w.id] = w.week_start);
+    const caught = sum(pays.filter(p => p.rent_week_id && p.payment_date >= thisMon && p.payment_date <= today
+                                     && !(weekById[p.rent_week_id] >= thisMon)), p => p.amount);
+    if(caught > 0.5) html += '<div class="od-caught">✓ ' + $m(caught) + ' of late rent for earlier weeks was paid this week</div>';
+    document.getElementById('odList').innerHTML = html;
   });
 
   panel('net', () => {
@@ -711,6 +835,45 @@ async function loadStats(){
           + '<span class="tx"><div class="t1">' + esc(i.t1) + '</div><div class="t2">' + esc(i.t2) + '</div></span>'
           + (i.amt ? '<span class="amt">' + esc(i.amt) + '</span>' : '') + '</a>').join('')
       : '<div class="all-clear"><b>All clear</b>Nobody owes rent, no car is standing idle, and nothing is waiting.</div>';
+  });
+
+  panel('overpaid', () => {
+    // Same sums as the settlement in Car Finance: rent, less running costs,
+    // their share (and service fee), less what has been paid to them.
+    // Every payment recorded to them counts, so an advance or upfront payment
+    // shows here for as long as it is more than the share they have earned.
+    const rows = [];
+    cars.filter(c => c.externally_owned).forEach(c => {
+      const inc = sum(pays.filter(p => p.car_id === c.id), p => p.amount);
+      const costs = sum(exps.filter(e => e.car_id === c.id && (e.category || '') !== 'Purchase Price'), e => e.amount);
+      const mine = pos.filter(p => p.car_id === c.id);
+      const paid = sum(mine, p => p.amount);
+      if(!(paid > 0)) return;                                   // only people who have been paid something
+      const lastPaid = mine.map(p => String(p.payout_date || '').slice(0, 10)).filter(Boolean).sort().pop() || null;
+      const after = inc - costs, feePct = Number(c.service_fee_pct) || 0;
+      const part = c.investor_share_pct != null;
+      let due;
+      if(part){
+        const share = after * Number(c.investor_share_pct) / 100;
+        due = share - ((feePct > 0 && share > 0) ? share * feePct / 100 : 0);
+      } else {
+        due = after - (feePct > 0 ? after * feePct / 100 : 0);
+      }
+      const over = paid - due;
+      if(!(over >= 1)) return;
+      rows.push({ c, part, due, paid, over, lastPaid });
+    });
+    rows.sort((a, b) => b.over - a.over);
+    const total = sum(rows, r => Math.round(r.over));          // adds up exactly to the rows shown
+    document.getElementById('overList').innerHTML = rows.length
+      ? rows.map(r => '<a class="over" href="finance.html"><span class="own" style="background:' + (r.part ? OWN_COL.part : OWN_COL.inv) + '"></span>'
+          + '<span style="min-width:0"><div class="nm">' + esc(r.c.owner_name || 'Owner not named') + '</div>'
+          + '<div class="sub">' + esc((r.c.rego || '') + ' · ' + (r.part ? 'partnership ' + Number(r.c.investor_share_pct) + '%' : 'investor car')
+              + (r.lastPaid ? ' · last paid ' + shortDate(r.lastPaid) : '')) + '</div>'
+          + '<div class="sub">Paid ' + $m(r.paid) + ' · their share so far ' + (r.due < 0 ? '-' : '') + $m(Math.abs(r.due)) + '</div></span>'
+          + '<span class="rt"><div class="amt">' + $m(r.over) + '</div><div class="lbl">paid ahead</div></span></a>').join('')
+        + (rows.length > 1 ? '<div class="panel-sub" style="grid-column:1/-1;text-align:right">Total paid ahead: <b style="color:#f87171">' + $m(total) + '</b></div>' : '')
+      : '<div class="over-ok"><b>All payouts are correct.</b> No investor or partner has been paid more than their share, and no advance is outstanding.</div>';
   });
 
   panel('on the road', () => {
