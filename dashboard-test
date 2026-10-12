@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Initialize Supabase immediately when script loads
+var PROJ='tbhqamcuewycaqertpba';
+
+window._sb = window.supabase.createClient('https://'+PROJ+'.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaHFhbWN1ZXd5Y2FxZXJ0cGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NjA1OTQsImV4cCI6MjA5MzIzNjU5NH0.EPUMyCFVLpCn2omxMtDOASANEz4vAqECxs6Y2_hs96U');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Ozee Rentals Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:100vh;display:flex;flex-direction:column;}
+/* TOPBAR */
+.topbar{background:#07101e;border-bottom:1px solid rgba(245,166,35,.15);padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:200;}
+.topbar img{height:36px;filter:brightness(0) invert(1);}
+.topbar-right{display:flex;align-items:center;gap:1rem;}
+.topbar-user{font-size:.82rem;color:rgba(255,255,255,.5);}
+.topbar-logout{font-size:.78rem;color:#F5A623;text-decoration:none;letter-spacing:1px;text-transform:uppercase;padding:.4rem .9rem;border:1px solid rgba(245,166,35,.3);transition:all .2s;}
+.topbar-logout:hover{background:rgba(245,166,35,.1);}
+/* LAYOUT */
+.app{display:flex;flex:1;}
+/* SIDEBAR */
+.sidebar{width:220px;background:#07101e;border-right:1px solid rgba(255,255,255,.06);padding:1.5rem 0;flex-shrink:0;}
+.sidebar-nav{list-style:none;}
+.sidebar-nav li a{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.5rem;color:rgba(255,255,255,.5);text-decoration:none;font-size:.88rem;font-weight:600;letter-spacing:.5px;transition:all .2s;border-left:3px solid transparent;}
+.sidebar-nav li a:hover{color:#fff;background:rgba(255,255,255,.04);}
+.sidebar-nav li a.active{color:#F5A623;background:rgba(245,166,35,.08);border-left-color:#F5A623;}
+.sidebar-nav li a .s-icon{font-size:1.1rem;width:20px;text-align:center;}
+.sidebar-divider{margin:1rem 1.5rem;border:none;border-top:1px solid rgba(255,255,255,.06);}
+/* MAIN */
+.main{flex:1;padding:2rem;overflow-y:auto;}
+.page-title{font-family:"Barlow Condensed",sans-serif;font-size:2.2rem;font-weight:900;text-transform:uppercase;letter-spacing:-1px;margin-bottom:.3rem;}
+.page-title span{color:#F5A623;}
+.page-sub{color:rgba(255,255,255,.4);font-size:.88rem;margin-bottom:2rem;}
+/* CARDS */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem;}
+.stat-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:1.5rem;position:relative;overflow:hidden;}
+.stat-card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#F5A623,#D4880A);}
+.stat-label{font-size:.7rem;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.5rem;}
+.stat-val{font-family:"Barlow Condensed",sans-serif;font-size:2.5rem;font-weight:900;color:#F5A623;letter-spacing:-1px;}
+.stat-sub{font-size:.8rem;color:rgba(255,255,255,.3);margin-top:.3rem;}
+/* TABLE */
+.table-wrap{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:2px;overflow:hidden;}
+.table-header{padding:1.25rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;}
+.table-title{font-family:"Barlow Condensed",sans-serif;font-size:1.2rem;font-weight:900;text-transform:uppercase;letter-spacing:1px;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;padding:.9rem 1rem;font-size:.7rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);border-bottom:1px solid rgba(255,255,255,.07);}
+td{padding:.9rem 1rem;font-size:.88rem;border-bottom:1px solid rgba(255,255,255,.05);color:rgba(255,255,255,.8);vertical-align:middle;}
+tr:hover td{background:rgba(255,255,255,.03);}
+/* BADGES */
+.badge{padding:.25rem .7rem;font-size:.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-radius:1px;}
+.badge-green{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
+.badge-yellow{background:rgba(245,166,35,.15);color:#F5A623;border:1px solid rgba(245,166,35,.3);}
+.badge-red{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.badge-blue{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3);}
+.badge-gray{background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.12);}
+/* BUTTONS */
+.btn{padding:.5rem 1rem;font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;font-family:"Barlow",sans-serif;transition:all .2s;}
+.btn-gold{background:linear-gradient(135deg,#F5A623,#D4880A);color:#000;}
+.btn-gold:hover{box-shadow:0 4px 20px rgba(245,166,35,.4);}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);}
+.btn-outline:hover{border-color:#F5A623;color:#F5A623;}
+.btn-danger{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;}
+.btn-danger:hover{background:rgba(239,68,68,.25);}
+.btn-sm{padding:.35rem .8rem;font-size:.72rem;}
+/* MODAL */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;align-items:center;justify-content:center;padding:2rem;}
+.modal.open{display:flex;}
+.modal-box{background:#0d1526;border:1px solid rgba(245,166,35,.2);width:100%;max-width:680px;max-height:90vh;overflow-y:auto;}
+.modal-head{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;}
+.modal-head h3{font-family:"Barlow Condensed",sans-serif;font-size:1.5rem;font-weight:900;text-transform:uppercase;}
+.modal-close{background:none;border:none;color:rgba(255,255,255,.5);font-size:1.5rem;cursor:pointer;}
+.modal-body{padding:1.5rem;}
+.modal-foot{padding:1.5rem;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:flex-end;gap:.75rem;}
+/* FORM */
+.form-group{margin-bottom:1.25rem;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;}
+.form-label{display:block;font-size:.75rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:.5rem;}
+.form-label .req{color:#F5A623;}
+.form-input,.form-select,.form-textarea{width:100%;padding:.75rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:.95rem;font-family:"Barlow",sans-serif;border-radius:2px;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:#F5A623;}
+.form-select option{background:#0d1526;}
+.form-textarea{resize:vertical;min-height:80px;}
+/* CHECKS */
+.check-group{display:flex;flex-wrap:wrap;gap:1rem;}
+.check-item{display:flex;align-items:center;gap:.5rem;}
+.check-item input{width:17px;height:17px;cursor:pointer;accent-color:#F5A623;}
+.check-item label{font-size:.88rem;color:rgba(255,255,255,.7);cursor:pointer;}
+/* FILE */
+.file-zone{border:2px dashed rgba(255,255,255,.15);padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s;}
+.file-zone:hover{border-color:#F5A623;background:rgba(245,166,35,.05);}
+.file-zone input{display:none;}
+/* SEARCH */
+.search-bar{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;}
+.search-input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;padding:.6rem 1rem;font-family:"Barlow",sans-serif;font-size:.88rem;min-width:220px;}
+.search-input:focus{outline:none;border-color:#F5A623;}
+/* LOADING */
+.loading-row td{text-align:center;color:rgba(255,255,255,.3);font-style:italic;padding:3rem;}
+/* EMPTY */
+.empty-state{text-align:center;padding:4rem 2rem;color:rgba(255,255,255,.3);}
+.empty-icon{font-size:3rem;margin-bottom:1rem;opacity:.3;}
+@media(max-width:900px){.form-row,.form-row-3{grid-template-columns:1fr;}}
+
+/* ═══════════════════════════════════════
+   MOBILE RESPONSIVE — ALL ADMIN PAGES
+   Target: iPhone and Android phones
+═══════════════════════════════════════ */
+
+/* Hamburger button */
+.mob-menu-btn{
+  display:none;
+  background:none;border:none;
+  color:#fff;font-size:1.4rem;
+  cursor:pointer;padding:4px 8px;
+  line-height:1;
+}
+
+/* Mobile overlay for sidebar */
+.sidebar-overlay{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  z-index:998;
+}
+.sidebar-overlay.open{display:block;}
+
+@media(max-width:900px){
+  /* ── LAYOUT ── */
+  .app{flex-direction:column;}
+  
+  /* ── SIDEBAR ── */
+  .sidebar{
+    position:fixed;top:0;left:-260px;
+    width:260px!important;height:100vh;
+    z-index:999;transition:left .3s ease;
+    overflow-y:auto;
+  }
+  .sidebar.open{left:0;}
+  .mob-menu-btn{display:block;}
+  
+  /* ── TOP BAR ── */
+  .topbar{
+    display:flex!important;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 16px!important;
+    position:sticky;top:0;z-index:100;
+  }
+  .topbar-left{display:flex;align-items:center;gap:10px;}
+  
+  /* ── MAIN ── */
+  main{padding:20px 16px!important;overflow-x:hidden;}
+  
+  /* ── PAGE HEADER ── */
+  .page-header{margin-bottom:24px!important;}
+  .page-header h1{font-size:1.6rem!important;}
+  .page-header p{font-size:.85rem!important;}
+  
+  /* ── STAT CARDS ── */
+  .stats-row{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:12px!important;
+  }
+  .stat-card{padding:18px!important;}
+  .stat-card .stat-val{font-size:2rem!important;}
+  
+  /* ── DASHBOARD PANELS ── */
+  .dash-panels{
+    grid-template-columns:1fr!important;
+    gap:16px!important;
+  }
+  
+  /* ── TABLES — convert to card view ── */
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  
+  table{width:100%;border-collapse:collapse;}
+  
+  /* Hide less important columns on mobile */
+  table th:nth-child(3),
+  table td:nth-child(3),
+  table th:nth-child(4),
+  table td:nth-child(4){display:none;}
+  
+  /* Make table cells bigger for touch */
+  table td,table th{
+    padding:14px 10px!important;
+    font-size:.82rem!important;
+  }
+  
+  /* ── DRIVERS TABLE — show approve/reject as full-width buttons ── */
+  #driversTable tr{position:relative;}
+  #driversTable td:last-child{
+    display:flex!important;
+    flex-direction:column;
+    gap:8px;
+    padding:10px!important;
+  }
+  #driversTable td:last-child .btn{
+    width:100%!important;
+    text-align:center;
+    padding:10px!important;
+    font-size:.82rem!important;
+  }
+  
+  /* ── CARS TABLE ── */
+  .car-photo-thumb{width:50px!important;height:40px!important;}
+  
+  /* ── MODALS ── */
+  .modal-box{
+    width:95vw!important;
+    max-width:95vw!important;
+    max-height:90vh!important;
+    overflow-y:auto!important;
+    margin:5vh auto!important;
+    padding:20px!important;
+  }
+  .modal-foot{
+    flex-direction:column!important;
+    gap:10px!important;
+  }
+  .modal-foot .btn{
+    width:100%!important;
+    text-align:center;
+    padding:14px!important;
+    font-size:.9rem!important;
+  }
+  
+  /* ── FORM GRIDS ── */
+  .form-grid{grid-template-columns:1fr!important;}
+  .form-grid-2{grid-template-columns:1fr!important;}
+  
+  /* ── BUTTONS ── */
+  .btn-sm{padding:10px 14px!important;font-size:.78rem!important;}
+  
+  /* ── FILTERS ROW ── */
+  .filters-row{
+    flex-direction:column!important;
+    gap:10px!important;
+    align-items:stretch!important;
+  }
+  .filters-row input,
+  .filters-row select{width:100%!important;}
+  
+  /* ── PAGE ACTIONS ── */
+  .page-actions{
+    flex-direction:column!important;
+    gap:10px!important;
+    align-items:stretch!important;
+  }
+  .page-actions .btn{width:100%;text-align:center;}
+  
+  /* ── FINES TABLE ── */
+  .fines-table th:nth-child(5),
+  .fines-table td:nth-child(5),
+  .fines-table th:nth-child(6),
+  .fines-table td:nth-child(6){display:none;}
+  
+  /* ── ASSIGNMENTS ── */
+  .assign-table th:nth-child(4),
+  .assign-table td:nth-child(4){display:none;}
+}
+
+@media(max-width:480px){
+  .stats-row{grid-template-columns:1fr!important;}
+  .page-header h1{font-size:1.4rem!important;}
+  table th:nth-child(2),
+  table td:nth-child(2){font-size:.75rem!important;}
+}
+
+/* ═══ DASHBOARD ═══ */
+.dash-head{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;margin-bottom:1.6rem;}
+.dash-hello{font-size:.8rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:.35rem;}
+.dash-date{color:rgba(255,255,255,.45);font-size:.88rem;margin-top:.2rem;}
+.quick{display:flex;gap:.5rem;flex-wrap:wrap;}
+.quick a{display:inline-flex;align-items:center;gap:.45rem;padding:.6rem .95rem;font-size:.75rem;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;text-decoration:none;color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.14);border-radius:10px;
+  background:rgba(255,255,255,.03);transition:all .2s;}
+.quick a:hover{border-color:#F5A623;color:#F5A623;}
+.quick a.primary{background:linear-gradient(135deg,#F5A623,#D4880A);color:#000;border-color:transparent;}
+
+.panel{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.3rem;min-width:0;}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem .75rem;margin-bottom:1rem;flex-wrap:wrap;}
+.panel-title{font-family:"Barlow Condensed",sans-serif;font-size:1.15rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;}
+.panel-link{font-size:.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#F5A623;text-decoration:none;white-space:nowrap;}
+.panel-link:hover{text-decoration:underline;}
+.panel-sub{font-size:.78rem;color:rgba(255,255,255,.45);}
+
+/* KPI row — this week and overdue side by side, the two monthly figures stacked */
+.kpis{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.3fr) minmax(0,1fr);grid-template-areas:"week over month" "week over net";gap:1rem;margin-bottom:1rem;}
+#kWeekBox{grid-area:week;} #kOverdueBox{grid-area:over;} #kMonthBox{grid-area:month;} #kNetBox{grid-area:net;}
+.wk-figs{display:flex;align-items:flex-end;gap:.6rem 1.6rem;flex-wrap:wrap;}
+.wk-cap{font-size:.68rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.45);margin-top:.3rem;}
+.kpi.hero .kpi-val.wk-paid{font-size:2.4rem;color:#fff;}
+.od-list{display:flex;flex-direction:column;gap:.45rem;margin-top:.85rem;}
+.od{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.7rem;padding:.6rem .75rem;border-radius:10px;
+  background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.18);text-decoration:none;color:#fff;transition:border-color .2s;}
+.od:hover{border-color:rgba(248,113,113,.5);}
+.od .nm{font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.od .sub{font-size:.74rem;color:rgba(255,255,255,.5);margin-top:.08rem;line-height:1.35;}
+.od .amt{font-family:"Barlow Condensed",sans-serif;font-size:1.2rem;font-weight:800;color:#f87171;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.od-more{font-size:.76rem;color:rgba(255,255,255,.5);text-decoration:none;padding:.1rem .2rem;}
+.od-more:hover{color:#F5A623;}
+.od-caught{font-size:.76rem;color:#4ade80;margin-top:.7rem;}
+.kpi{position:relative;overflow:hidden;}
+.kpi-label{font-size:.68rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.5);}
+.kpi-val{font-family:"Barlow Condensed",sans-serif;font-size:2.4rem;font-weight:900;line-height:1;margin-top:.55rem;letter-spacing:-.5px;font-variant-numeric:tabular-nums;}
+.kpi.hero .kpi-val{font-size:3.4rem;color:#F5A623;}
+.kpi-note{font-size:.8rem;color:rgba(255,255,255,.5);margin-top:.45rem;line-height:1.35;}
+.kpi-note b{color:rgba(255,255,255,.85);font-weight:600;}
+.delta{display:inline-flex;align-items:center;gap:.25rem;font-weight:700;font-size:.78rem;padding:.12rem .45rem;border-radius:6px;}
+.delta.up{color:#4ade80;background:rgba(74,222,128,.1);}
+.delta.down{color:#f87171;background:rgba(248,113,113,.1);}
+.delta.flat{color:rgba(255,255,255,.6);background:rgba(255,255,255,.06);}
+.kpi.bad .kpi-val{color:#f87171;}
+.kpi.good .kpi-val{color:#4ade80;}
+.meter{height:8px;border-radius:8px;background:rgba(245,166,35,.16);margin-top:.9rem;overflow:hidden;}
+.meter i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#F5A623,#ffc861);}
+
+/* Two-column rows */
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:1rem;margin-bottom:1rem;}
+.row2b{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:1rem;}
+
+/* Fleet */
+.util-num{font-family:"Barlow Condensed",sans-serif;font-size:3rem;font-weight:900;line-height:1;}
+.util-num small{font-size:1.1rem;color:rgba(255,255,255,.5);font-weight:700;margin-left:.3rem;letter-spacing:0;}
+.segbar{display:flex;gap:2px;height:14px;margin:1rem 0 .8rem;}
+.segbar i{display:block;height:100%;min-width:4px;}
+.segbar i:first-child{border-radius:7px 0 0 7px;}
+.segbar i:last-child{border-radius:0 7px 7px 0;}
+.segbar i:only-child{border-radius:7px;}
+.key{display:grid;grid-template-columns:1fr auto;gap:.45rem .75rem;font-size:.85rem;}
+.key span{display:flex;align-items:center;gap:.55rem;color:rgba(255,255,255,.75);}
+.key i{width:10px;height:10px;border-radius:3px;display:inline-block;flex:0 0 auto;}
+.key b{text-align:right;font-variant-numeric:tabular-nums;}
+.fleet-split{border-top:1px solid rgba(255,255,255,.07);margin-top:1rem;padding-top:.9rem;display:flex;flex-wrap:wrap;gap:.5rem .9rem;font-size:.78rem;color:rgba(255,255,255,.6);}
+.fleet-split span{display:inline-flex;align-items:center;gap:.4rem;}
+.fleet-split i{width:9px;height:9px;border-radius:50%;}
+.fleet-split b{color:#fff;}
+
+/* Rent chart */
+.chart{position:relative;height:210px;margin-top:.4rem;padding-left:42px;}
+.chart .grid{position:absolute;left:42px;right:0;height:1px;background:rgba(255,255,255,.07);}
+.chart .tick{position:absolute;left:0;width:36px;text-align:right;font-size:.68rem;color:rgba(255,255,255,.4);transform:translateY(-50%);font-variant-numeric:tabular-nums;}
+.cols{position:absolute;left:42px;right:0;top:0;bottom:22px;display:flex;align-items:flex-end;}
+.col{flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center;position:relative;cursor:pointer;}
+.col .due{position:absolute;bottom:0;width:min(22px,62%);border-radius:4px 4px 0 0;background:rgba(255,255,255,.09);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);}
+.col .got{position:absolute;bottom:0;width:min(22px,62%);border-radius:4px 4px 0 0;background:#F5A623;}
+.col.now .got{background:repeating-linear-gradient(135deg,#F5A623 0 4px,#c98612 4px 7px);}
+.col:hover .due,.col.on .due{background:rgba(255,255,255,.16);}
+.col .lbl{position:absolute;bottom:-20px;font-size:.66rem;color:rgba(255,255,255,.45);white-space:nowrap;}
+.chart-legend{display:flex;gap:1rem;flex-wrap:wrap;font-size:.75rem;color:rgba(255,255,255,.6);}
+.chart-legend span{display:inline-flex;align-items:center;gap:.4rem;}
+.chart-legend i{width:12px;height:10px;border-radius:2px;display:inline-block;}
+.tip{position:absolute;z-index:5;pointer-events:none;background:#0d1526;border:1px solid rgba(245,166,35,.35);border-radius:10px;padding:.55rem .7rem;
+  font-size:.78rem;line-height:1.45;min-width:150px;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;}
+.tip b{display:block;font-size:.8rem;margin-bottom:.15rem;}
+.tip .row{display:flex;justify-content:space-between;gap:1rem;color:rgba(255,255,255,.7);}
+.tip .row em{font-style:normal;color:#fff;font-variant-numeric:tabular-nums;}
+.chart-foot{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-top:1.6rem;padding-top:.8rem;border-top:1px solid rgba(255,255,255,.07);font-size:.8rem;color:rgba(255,255,255,.55);}
+.chart-foot b{color:#fff;}
+
+/* Needs attention */
+.alerts{display:flex;flex-direction:column;gap:.55rem;}
+.alert{display:flex;align-items:center;gap:.8rem;padding:.75rem .85rem;border-radius:11px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);text-decoration:none;color:#fff;transition:border-color .2s;}
+.alert:hover{border-color:rgba(245,166,35,.45);}
+.alert .ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:.95rem;}
+.alert.red .ic{background:rgba(248,113,113,.14);color:#f87171;}
+.alert.amber .ic{background:rgba(245,166,35,.14);color:#F5A623;}
+.alert.blue .ic{background:rgba(96,165,250,.14);color:#60a5fa;}
+.alert.purple .ic{background:rgba(167,139,250,.14);color:#a78bfa;}
+.alert .tx{flex:1;min-width:0;}
+.alert .t1{font-weight:600;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert .t2{font-size:.76rem;color:rgba(255,255,255,.5);margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alert .amt{font-family:"Barlow Condensed",sans-serif;font-size:1.25rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.alert.red .amt{color:#f87171;}
+.all-clear{padding:1.4rem;text-align:center;color:rgba(255,255,255,.5);font-size:.9rem;border:1px dashed rgba(255,255,255,.12);border-radius:11px;}
+.all-clear b{display:block;color:#4ade80;font-size:1rem;margin-bottom:.2rem;}
+
+/* On the road */
+.road{display:flex;flex-direction:column;}
+.road a{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.85rem;padding:.75rem .2rem;border-bottom:1px solid rgba(255,255,255,.06);text-decoration:none;color:#fff;}
+.road a:last-child{border-bottom:none;}
+.road a:hover{background:rgba(255,255,255,.025);}
+.road .own{width:4px;height:34px;border-radius:4px;}
+.road .nm{font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.road .car{font-size:.76rem;color:rgba(255,255,255,.5);margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.road .rt{text-align:right;}
+.road .rate{font-weight:700;font-size:.9rem;font-variant-numeric:tabular-nums;}
+.pill{display:inline-flex;align-items:center;gap:.35rem;font-size:.66rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;margin-top:.25rem;padding:.15rem .45rem;border-radius:6px;white-space:nowrap;}
+.pill i{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.pill.paid{color:#4ade80;background:rgba(74,222,128,.1);}
+.pill.part{color:#F5A623;background:rgba(245,166,35,.12);}
+.pill.unpaid{color:rgba(255,255,255,.65);background:rgba(255,255,255,.07);}
+.pill.behind{color:#f87171;background:rgba(248,113,113,.12);}
+.road-empty{color:rgba(255,255,255,.45);font-size:.88rem;padding:1rem 0;}
+.loading{color:rgba(255,255,255,.35);font-style:italic;font-size:.85rem;padding:.5rem 0;}
+
+/* Overpaid investors & partners */
+.over-panel{margin-top:1rem;}
+.over-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.6rem;}
+.over{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.85rem;padding:.8rem .9rem;border-radius:11px;
+  background:rgba(248,113,113,.05);border:1px solid rgba(248,113,113,.2);text-decoration:none;color:#fff;transition:border-color .2s;}
+.over:hover{border-color:rgba(248,113,113,.5);}
+.over .own{width:4px;height:38px;border-radius:4px;}
+.over .nm{font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.over .sub{font-size:.76rem;color:rgba(255,255,255,.5);margin-top:.1rem;line-height:1.35;}
+.over .rt{text-align:right;}
+.over .amt{font-family:"Barlow Condensed",sans-serif;font-size:1.3rem;font-weight:800;color:#f87171;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.over .lbl{font-size:.62rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:rgba(248,113,113,.8);}
+.over-ok{padding:1rem;text-align:center;color:rgba(255,255,255,.5);font-size:.88rem;border:1px dashed rgba(255,255,255,.12);border-radius:11px;}
+.over-ok b{color:#4ade80;}
+@media(max-width:1100px){
+  .kpis{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"week week" "over over" "month net";}
+  .row2,.row2b{grid-template-columns:1fr;}
+}
+@media(max-width:600px){
+  .over-list{grid-template-columns:1fr;}
+  .dash-head{align-items:flex-start;}
+  .quick{width:100%;}
+  .quick a{flex:1 1 auto;justify-content:center;padding:.7rem .6rem;}
+  .kpis{gap:.7rem;}
+  .panel{padding:1rem;}
+  .kpi-val{font-size:1.9rem;}
+  .kpi.hero .kpi-val{font-size:2.9rem;}
+  .kpi.hero .kpi-val.wk-paid{font-size:2rem;}
+  .chart{padding-left:34px;}
+  .chart .grid,.cols{left:34px;}
+  .chart .tick{width:30px;}
+  .col .lbl{display:none;}
+  .col:nth-child(3n+1) .lbl{display:block;}
+  .alert .amt{font-size:1.1rem;}
+}
+</style>
+</head>
+<body>
+<div style="background:#7c3aed;color:#fff;text-align:center;font:700 13px Barlow,sans-serif;letter-spacing:.5px;padding:7px 10px;">TEST COPY of the Dashboard — it only reads your data, nothing is changed. Compare it with <a href="dashboard.html" style="color:#fff;text-decoration:underline">dashboard.html</a> and the Rent Tracker.</div>
+<!-- TOPBAR -->
+<div class="topbar">
+  <img src="https://ozeerentals.com.au/logo-white.png" alt="Ozee Rentals">
+  <div class="topbar-right">
+    <span class="topbar-user" id="adminEmail">Loading...</span>
+    <a href="#" class="topbar-logout" onclick="signOut()">Sign Out</a>
+  </div>
+</div>
+<!-- LAYOUT -->
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <ul class="sidebar-nav">
+      <li><a href="dashboard.html" class="active"><span class="s-icon">📊</span> Dashboard</a></li>
+      <li><a href="cars.html" class=""><span class="s-icon">🚗</span> Car Management</a></li>
+      <li><a href="drivers.html" class=""><span class="s-icon">👥</span> Driver Applications</a></li>
+      <li><a href="assignments.html" class=""><span class="s-icon">🔗</span> Car Assignments</a></li>
+      <li><a href="fines.html" class=""><span class="s-icon">🚨</span> Fines &amp; Tolls</a></li>
+      <li><a href="finance.html" class=""><span class="s-icon">💰</span> Car Finance</a></li>
+      <li><a href="rent-tracker.html" class=""><span class="s-icon">🗓️</span> Rent Tracker</a></li>
+      <li><a href="invoices.html" class=""><span class="s-icon">🧾</span> Invoices</a></li>
+      <hr class="sidebar-divider">
+      <li><a href="https://ozeerentals.com.au"><span class="s-icon">🌐</span> View Website</a></li>
+    </ul>
+  </aside>
+  <!-- MAIN -->
+  <main class="main">
+
+<div class="dash-head">
+  <div>
+    <div class="dash-hello" id="dHello">Welcome back</div>
+    <div class="page-title" style="margin-bottom:0">Dashboard <span>Overview</span></div>
+    <div class="dash-date" id="dDate"></div>
+  </div>
+  <div class="quick">
+    <a class="primary" href="rent-tracker.html">Rent tracker</a>
+    <a href="assignments.html">Assign a car</a>
+    <a href="cars.html">Add a car</a>
+  </div>
+</div>
+
+<!-- MONEY -->
+<div class="kpis">
+  <div class="panel kpi hero" id="kWeekBox">
+    <div class="kpi-label">Rent for this week</div>
+    <div class="wk-figs">
+      <div><div class="kpi-val" id="kWeekExp">—</div><div class="wk-cap">Expected</div></div>
+      <div><div class="kpi-val wk-paid" id="kWeek">—</div><div class="wk-cap">Paid so far</div></div>
+    </div>
+    <div class="meter"><i id="kWeekBar" style="width:0%"></i></div>
+    <div class="kpi-note" id="kWeekNote">&nbsp;</div>
+  </div>
+  <div class="panel kpi" id="kOverdueBox">
+    <div class="kpi-label">Overdue rent</div>
+    <div class="kpi-val" id="kOverdue">—</div>
+    <div class="kpi-note" id="kOverdueNote">&nbsp;</div>
+    <div class="od-list" id="odList"></div>
+  </div>
+  <div class="panel kpi" id="kMonthBox">
+    <div class="kpi-label">Received this month</div>
+    <div class="kpi-val" id="kMonth">—</div>
+    <div class="kpi-note" id="kMonthNote">&nbsp;</div>
+  </div>
+  <div class="panel kpi" id="kNetBox">
+    <div class="kpi-label">Net this month so far</div>
+    <div class="kpi-val" id="kNet">—</div>
+    <div class="kpi-note" id="kNetNote">&nbsp;</div>
+  </div>
+</div>
+
+<!-- FLEET + TREND -->
+<div class="row2">
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">Fleet</div><a class="panel-link" href="cars.html">Cars &rsaquo;</a></div>
+    <div class="util-num" id="fUtil">—</div>
+    <div class="panel-sub" id="fUtilSub">&nbsp;</div>
+    <div class="segbar" id="fBar"></div>
+    <div class="key" id="fKey"></div>
+    <div class="fleet-split" id="fSplit"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div><div class="panel-title">Weekly rent</div><div class="panel-sub">Due against collected, last 12 weeks</div></div>
+      <div class="chart-legend"><span><i style="background:#F5A623"></i>Collected</span><span><i style="background:rgba(255,255,255,.09);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)"></i>Due</span></div>
+    </div>
+    <div class="chart" id="chart"><div class="loading">Loading…</div></div>
+    <div class="chart-foot" id="chartFoot"></div>
+  </div>
+</div>
+
+<!-- ATTENTION + ON THE ROAD -->
+<div class="row2b">
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">Needs attention</div><span class="panel-sub" id="aCount"></span></div>
+    <div class="alerts" id="alerts"><div class="loading">Checking…</div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">On the road now</div><a class="panel-link" href="rent-tracker.html">Rent tracker &rsaquo;</a></div>
+    <div class="road" id="road"><div class="loading">Loading…</div></div>
+  </div>
+</div>
+
+<!-- OVERPAID INVESTORS & PARTNERS -->
+<div class="panel over-panel">
+  <div class="panel-head">
+    <div><div class="panel-title">Investors &amp; partners paid ahead</div><div class="panel-sub">Advance, upfront or extra payments that are more than their share of the rent so far</div></div>
+    <a class="panel-link" href="finance.html">Car Finance &rsaquo;</a>
+  </div>
+  <div class="over-list" id="overList"><div class="loading">Checking…</div></div>
+</div>
+
+<script>
+// ── Dates are worked out in local time. toISOString() would shift them to UTC
+//    and put Monday mornings in Newcastle into the previous week.
+function dISO(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function dParse(s){ return new Date(String(s).slice(0,10) + 'T00:00:00'); }
+function dAdd(s, n){ const d = dParse(s); d.setDate(d.getDate() + n); return dISO(d); }
+function mondayISO(d){ const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return dISO(x); }
+function daysBetween(a, b){ return Math.round((dParse(b) - dParse(a)) / 86400000); }
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function shortDate(s){ const d = dParse(s); return d.getDate() + ' ' + MON[d.getMonth()]; }
+function $m(n){ return '$' + Math.round(Number(n) || 0).toLocaleString('en-AU'); }
+function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function sum(arr, f){ return arr.reduce((s, x) => s + (Number(f(x)) || 0), 0); }
+const OWN_COL = { biz:'#F5A623', inv:'#60a5fa', part:'#a78bfa' };
+function ownType(c){ return !c || !c.externally_owned ? 'biz' : (c.investor_share_pct != null ? 'part' : 'inv'); }
+
+async function loadStats(){
+  const sb = window._sb;
+  const today = dISO(new Date());
+  const thisMon = mondayISO(new Date());
+  const lastMon = dAdd(thisMon, -7);
+  const firstWeek = dAdd(thisMon, -77);                 // 12 weeks including this one
+  const t = new Date();
+  const monthStart = dISO(new Date(t.getFullYear(), t.getMonth(), 1));
+  const prevStart  = dISO(new Date(t.getFullYear(), t.getMonth() - 1, 1));
+
+  // Greeting
+  const hr = t.getHours();
+  const who = (document.getElementById('adminEmail').textContent || '').split('@')[0];
+  const name = who && who !== 'Loading...' ? who.charAt(0).toUpperCase() + who.slice(1) : '';
+  document.getElementById('dHello').textContent = (hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (name ? ', ' + name : '');
+  document.getElementById('dDate').textContent = t.toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long', year:'numeric'})
+      + ' · rent week ' + shortDate(thisMon) + ' – ' + shortDate(dAdd(thisMon, 6));
+
+  // Supabase hands back at most 1,000 rows per request, so the all-time lists
+  // are read page by page. Otherwise, once there are more than 1,000 rent
+  // payments, totals would quietly leave some out. (Read only — nothing is written.)
+  const readAll = async (make) => {
+    const all = [], seen = new Set();
+    for(let from = 0; from < 500000; ){
+      const r = await make().order('id', { ascending: true }).range(from, from + 999);
+      if(r.error) return r;
+      const got = r.data || [];
+      const fresh = got.filter(x => !seen.has(x.id));          // never count a row twice
+      fresh.forEach(x => seen.add(x.id));
+      all.push(...fresh);
+      if(!fresh.length) break;
+      from += got.length;
+    }
+    return { data: all, error: null };
+  };
+
+  const [carsR, asgR, recentWkR, owingWkR, payR, expR, poR, appsR] = await Promise.all([
+    // '*' on purpose: the page keeps working whichever optional columns have been added so far.
+    sb.from('cars').select('*'),
+    sb.from('car_assignments').select('*,cars(*),drivers(first_name,last_name)'),
+    sb.from('rent_weeks').select('id,assignment_id,week_start,amount_due,amount_paid,status').gte('week_start', firstWeek),
+    sb.from('rent_weeks').select('assignment_id,week_start,amount_due,amount_paid,status').lt('week_start', thisMon).neq('status', 'Paid'),
+    readAll(() => sb.from('rent_payments').select('id,car_id,amount,payment_date,rent_week_id')),
+    readAll(() => sb.from('car_expenses').select('id,car_id,amount,category,expense_date')),
+    readAll(() => sb.from('owner_payouts').select('id,car_id,amount,payout_date')),
+    sb.from('drivers').select('id').eq('status', 'Pending')
+  ]);
+  const failed = [carsR, asgR, recentWkR, owingWkR, payR, expR, poR, appsR].filter(r => r && r.error);
+  if(failed.length){
+    console.error('Dashboard: some data could not be loaded', failed.map(r => r.error.message));
+    const n = document.createElement('div');
+    n.style.cssText = 'margin:-.6rem 0 1rem;padding:.6rem .85rem;border-radius:10px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#fca5a5;font-size:.82rem;';
+    n.textContent = 'Some figures could not be loaded just now (' + failed[0].error.message + '). Refresh the page to try again.';
+    const k = document.querySelector('.kpis'); k.parentNode.insertBefore(n, k);
+  }
+  const cars = carsR.data || [], asg = asgR.data || [], recentWk = recentWkR.data || [], owingWk = owingWkR.data || [];
+  const pays = payR.data || [], exps = expR.data || [], pos = poR.data || [], pendingApps = (appsR.data || []).length;
+  const asgById = {}; asg.forEach(a => asgById[a.id] = a);
+  const active = asg.filter(a => a.status === 'Active');
+  const drv = a => a && a.drivers ? (a.drivers.first_name + ' ' + (a.drivers.last_name || '')).trim() : 'Unknown driver';
+
+  // ── Shared figures, worked out once ──
+  const thisRows = {}; recentWk.filter(w => w.week_start === thisMon).forEach(w => thisRows[w.assignment_id] = w);
+  const monthGot = sum(pays.filter(p => p.payment_date >= monthStart && p.payment_date <= today), p => p.amount);
+  // Overdue: weeks that have finished and are not fully paid
+  const owing = {};
+  owingWk.forEach(w => {
+    const left = Number(w.amount_due) - Number(w.amount_paid || 0);
+    if(!(left > 0.005)) return;
+    (owing[w.assignment_id] = owing[w.assignment_id] || { amt:0, weeks:0, oldest:w.week_start, part:false });
+    const o = owing[w.assignment_id];
+    o.amt += left; o.weeks += 1;
+    if(w.week_start < o.oldest) o.oldest = w.week_start;
+    if(Number(w.amount_paid || 0) > 0) o.part = true;
+  });
+  const owingList = Object.keys(owing).map(id => Object.assign({ a: asgById[id] }, owing[id])).filter(o => o.a)
+                          .sort((x, y) => y.amt - x.amt);
+  const fleet = cars.filter(c => !c.retired_reason);
+
+  // Each panel is drawn on its own, so a problem in one never blanks the others.
+  const panel = (label, fn) => { try { fn(); } catch(e){ console.error('Dashboard — ' + label + ':', e); } };
+
+  // ── Rent for one week only ──
+  // Taken from that week's rent records, so a late payment for an earlier week
+  // never counts here, even when it is paid this week (it is in Overdue rent
+  // until it is paid). A driver whose week the Rent Tracker has not set up yet
+  // counts at the same amount the Rent Tracker will set: the weekly rate, or
+  // the part-week / agreed first-week amount in the week the car went out.
+  const firstWeekDue = a => {
+    if(!a.start_date) return Number(a.weekly_rate) || 0;
+    const startMon = mondayISO(dParse(a.start_date));
+    if(startMon > thisMon) return 0;                               // starts after this week
+    const days = 7 - ((dParse(a.start_date).getDay() + 6) % 7);    // Mon→7 … Sun→1
+    if(startMon === thisMon && days < 7){
+      if(a.first_week_amount != null && a.first_week_amount !== '') return Number(a.first_week_amount) || 0;
+      return Math.round((Number(a.weekly_rate) || 0) / 7 * days * 100) / 100;
+    }
+    return Number(a.weekly_rate) || 0;
+  };
+  const weekRent = (ws) => {
+    const rows = recentWk.filter(w => w.week_start === ws && asgById[w.assignment_id]);
+    const per = {};                                                  // assignment → { due, paid }
+    rows.forEach(w => {
+      const x = per[w.assignment_id] = per[w.assignment_id] || { due:0, paid:0 };
+      x.due += Number(w.amount_due) || 0; x.paid += Math.min(Number(w.amount_paid) || 0, Number(w.amount_due) || 0);
+    });
+    if(ws === thisMon) active.forEach(a => {
+      if(per[a.id]) return;
+      const due = firstWeekDue(a);
+      if(due > 0) per[a.id] = { due, paid:0 };
+    });
+    const list = Object.values(per);
+    return { due: sum(list, x => x.due), paid: sum(list, x => x.paid),
+             left: list.filter(x => x.due - x.paid > 0.005).length, drivers: list.length };
+  };
+
+  panel('this week', () => {
+    const wk = weekRent(thisMon), last = weekRent(lastMon);
+    const toCome = Math.max(0, wk.due - wk.paid);
+    document.getElementById('kWeekExp').textContent = $m(wk.due);
+    document.getElementById('kWeek').textContent = $m(wk.paid);
+    document.getElementById('kWeekNote').innerHTML =
+        (wk.drivers === 0 ? 'No rent is due this week'
+          : toCome > 0.5 ? '<b>' + $m(toCome) + '</b> still to come from <b>' + wk.left + '</b> driver' + (wk.left === 1 ? '' : 's')
+          : '<span class="delta up">All paid for this week</span>')
+      + '<br>Last week: <b>' + $m(last.paid) + '</b> of ' + $m(last.due) + ' paid'
+      + (last.due - last.paid > 0.5 ? ' · the rest is in Overdue rent' : '');
+    document.getElementById('kWeekBar').style.width = (wk.due > 0 ? Math.min(100, wk.paid / wk.due * 100) : 0) + '%';
+  });
+
+  panel('this month', () => {
+    const prevTotal = sum(pays.filter(p => p.payment_date >= prevStart && p.payment_date < monthStart), p => p.amount);
+    document.getElementById('kMonth').textContent = $m(monthGot);
+    document.getElementById('kMonthNote').innerHTML = 'So far in ' + t.toLocaleDateString('en-AU', {month:'long'})
+        + '<br>' + dParse(prevStart).toLocaleDateString('en-AU', {month:'long'}) + ' total: <b>' + $m(prevTotal) + '</b>';
+  });
+
+  panel('overdue', () => {
+    // A driver is overdue once a rent week has finished (Sunday has passed) and
+    // it is not fully paid — that is, they are a week or more late.
+    const overdueTotal = sum(owingList, o => o.amt);
+    document.getElementById('kOverdue').textContent = $m(overdueTotal);
+    document.getElementById('kOverdueBox').classList.toggle('bad', overdueTotal > 0);
+    document.getElementById('kOverdueBox').classList.toggle('good', overdueTotal <= 0);
+    document.getElementById('kOverdueNote').innerHTML = overdueTotal > 0
+        ? '<b>' + owingList.length + '</b> driver' + (owingList.length === 1 ? ' is' : 's are') + ' a week or more late'
+        : 'Everyone is paid up';
+    const SHOW = 6;
+    let html = owingList.slice(0, SHOW).map(o => {
+      const c = o.a.cars || {};
+      const late = o.weeks === 1
+          ? 'week of ' + shortDate(o.oldest) + (o.part ? ' part paid' : ' unpaid')
+          : o.weeks + ' weeks unpaid since ' + shortDate(o.oldest);
+      return '<a class="od" href="rent-tracker.html"><span style="min-width:0">'
+        + '<div class="nm">' + esc(drv(o.a)) + '</div>'
+        + '<div class="sub">' + esc((c.rego ? c.rego + ' · ' : '') + late + (o.a.status !== 'Active' ? ' · rental ended' : '')) + '</div></span>'
+        + '<span class="amt">' + $m(o.amt) + '</span></a>';
+    }).join('');
+    if(owingList.length > SHOW){
+      const rest = owingList.slice(SHOW);
+      html += '<a class="od-more" href="rent-tracker.html">+ ' + rest.length + ' more driver' + (rest.length === 1 ? '' : 's')
+            + ' owing ' + $m(sum(rest, o => o.amt)) + ' — see Rent Tracker ›</a>';
+    }
+    // Late rent that came in this week (paid this week for an earlier week).
+    // It is not counted in this week's rent, so it is shown here instead.
+    const weekById = {}; recentWk.forEach(w => weekById[w.id] = w.week_start);
+    const caught = sum(pays.filter(p => p.rent_week_id && p.payment_date >= thisMon && p.payment_date <= today
+                                     && !(weekById[p.rent_week_id] >= thisMon)), p => p.amount);
+    if(caught > 0.5) html += '<div class="od-caught">✓ ' + $m(caught) + ' of late rent for earlier weeks was paid this week</div>';
+    document.getElementById('odList').innerHTML = html;
+  });
+
+  panel('net', () => {
+    // Rent received less running costs; car purchases are left out.
+    const monthCosts = sum(exps.filter(e => e.expense_date >= monthStart && e.expense_date <= today && (e.category || '') !== 'Purchase Price'), e => e.amount);
+    const net = monthGot - monthCosts;
+    document.getElementById('kNet').textContent = (net < 0 ? '-' : '') + $m(Math.abs(net));
+    document.getElementById('kNetBox').classList.toggle('bad', net < 0);
+    document.getElementById('kNetNote').innerHTML = 'Rent <b>' + $m(monthGot) + '</b> less running costs <b>' + $m(monthCosts) + '</b>';
+  });
+
+  panel('fleet', () => {
+    const n = st => fleet.filter(c => c.status === st).length;
+    const rented = n('Rented'), avail = n('Available'), maint = n('Maintenance');
+    const other = fleet.length - rented - avail - maint;
+    const util = fleet.length ? Math.round(rented / fleet.length * 100) : 0;
+    document.getElementById('fUtil').innerHTML = util + '%<small>earning</small>';
+    document.getElementById('fUtilSub').textContent = rented + ' of ' + fleet.length + ' cars are rented out right now';
+    const segs = [['Rented', rented, '#F5A623'], ['Available', avail, '#4ade80'], ['Maintenance', maint, '#94a3b8']];
+    if(other > 0) segs.push(['Other', other, '#475569']);
+    document.getElementById('fBar').innerHTML = segs.filter(x => x[1] > 0)
+        .map(x => '<i title="' + x[0] + ': ' + x[1] + '" style="flex:' + x[1] + ';background:' + x[2] + '"></i>').join('');
+    document.getElementById('fKey').innerHTML = segs.map(x => '<span><i style="background:' + x[2] + '"></i>' + x[0] + '</span><b>' + x[1] + '</b>').join('');
+    const ot = t2 => fleet.filter(c => ownType(c) === t2).length;
+    document.getElementById('fSplit').innerHTML =
+        '<span><i style="background:' + OWN_COL.biz + '"></i>Business <b>' + ot('biz') + '</b></span>'
+      + '<span><i style="background:' + OWN_COL.inv + '"></i>Investor <b>' + ot('inv') + '</b></span>'
+      + '<span><i style="background:' + OWN_COL.part + '"></i>Partnership <b>' + ot('part') + '</b></span>';
+  });
+
+  panel('weekly rent chart', () => {
+    const weeks = []; for(let i = 11; i >= 0; i--) weeks.push(dAdd(thisMon, -7 * i));
+    const byWeek = weeks.map(ws => {
+      const rows = recentWk.filter(w => w.week_start === ws);
+      return { ws, due: sum(rows, w => w.amount_due), got: sum(rows, w => w.amount_paid) };
+    });
+    drawChart(byWeek, thisMon);
+    const done = byWeek.filter(w => w.ws < thisMon);
+    const dueAll = sum(done, w => w.due), gotAll = sum(done, w => w.got);
+    document.getElementById('chartFoot').innerHTML =
+        '<span>Collected <b>' + (dueAll ? Math.round(gotAll / dueAll * 100) : 0) + '%</b> of rent due over the last 11 finished weeks</span>'
+      + '<span>Average <b>' + $m(done.length ? gotAll / done.length : 0) + '</b> a week</span>';
+  });
+
+  panel('needs attention', () => {
+    const items = [];
+    owingList.forEach(o => {
+      const c = o.a.cars || {};
+      items.push({ cls:'red', ic:'$', href:'rent-tracker.html',
+        t1: drv(o.a) + ' owes rent', t2: (c.rego || '') + ' · ' + o.weeks + ' unpaid week' + (o.weeks === 1 ? '' : 's') + (o.a.status !== 'Active' ? ' · rental ended' : ''),
+        amt: $m(o.amt), sort: 1e9 + o.amt });
+    });
+    // Cars standing idle: available, no active rental, free since the last return
+    fleet.filter(c => c.status === 'Available' && !active.some(a => a.car_id === c.id)).forEach(c => {
+      const ends = asg.filter(a => a.car_id === c.id && a.end_date && a.status !== 'Active').map(a => String(a.end_date).slice(0, 10)).sort();
+      const cands = [];
+      if(ends.length) cands.push(ends[ends.length - 1]);
+      if(c.available_from) cands.push(String(c.available_from).slice(0, 10));
+      const since = cands.length ? cands.sort()[cands.length - 1] : String(c.created_at || today).slice(0, 10);
+      const days = Math.max(0, daysBetween(since, today));
+      if(!(days >= 3)) return;
+      const missed = Number(c.weekly_rate || 0) * days / 7;
+      items.push({ cls:'amber', ic:'⏱', href:'cars.html',
+        t1: (c.rego || 'A car') + ' is free', t2: 'About ' + $m(missed) + ' rent missed · ' + (c.make_model || '') + ' ' + (c.year || ''),
+        amt: days + ' days', sort: 5e8 + days });
+    });
+    // Money still to pay investors and partners
+    cars.filter(c => c.externally_owned).forEach(c => {
+      const inc = sum(pays.filter(p => p.car_id === c.id), p => p.amount);
+      const costs = sum(exps.filter(e => e.car_id === c.id && (e.category || '') !== 'Purchase Price'), e => e.amount);
+      const paid = sum(pos.filter(p => p.car_id === c.id), p => p.amount);
+      const after = inc - costs, feePct = Number(c.service_fee_pct) || 0;
+      const part = c.investor_share_pct != null;
+      let due;
+      if(part){
+        const share = after * Number(c.investor_share_pct) / 100;
+        due = share - ((feePct > 0 && share > 0) ? share * feePct / 100 : 0);
+      } else {
+        due = after - (feePct > 0 ? after * feePct / 100 : 0);
+      }
+      const left = due - paid;
+      if(!(left >= 1)) return;
+      items.push({ cls: part ? 'purple' : 'blue', ic: part ? '⇄' : '↗', href:'finance.html',
+        t1: 'Pay ' + (c.owner_name || 'the investor'), t2: (c.rego || '') + ' · ' + (part ? 'partnership ' + Number(c.investor_share_pct) + '%' : 'investor car'),
+        amt: $m(left), sort: 1e8 + left });
+    });
+    if(pendingApps > 0){
+      items.push({ cls:'amber', ic:'✎', href:'drivers.html',
+        t1: pendingApps + ' driver application' + (pendingApps === 1 ? '' : 's') + ' waiting', t2: 'Most drivers expect an answer within the hour',
+        amt: '', sort: 9e8 });
+    }
+    items.sort((x, y) => y.sort - x.sort);
+    document.getElementById('aCount').textContent = items.length ? items.length + ' item' + (items.length === 1 ? '' : 's') : '';
+    document.getElementById('alerts').innerHTML = items.length
+      ? items.map(i => '<a class="alert ' + i.cls + '" href="' + i.href + '"><span class="ic">' + i.ic + '</span>'
+          + '<span class="tx"><div class="t1">' + esc(i.t1) + '</div><div class="t2">' + esc(i.t2) + '</div></span>'
+          + (i.amt ? '<span class="amt">' + esc(i.amt) + '</span>' : '') + '</a>').join('')
+      : '<div class="all-clear"><b>All clear</b>Nobody owes rent, no car is standing idle, and nothing is waiting.</div>';
+  });
+
+  panel('overpaid', () => {
+    // Same sums as the settlement in Car Finance: rent, less running costs,
+    // their share (and service fee), less what has been paid to them.
+    // Every payment recorded to them counts, so an advance or upfront payment
+    // shows here for as long as it is more than the share they have earned.
+    const rows = [];
+    cars.filter(c => c.externally_owned).forEach(c => {
+      const inc = sum(pays.filter(p => p.car_id === c.id), p => p.amount);
+      const costs = sum(exps.filter(e => e.car_id === c.id && (e.category || '') !== 'Purchase Price'), e => e.amount);
+      const mine = pos.filter(p => p.car_id === c.id);
+      const paid = sum(mine, p => p.amount);
+      if(!(paid > 0)) return;                                   // only people who have been paid something
+      const lastPaid = mine.map(p => String(p.payout_date || '').slice(0, 10)).filter(Boolean).sort().pop() || null;
+      const after = inc - costs, feePct = Number(c.service_fee_pct) || 0;
+      const part = c.investor_share_pct != null;
+      let due;
+      if(part){
+        const share = after * Number(c.investor_share_pct) / 100;
+        due = share - ((feePct > 0 && share > 0) ? share * feePct / 100 : 0);
+      } else {
+        due = after - (feePct > 0 ? after * feePct / 100 : 0);
+      }
+      const over = paid - due;
+      if(!(over >= 1)) return;
+      rows.push({ c, part, due, paid, over, lastPaid });
+    });
+    rows.sort((a, b) => b.over - a.over);
+    const total = sum(rows, r => Math.round(r.over));          // adds up exactly to the rows shown
+    document.getElementById('overList').innerHTML = rows.length
+      ? rows.map(r => '<a class="over" href="finance.html"><span class="own" style="background:' + (r.part ? OWN_COL.part : OWN_COL.inv) + '"></span>'
+          + '<span style="min-width:0"><div class="nm">' + esc(r.c.owner_name || 'Owner not named') + '</div>'
+          + '<div class="sub">' + esc((r.c.rego || '') + ' · ' + (r.part ? 'partnership ' + Number(r.c.investor_share_pct) + '%' : 'investor car')
+              + (r.lastPaid ? ' · last paid ' + shortDate(r.lastPaid) : '')) + '</div>'
+          + '<div class="sub">Paid ' + $m(r.paid) + ' · their share so far ' + (r.due < 0 ? '-' : '') + $m(Math.abs(r.due)) + '</div></span>'
+          + '<span class="rt"><div class="amt">' + $m(r.over) + '</div><div class="lbl">paid ahead</div></span></a>').join('')
+        + (rows.length > 1 ? '<div class="panel-sub" style="grid-column:1/-1;text-align:right">Total paid ahead: <b style="color:#f87171">' + $m(total) + '</b></div>' : '')
+      : '<div class="over-ok"><b>All payouts are correct.</b> No investor or partner has been paid more than their share, and no advance is outstanding.</div>';
+  });
+
+  panel('on the road', () => {
+    const road = active.slice().sort((a, b) => drv(a).localeCompare(drv(b)));
+    document.getElementById('road').innerHTML = road.length ? road.map(a => {
+      const c = a.cars || {}, wk = thisRows[a.id], ow = owing[a.id];
+      let pill;
+      if(ow && ow.amt > 0) pill = '<span class="pill behind"><i></i>Behind ' + $m(ow.amt) + '</span>';
+      else if(wk && wk.status === 'Paid') pill = '<span class="pill paid"><i></i>Paid this week</span>';
+      else if(wk && wk.status === 'Partial') pill = '<span class="pill part"><i></i>Part paid</span>';
+      else pill = '<span class="pill unpaid"><i></i>Due this week</span>';
+      return '<a href="rent-tracker.html"><span class="own" style="background:' + OWN_COL[ownType(c)] + '"></span>'
+        + '<span style="min-width:0"><div class="nm">' + esc(drv(a)) + '</div><div class="car">' + esc((c.rego || '') + ' · ' + (c.make_model || '') + ' ' + (c.year || '')) + (a.start_date ? ' · since ' + shortDate(a.start_date) : '') + '</div></span>'
+        + '<span class="rt"><div class="rate">$' + Number(a.weekly_rate || 0) + '/wk</div>' + pill + '</span></a>';
+    }).join('') : '<div class="road-empty">No cars are out with drivers right now.</div>';
+  });
+}
+
+function drawChart(data, thisMon){
+  const el = document.getElementById('chart');
+  const top = Math.max(1, ...data.map(d => Math.max(d.due, d.got)));
+  const step = top <= 500 ? 100 : top <= 1500 ? 250 : top <= 3000 ? 500 : 1000;
+  const max = Math.ceil(top / step) * step;
+  const plotH = el.clientHeight - 22;
+  let html = '';
+  for(let v = 0; v <= max; v += step * (max / step > 4 ? 2 : 1)){
+    const y = plotH - (v / max) * plotH;
+    html += '<div class="grid" style="top:' + y + 'px"></div><div class="tick" style="top:' + y + 'px">' + (v >= 1000 ? '$' + (v / 1000) + 'k' : '$' + v) + '</div>';
+  }
+  html += '<div class="cols">' + data.map((d, i) =>
+      '<div class="col' + (d.ws === thisMon ? ' now' : '') + '" data-i="' + i + '">'
+    + '<span class="due" style="height:' + (d.due / max * 100) + '%"></span>'
+    + '<span class="got" style="height:' + (d.got / max * 100) + '%"></span>'
+    + '<span class="lbl">' + shortDate(d.ws) + '</span></div>').join('') + '</div>'
+    + '<div class="tip" id="tip"></div>';
+  el.innerHTML = html;
+  const tip = document.getElementById('tip');
+  const show = col => {
+    el.querySelectorAll('.col.on').forEach(c => c.classList.remove('on'));
+    if(!col){ tip.style.display = 'none'; return; }
+    col.classList.add('on');
+    const d = data[+col.dataset.i], short = d.due - d.got;
+    tip.innerHTML = '<b>Week of ' + shortDate(d.ws) + (d.ws === thisMon ? ' (this week)' : '') + '</b>'
+      + '<div class="row"><span>Due</span><em>' + $m(d.due) + '</em></div>'
+      + '<div class="row"><span>Collected</span><em>' + $m(d.got) + '</em></div>'
+      + (short > 0.5 ? '<div class="row"><span>' + (d.ws === thisMon ? 'Still to come' : 'Short') + '</span><em>' + $m(short) + '</em></div>' : '');
+    tip.style.display = 'block';
+    const r = col.getBoundingClientRect(), pr = el.getBoundingClientRect();
+    let x = r.left - pr.left + r.width / 2 - tip.offsetWidth / 2;
+    x = Math.max(0, Math.min(x, el.clientWidth - tip.offsetWidth));
+    tip.style.left = x + 'px'; tip.style.top = '0px';
+  };
+  el.querySelectorAll('.col').forEach(c => {
+    c.addEventListener('mouseenter', () => show(c));
+    c.addEventListener('click', e => { e.stopPropagation(); show(c.classList.contains('on') ? null : c); });
+  });
+  el.addEventListener('mouseleave', () => show(null));
+  document.addEventListener('click', () => show(null));
+}
+</script>
+
+  </main>
+</div>
+
+<script>
+// Auth guard
+(async()=>{
+  const {data:{session}} = await window._sb.auth.getSession();
+  if(!session){ window.location.href='index.html'; return; }
+  document.getElementById('adminEmail').textContent = session.user.email;
+})();
+async function signOut(){ await window._sb.auth.signOut(); localStorage.clear(); sessionStorage.clear(); window.location.href='index.html'; }
+</script>
+<script>
+// Auth guard - runs after DOM loads
+document.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await window._sb.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  const el = document.getElementById('adminEmail');
+  if (el) el.textContent = session.user.email;
+  loadStats();
+});
+async function signOut() {
+  await window._sb.auth.signOut();
+  localStorage.clear();
+  sessionStorage.clear();
+  window.location.href = 'index.html';
+}
+</script>
+
+<script>
+// Mobile sidebar toggle
+(function(){
+  // Add overlay div
+  var overlay = document.createElement('div');
+  overlay.className = 'sidebar-overlay';
+  overlay.id = 'sidebarOverlay';
+  overlay.onclick = function(){ closeSidebar(); };
+  document.body.appendChild(overlay);
+
+  // Add hamburger button to topbar
+  var topbar = document.querySelector('.topbar');
+  if(topbar){
+    var btn = document.createElement('button');
+    btn.className = 'mob-menu-btn';
+    btn.innerHTML = '☰';
+    btn.onclick = function(){ toggleSidebar(); };
+    // Wrap existing content in topbar-left
+    var existing = topbar.firstElementChild;
+    var wrap = document.createElement('div');
+    wrap.className = 'topbar-left';
+    wrap.appendChild(btn);
+    if(existing) wrap.appendChild(existing);
+    topbar.insertBefore(wrap, topbar.firstChild);
+  }
+
+  function toggleSidebar(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('sidebarOverlay');
+    if(sb){ sb.classList.toggle('open'); }
+    if(ov){ ov.classList.toggle('open'); }
+  }
+  function closeSidebar(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('sidebarOverlay');
+    if(sb){ sb.classList.remove('open'); }
+    if(ov){ ov.classList.remove('open'); }
+  }
+  // Close sidebar when nav link clicked
+  document.querySelectorAll('.sidebar-nav a').forEach(function(a){
+    a.addEventListener('click', function(){ if(window.innerWidth<=900) closeSidebar(); });
+  });
+})();
+</script>
+
+</body></html>
