@@ -402,20 +402,25 @@ tr:hover td{background:rgba(255,255,255,.03);}
 .road-empty{color:rgba(255,255,255,.45);font-size:.88rem;padding:1rem 0;}
 .loading{color:rgba(255,255,255,.35);font-style:italic;font-size:.85rem;padding:.5rem 0;}
 
-/* Overpaid investors & partners */
-.over-panel{margin-top:1rem;}
-.over-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.6rem;}
-.over{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.85rem;padding:.8rem .9rem;border-radius:11px;
-  background:rgba(248,113,113,.05);border:1px solid rgba(248,113,113,.2);text-decoration:none;color:#fff;transition:border-color .2s;}
-.over:hover{border-color:rgba(248,113,113,.5);}
-.over .own{width:4px;height:38px;border-radius:4px;}
-.over .nm{font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.over .sub{font-size:.76rem;color:rgba(255,255,255,.5);margin-top:.1rem;line-height:1.35;}
-.over .rt{text-align:right;}
-.over .amt{font-family:"Barlow Condensed",sans-serif;font-size:1.3rem;font-weight:800;color:#f87171;font-variant-numeric:tabular-nums;white-space:nowrap;}
-.over .lbl{font-size:.62rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:rgba(248,113,113,.8);}
-.over-ok{padding:1rem;text-align:center;color:rgba(255,255,255,.5);font-size:.88rem;border:1px dashed rgba(255,255,255,.12);border-radius:11px;}
-.over-ok b{color:#4ade80;}
+/* Investor / partner statement inside Needs attention */
+.alert-d > summary{list-style:none;cursor:pointer;display:block;}
+.alert-d > summary::-webkit-details-marker{display:none;}
+.alert-d .t1,.alert-d .t2{white-space:normal;overflow:visible;}
+.alert-d .chev{color:rgba(255,255,255,.4);font-size:.8rem;margin-left:.15rem;transition:transform .2s;flex:0 0 auto;}
+.alert-d[open] .chev{transform:rotate(180deg);}
+.alert-d[open] .alert{border-bottom-left-radius:0;border-bottom-right-radius:0;border-color:rgba(245,166,35,.35);}
+.alert-body{border:1px solid rgba(245,166,35,.35);border-top:none;border-radius:0 0 11px 11px;background:rgba(255,255,255,.02);padding:.55rem .85rem .75rem;font-size:.8rem;}
+.st-row{display:flex;justify-content:space-between;gap:.8rem;padding:.2rem 0;color:rgba(255,255,255,.65);}
+.st-row b{font-variant-numeric:tabular-nums;color:#fff;font-weight:600;white-space:nowrap;}
+.st-row.tot{border-top:1px solid rgba(255,255,255,.08);margin-top:.15rem;padding-top:.35rem;}
+.st-row.fin{border-top:1px solid rgba(255,255,255,.18);margin-top:.3rem;padding-top:.45rem;color:#fff;font-weight:600;}
+.st-row.fin b{font-size:.95rem;color:#4ade80;}
+.st-row.fin.bad b{color:#f87171;}
+.st-row.sub{padding-left:.6rem;font-size:.76rem;color:rgba(255,255,255,.5);}
+.st-row.sub b{color:rgba(255,255,255,.8);font-weight:500;}
+.st-muted{color:rgba(255,255,255,.45);font-weight:500;}
+.st-note{font-size:.76rem;color:rgba(255,255,255,.55);margin-top:.45rem;line-height:1.4;}
+.st-link{display:inline-block;margin-top:.55rem;font-size:.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#F5A623;text-decoration:none;}
 /* PDF reports sheet */
 .quick a.rep-open{border-color:rgba(245,166,35,.45);color:#F5A623;}
 .rep-ov{position:fixed;inset:0;z-index:300;background:rgba(3,6,12,.72);display:none;align-items:center;justify-content:center;padding:16px;}
@@ -437,7 +442,6 @@ tr:hover td{background:rgba(255,255,255,.03);}
   .row2,.row2b{grid-template-columns:1fr;}
 }
 @media(max-width:600px){
-  .over-list{grid-template-columns:1fr;}
   .dash-head{align-items:flex-start;}
   .quick{width:100%;}
   .quick a{flex:1 1 auto;justify-content:center;padding:.7rem .6rem;}
@@ -559,13 +563,6 @@ tr:hover td{background:rgba(255,255,255,.03);}
   </div>
 </div>
 
-<!-- OVERPAID INVESTORS & PARTNERS -->
-<div class="panel over-panel">
-  <div class="panel-head">
-    <div><div class="panel-title">Investors &amp; partners paid ahead</div><div class="panel-sub">Advance, upfront or extra payments that are more than their share of the rent so far</div></div>
-    <a class="panel-link" href="finance.html">Car Finance &rsaquo;</a>
-  </div>
-  <div class="over-list" id="overList"><div class="loading">Checking…</div></div>
 </div>
 
 <script>
@@ -583,6 +580,35 @@ function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&
 function sum(arr, f){ return arr.reduce((s, x) => s + (Number(f(x)) || 0), 0); }
 const OWN_COL = { biz:'#F5A623', inv:'#60a5fa', part:'#a78bfa' };
 function ownType(c){ return !c || !c.externally_owned ? 'biz' : (c.investor_share_pct != null ? 'part' : 'inv'); }
+
+// ── Where an investor or partner stands with the Business ──
+// The Business pays every running cost (rego, insurance, repairs and so on);
+// only the purchase price is paid by the investor or partner, so it is left
+// out here. Their share of the car's rent less its running costs is theirs.
+// The service fee is taken only once the car has covered its running costs:
+// while it has not, there is no fee and they carry their full share of the gap.
+// Same sums as the settlement in Car Finance.
+function feeOnShare(share, feePct){ return (feePct > 0 && share > 0) ? share * feePct / 100 : 0; }
+function ownerStatement(c, pays, exps, pos){
+  const N = x => Number(x) || 0;
+  const rent  = pays.filter(p => p.car_id === c.id).reduce((t, p) => t + N(p.amount), 0);
+  const costs = exps.filter(e => e.car_id === c.id && (e.category || '') !== 'Purchase Price').reduce((t, e) => t + N(e.amount), 0);
+  const mine  = pos.filter(p => p.car_id === c.id);
+  const paid  = mine.reduce((t, p) => t + N(p.amount), 0);
+  const part  = c.investor_share_pct != null;
+  const pct   = part ? N(c.investor_share_pct) : 100;
+  const feePct = N(c.service_fee_pct);
+  const result = rent - costs;                 // the car's own result
+  const share  = result * pct / 100;           // their part of it
+  const fee    = feeOnShare(share, feePct);
+  const due    = share - fee;                  // what they have earned (negative: their share of costs not yet covered)
+  const balance = due - paid;                  // above 0: the Business owes them · below 0: they owe the Business
+  const owes = balance < 0 ? -balance : 0;
+  const fromCosts   = owes > 0 ? Math.min(owes, Math.max(0, -due)) : 0;   // running costs the Business covered for them
+  const fromAdvance = owes > 0 ? owes - fromCosts : 0;                    // advances or extra payments to them
+  const lastPaid = mine.map(p => String(p.payout_date || '').slice(0, 10)).filter(Boolean).sort().pop() || null;
+  return { rent, costs, paid, part, pct, feePct, result, share, fee, due, balance, owes, fromCosts, fromAdvance, lastPaid };
+}
 
 async function loadStats(){
   const sb = window._sb;
@@ -662,6 +688,45 @@ async function loadStats(){
   const owingList = Object.keys(owing).map(id => Object.assign({ a: asgById[id] }, owing[id])).filter(o => o.a)
                           .sort((x, y) => y.amt - x.amt);
   const fleet = cars.filter(c => !c.retired_reason);
+
+  // The full statement behind an investor / partner item in Needs attention
+  const statementHtml = (c, S) => {
+    const m = n => (n < 0 ? '-' : '') + '$' + Math.abs(Number(n) || 0).toLocaleString('en-AU', { minimumFractionDigits:2, maximumFractionDigits:2 });
+    const line = (label, val, cls) => '<div class="st-row' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span><b>' + val + '</b></div>';
+    let h = '<div class="alert-body">'
+      + line('Rent collected', m(S.rent))
+      + line('Running costs paid by the Business', m(-S.costs))
+      + line('Car result', m(S.result), 'tot');
+    if(S.part) h += line('Their share (' + S.pct + '%)', m(S.share));
+    if(S.feePct > 0){
+      h += S.fee > 0 ? line('Business service fee (' + S.feePct + '%)', m(-S.fee))
+                     : line('Business service fee (' + S.feePct + '%)', '<span class="st-muted">not charged</span>');
+    }
+    h += line('Their share after fee', m(S.due), 'tot')
+      + line('Paid to them' + (S.lastPaid ? ' (last ' + shortDate(S.lastPaid) + ')' : ''), m(-S.paid));
+    if(S.balance >= 0){
+      h += line('Business owes them', m(S.balance), 'fin');
+    } else {
+      h += line('They owe the Business', m(S.owes), 'fin bad');
+      if(S.fromCosts >= 0.005) h += line('· running costs the Business covered', m(S.fromCosts), 'sub');
+      if(S.fromAdvance >= 0.005) h += line('· advance or extra payments to them', m(S.fromAdvance), 'sub');
+      // Will the rent sort it out, or does it need collecting?
+      const live = asg.find(a => a.car_id === c.id && a.status === 'Active');
+      let note;
+      if(c.retired_reason) note = 'This car is ' + String(c.retired_reason).toLowerCase() + ', so no more rent will cover this. Collect it from them.';
+      else if(!live) note = 'This car is not earning right now, so nothing is covering this. Collect it from them, or it will come out of their share once the car is rented again.';
+      else {
+        const wk = Number(live.weekly_rate) || 0, p = S.pct / 100, keep = 1 - S.feePct / 100;
+        const weeks = wk > 0 ? Math.ceil(S.fromCosts / (wk * p) + S.fromAdvance / (wk * p * keep)) : 0;
+        note = weeks > 0 ? (weeks <= 52 ? 'At $' + wk + ' a week, their share of the rent covers this in about ' + weeks + ' week' + (weeks === 1 ? '' : 's') + ', if no more costs come in.'
+                                         : 'At $' + wk + ' a week this would take over a year of rent to cover. Consider collecting it from them.')
+                         : 'Collect it from them.';
+      }
+      h += '<div class="st-note">' + esc(note) + '</div>';
+    }
+    if(S.feePct > 0 && S.fee <= 0) h += '<div class="st-note">No service fee is taken while the car has not covered its running costs.</div>';
+    return h + '<a class="st-link" href="finance.html">Open Car Finance ›</a></div>';
+  };
 
   // Each panel is drawn on its own, so a problem in one never blanks the others.
   const panel = (label, fn) => { try { fn(); } catch(e){ console.error('Dashboard — ' + label + ':', e); } };
@@ -820,25 +885,19 @@ async function loadStats(){
         t1: (c.rego || 'A car') + ' is free', t2: 'About ' + $m(missed) + ' rent missed · ' + (c.make_model || '') + ' ' + (c.year || ''),
         amt: days + ' days', sort: 5e8 + days });
     });
-    // Money still to pay investors and partners
+    // Investors and partners: money the Business owes them, or money they owe the Business
     cars.filter(c => c.externally_owned).forEach(c => {
-      const inc = sum(pays.filter(p => p.car_id === c.id), p => p.amount);
-      const costs = sum(exps.filter(e => e.car_id === c.id && (e.category || '') !== 'Purchase Price'), e => e.amount);
-      const paid = sum(pos.filter(p => p.car_id === c.id), p => p.amount);
-      const after = inc - costs, feePct = Number(c.service_fee_pct) || 0;
-      const part = c.investor_share_pct != null;
-      let due;
-      if(part){
-        const share = after * Number(c.investor_share_pct) / 100;
-        due = share - ((feePct > 0 && share > 0) ? share * feePct / 100 : 0);
-      } else {
-        due = after - (feePct > 0 ? after * feePct / 100 : 0);
+      const S = ownerStatement(c, pays, exps, pos);
+      const part = S.part, name = c.owner_name || (part ? 'the partner' : 'the investor');
+      const kind = (c.rego || '') + ' · ' + (part ? 'partnership ' + S.pct + '%' : 'investor car');
+      if(S.balance >= 1){
+        items.push({ cls: part ? 'purple' : 'blue', ic: part ? '⇄' : '↗', href:'finance.html', car:c, S,
+          t1: 'Business owes ' + name, t2: kind + ' · their share not paid yet', amt: $m(S.balance), sort: 1e8 + S.balance });
+      } else if(S.owes >= 1){
+        const why = [S.fromCosts >= 0.5 ? 'costs ' + $m(S.fromCosts) : '', S.fromAdvance >= 0.5 ? 'paid ahead ' + $m(S.fromAdvance) : ''].filter(Boolean).join(' + ');
+        items.push({ cls: part ? 'purple' : 'blue', ic: '↙', href:'finance.html', car:c, S,
+          t1: name.charAt(0).toUpperCase() + name.slice(1) + ' owes the Business', t2: kind + ' · ' + why, amt: $m(S.owes), sort: 6e8 + S.owes });
       }
-      const left = due - paid;
-      if(!(left >= 1)) return;
-      items.push({ cls: part ? 'purple' : 'blue', ic: part ? '⇄' : '↗', href:'finance.html',
-        t1: 'Pay ' + (c.owner_name || 'the investor'), t2: (c.rego || '') + ' · ' + (part ? 'partnership ' + Number(c.investor_share_pct) + '%' : 'investor car'),
-        amt: $m(left), sort: 1e8 + left });
     });
     if(pendingApps > 0){
       items.push({ cls:'amber', ic:'✎', href:'drivers.html',
@@ -847,50 +906,15 @@ async function loadStats(){
     }
     items.sort((x, y) => y.sort - x.sort);
     document.getElementById('aCount').textContent = items.length ? items.length + ' item' + (items.length === 1 ? '' : 's') : '';
-    document.getElementById('alerts').innerHTML = items.length
-      ? items.map(i => '<a class="alert ' + i.cls + '" href="' + i.href + '"><span class="ic">' + i.ic + '</span>'
+    const row = i => '<span class="ic">' + i.ic + '</span>'
           + '<span class="tx"><div class="t1">' + esc(i.t1) + '</div><div class="t2">' + esc(i.t2) + '</div></span>'
-          + (i.amt ? '<span class="amt">' + esc(i.amt) + '</span>' : '') + '</a>').join('')
+          + (i.amt ? '<span class="amt">' + esc(i.amt) + '</span>' : '');
+    document.getElementById('alerts').innerHTML = items.length
+      ? items.map(i => i.S
+          ? '<details class="alert-d"><summary><div class="alert ' + i.cls + '">' + row(i) + '<span class="chev" aria-hidden="true">▾</span></div></summary>'
+            + statementHtml(i.car, i.S) + '</details>'
+          : '<a class="alert ' + i.cls + '" href="' + i.href + '">' + row(i) + '</a>').join('')
       : '<div class="all-clear"><b>All clear</b>Nobody owes rent, no car is standing idle, and nothing is waiting.</div>';
-  });
-
-  panel('overpaid', () => {
-    // Same sums as the settlement in Car Finance: rent, less running costs,
-    // their share (and service fee), less what has been paid to them.
-    // Every payment recorded to them counts, so an advance or upfront payment
-    // shows here for as long as it is more than the share they have earned.
-    const rows = [];
-    cars.filter(c => c.externally_owned).forEach(c => {
-      const inc = sum(pays.filter(p => p.car_id === c.id), p => p.amount);
-      const costs = sum(exps.filter(e => e.car_id === c.id && (e.category || '') !== 'Purchase Price'), e => e.amount);
-      const mine = pos.filter(p => p.car_id === c.id);
-      const paid = sum(mine, p => p.amount);
-      if(!(paid > 0)) return;                                   // only people who have been paid something
-      const lastPaid = mine.map(p => String(p.payout_date || '').slice(0, 10)).filter(Boolean).sort().pop() || null;
-      const after = inc - costs, feePct = Number(c.service_fee_pct) || 0;
-      const part = c.investor_share_pct != null;
-      let due;
-      if(part){
-        const share = after * Number(c.investor_share_pct) / 100;
-        due = share - ((feePct > 0 && share > 0) ? share * feePct / 100 : 0);
-      } else {
-        due = after - (feePct > 0 ? after * feePct / 100 : 0);
-      }
-      const over = paid - due;
-      if(!(over >= 1)) return;
-      rows.push({ c, part, due, paid, over, lastPaid });
-    });
-    rows.sort((a, b) => b.over - a.over);
-    const total = sum(rows, r => Math.round(r.over));          // adds up exactly to the rows shown
-    document.getElementById('overList').innerHTML = rows.length
-      ? rows.map(r => '<a class="over" href="finance.html"><span class="own" style="background:' + (r.part ? OWN_COL.part : OWN_COL.inv) + '"></span>'
-          + '<span style="min-width:0"><div class="nm">' + esc(r.c.owner_name || 'Owner not named') + '</div>'
-          + '<div class="sub">' + esc((r.c.rego || '') + ' · ' + (r.part ? 'partnership ' + Number(r.c.investor_share_pct) + '%' : 'investor car')
-              + (r.lastPaid ? ' · last paid ' + shortDate(r.lastPaid) : '')) + '</div>'
-          + '<div class="sub">Paid ' + $m(r.paid) + ' · their share so far ' + (r.due < 0 ? '-' : '') + $m(Math.abs(r.due)) + '</div></span>'
-          + '<span class="rt"><div class="amt">' + $m(r.over) + '</div><div class="lbl">paid ahead</div></span></a>').join('')
-        + (rows.length > 1 ? '<div class="panel-sub" style="grid-column:1/-1;text-align:right">Total paid ahead: <b style="color:#f87171">' + $m(total) + '</b></div>' : '')
-      : '<div class="over-ok"><b>All payouts are correct.</b> No investor or partner has been paid more than their share, and no advance is outstanding.</div>';
   });
 
   panel('on the road', () => {
@@ -960,7 +984,7 @@ function drawChart(data, thisMon){
   <div class="rep-box" role="dialog" aria-modal="true" aria-labelledby="repTitle">
     <div class="rep-head">
       <div><div class="panel-title" id="repTitle">PDF reports</div>
-        <div class="panel-sub">Income, expenses and net position, for the whole business and for Ozee</div></div>
+        <div class="panel-sub">Income, expenses and net position, for all cars and for the Business</div></div>
       <button class="rep-x" onclick="Reports.close()" aria-label="Close">&times;</button>
     </div>
     <div class="rep-card">
@@ -1112,21 +1136,29 @@ const Reports = (function(){
     paysP.forEach(p => slot(p.car_id).R += N(p.amount));
     running.forEach(e => slot(e.car_id).C += N(e.amount));
     const order = { biz:0, part:1, inv:2 };
+    // The car's running result up to (not including) a date, for the service fee
+    const resultBefore = (id, day) => sum(D.pays.filter(p => p.car_id === id && day10(p.payment_date) < day), p => N(p.amount))
+                                    - sum(D.exps.filter(e => e.car_id === id && (e.category || '') !== 'Purchase Price' && day10(e.expense_date) < day), e => N(e.amount));
     const byCar = Object.values(per).map(x => {
-      const c = x.car, t = ownType(c), fee = N(c.service_fee_pct) / 100;
+      const c = x.car, t = ownType(c);
       x.R = r2(x.R); x.C = r2(x.C); x.N = r2(x.R - x.C); x.t = t;
-      let f = 0;                                         // the investor's / partner's part of this car's net
-      if(t === 'inv') f = 1 - fee;                       // Car Finance: after − after × fee
-      else if(t === 'part'){                             // Car Finance: share − fee on a positive share
-        const pct = N(c.investor_share_pct) / 100;
-        f = (x.N * pct > 0) ? pct * (1 - fee) : pct;
+      // Their part of the car: all of an investor's car, the agreed share of a partnership
+      const p = t === 'inv' ? 1 : t === 'part' ? N(c.investor_share_pct) / 100 : 0;
+      x.invR = r2(x.R * p); x.invC = r2(x.C * p); x.fee = 0;
+      if(t !== 'biz'){
+        // The service fee is worked out on the car's running total, exactly as Car
+        // Finance does, so every week and month adds up to the Car Finance figure.
+        // It is only taken once the car has covered its running costs.
+        const feePct = N(c.service_fee_pct);
+        const before = resultBefore(c.id, start), after = before + x.N;
+        x.fee = r2(feeOnShare(after * p, feePct) - feeOnShare(before * p, feePct));
       }
-      x.invN = r2(x.N * f); x.invR = r2(x.R * f); x.invC = r2(x.invR - x.invN);
-      x.ozR = r2(x.R - x.invR); x.ozC = r2(x.C - x.invC); x.ozN = r2(x.N - x.invN);
+      x.invN = r2(x.invR - x.invC - x.fee);
+      x.ozR = r2(x.R - x.invR); x.ozC = r2(x.C - x.invC); x.ozFee = x.fee; x.ozN = r2(x.N - x.invN);
       return x;
     }).sort((a, b) => (order[a.t] - order[b.t]) || String(a.car.rego || '').localeCompare(String(b.car.rego || '')));
     const T = k => r2(sum(byCar, x => x[k]));
-    const money = { R:T('R'), C:T('C'), N:T('N'), invR:T('invR'), invC:T('invC'), invN:T('invN'), ozR:T('ozR'), ozC:T('ozC'), ozN:T('ozN') };
+    const money = { R:T('R'), C:T('C'), N:T('N'), invR:T('invR'), invC:T('invC'), fee:T('fee'), invN:T('invN'), ozR:T('ozR'), ozC:T('ozC'), ozN:T('ozN') };
     return { byCar, per, money, paysP, running, purchases, posP };
   }
 
@@ -1203,15 +1235,9 @@ const Reports = (function(){
 
     // Investors and partners: their share in the period, what they were paid, and where they stand today
     const investors = D.cars.filter(c => c.externally_owned).map(c => {
-      const inc = sum(D.pays.filter(p => p.car_id === c.id), p => N(p.amount));
-      const costs = sum(D.exps.filter(e => e.car_id === c.id && (e.category || '') !== 'Purchase Price'), e => N(e.amount));
-      const paidAll = sum(D.pos.filter(p => p.car_id === c.id), p => N(p.amount));
-      const after = inc - costs, feePct = N(c.service_fee_pct), part = c.investor_share_pct != null;
-      let due;
-      if(part){ const share = after * N(c.investor_share_pct) / 100; due = share - ((feePct > 0 && share > 0) ? share * feePct / 100 : 0); }
-      else    { due = after - (feePct > 0 ? after * feePct / 100 : 0); }
-      const x = M.per[c.id];
-      return { c, part, share: x ? x.invN : 0, paid: r2(sum(M.posP.filter(p => p.car_id === c.id), p => N(p.amount))), balance: r2(due - paidAll) };
+      const S = ownerStatement(c, D.pays, D.exps, D.pos), x = M.per[c.id];
+      return { c, part:S.part, share: x ? x.invN : 0, fee: x ? x.fee : 0,
+               paid: r2(sum(M.posP.filter(p => p.car_id === c.id), p => N(p.amount))), balance: r2(S.balance), S };
     }).filter(r => Math.abs(r.share) >= 0.005 || r.paid > 0 || Math.abs(r.balance) >= 1)
       .sort((a, b) => String(a.c.owner_name || '').localeCompare(String(b.c.owner_name || '')) || String(a.c.rego || '').localeCompare(String(b.c.rego || '')));
 
@@ -1337,12 +1363,12 @@ const Reports = (function(){
       { l:'RENT FOR THE WEEK', v:m2(rd.rentTot.due), s1:m2(rd.rentTot.paid) + ' paid', s2: rd.rentTot.bal > 0.005 ? m2(rd.rentTot.bal) + ' not paid yet' : 'All paid', c:CLR.dark },
       { l:'RENT RECEIVED', v:m2(mo.R), s1:'Money in this week', s2: rd.lateTotal > 0 ? 'incl. ' + m2(rd.lateTotal) + ' late rent' : '', c:CLR.dark },
       { l:'RUNNING COSTS', v:m2(mo.C), s1:'Money out this week', s2:'Car purchases not included', c:CLR.dark },
-      { l:'OZEE NET POSITION', v:m2(mo.ozN), s1:'Whole business ' + m2(mo.N), s2:'after investors\' share', c:sign(mo.ozN), accent:true }
+      { l:'BUSINESS NET POSITION', v:m2(mo.ozN), s1:'All cars ' + m2(mo.N), s2:'after investors\' share', c:sign(mo.ozN), accent:true }
     ] : [
       { l:'RENT RECEIVED', v:m2(mo.R), s1:rd.prev.label + ': ' + m2(rd.prev.money.R), c:CLR.dark },
       { l:'RUNNING COSTS', v:m2(mo.C), s1:rd.prev.label + ': ' + m2(rd.prev.money.C), c:CLR.dark },
-      { l:'BUSINESS NET', v:m2(mo.N), s1:rd.prev.label + ': ' + m2(rd.prev.money.N), c:sign(mo.N) },
-      { l:'OZEE NET POSITION', v:m2(mo.ozN), s1:rd.prev.label + ': ' + m2(rd.prev.money.ozN), s2:'after investors\' share', c:sign(mo.ozN), accent:true }
+      { l:'ALL CARS NET', v:m2(mo.N), s1:rd.prev.label + ': ' + m2(rd.prev.money.N), c:sign(mo.N) },
+      { l:'BUSINESS NET POSITION', v:m2(mo.ozN), s1:rd.prev.label + ': ' + m2(rd.prev.money.ozN), s2:'after investors\' share', c:sign(mo.ozN), accent:true }
     ];
     const gap = 4, cardH = 27, cardW = (CW - gap * 3) / 4;
     cards.forEach((c, i) => {
@@ -1362,16 +1388,17 @@ const Reports = (function(){
     // ── Money in and out ──
     section('Money in and out', P.kind === 'week' ? 'by date, ' + shortDate(P.start) + ' – ' + shortDate(P.end) : 'by date, ' + P.title);
     const X1 = ML + 104, X2 = ML + 146;
-    cols([{ t:'', x:ML + 4 }, { t:'WHOLE BUSINESS', x:X1, a:'right' }, { t:'INVESTORS & PARTNERS', x:X2, a:'right' }, { t:'OZEE', x:R, a:'right' }]);
+    cols([{ t:'', x:ML + 4 }, { t:'ALL CARS', x:X1, a:'right' }, { t:'INVESTORS & PARTNERS', x:X2, a:'right' }, { t:'BUSINESS', x:R, a:'right' }]);
     row([{ t:'Rent received', x:ML + 4 }, { t:m2(mo.R), x:X1, a:'right' }, { t:m2(mo.invR), x:X2, a:'right', c:CLR.grey }, { t:m2(mo.ozR), x:R, a:'right' }], 0);
-    row([{ t:'Running costs', x:ML + 4 }, { t:m2(-mo.C), x:X1, a:'right' }, { t:m2(-mo.invC), x:X2, a:'right', c:CLR.grey }, { t:m2(-mo.ozC), x:R, a:'right' }], 1);
+    row([{ t:'Running costs (paid by the Business)', x:ML + 4 }, { t:m2(-mo.C), x:X1, a:'right' }, { t:m2(-mo.invC), x:X2, a:'right', c:CLR.grey }, { t:m2(-mo.ozC), x:R, a:'right' }], 1);
+    row([{ t:'Service fee', x:ML + 4 }, { t:'-', x:X1, a:'right', c:CLR.grey }, { t:m2(-mo.fee), x:X2, a:'right', c:CLR.grey }, { t:m2(mo.fee), x:R, a:'right' }], 0);
     totalRow([{ t:'Net position', x:ML + 4 }, { t:m2(mo.N), x:X1, a:'right', c:sign(mo.N) }, { t:m2(mo.invN), x:X2, a:'right', c:CLR.grey }, { t:m2(mo.ozN), x:R, a:'right', c:sign(mo.ozN) }]);
     y += 1.5;
     const extras = [];
     if(rd.lateTotal > 0) extras.push('Rent received includes ' + m2(rd.lateTotal) + ' of late rent for weeks before ' + shortDate(P.start) + '.');
     if(rd.purchases.length) extras.push('Car purchases of ' + m2(sum(rd.purchases, p => p.amount)) + ' were recorded in this period. They are listed separately and are not counted as running costs.');
     if(rd.paidOut > 0) extras.push(m2(rd.paidOut) + ' was paid out to investors and partners in this period (see the investors and partners table).');
-    extras.push('The investors\' and partners\' column is their share, worked out as in Car Finance: the car\'s rent less its running costs, their share of that, less the service fee.');
+    extras.push('The investors\' and partners\' column is their part of their cars (all of an investor\'s car, the agreed share of a partnership), less the Business service fee. The Business pays the running costs, so a negative figure is money they owe the Business. The service fee is worked out on each car\'s running total, as in Car Finance: it is only taken once the car has covered its running costs, and it goes back down if a large cost puts the car back below that.');
     note(extras.join(' '));
     gapAfter();
 
@@ -1428,7 +1455,7 @@ const Reports = (function(){
     section('Each car', rd.byCar.length + (rd.byCar.length === 1 ? ' car' : ' cars') + ' with money in or out');
     if(!rd.byCar.length) empty('No rent or running costs were recorded in this period.');
     else {
-      cols([{ t:'CAR', x:ML + 4 }, { t:'OWNERSHIP', x:ML + 50 }, { t:'RENT', x:ML + 114, a:'right' }, { t:'COSTS', x:ML + 136, a:'right' }, { t:'NET', x:ML + 158, a:'right' }, { t:'OZEE', x:R, a:'right' }]);
+      cols([{ t:'CAR', x:ML + 4 }, { t:'OWNERSHIP', x:ML + 50 }, { t:'RENT', x:ML + 114, a:'right' }, { t:'COSTS', x:ML + 136, a:'right' }, { t:'NET', x:ML + 158, a:'right' }, { t:'BUSINESS', x:R, a:'right' }]);
       rd.byCar.forEach((x, i) => row([{ t:carTxt(x.car), x:ML + 4, max:40, dot:ownCol(x.car) }, { t:ownTxt(x.car), x:ML + 50, max:40, c:ownCol(x.car) },
         { t:m2(x.R), x:ML + 114, a:'right' }, { t:m2(-x.C), x:ML + 136, a:'right' }, { t:m2(x.N), x:ML + 158, a:'right' }, { t:m2(x.ozN), x:R, a:'right', c:sign(x.ozN), b:true }], i, { fs:7.9 }));
       totalRow([{ t:'Total', x:ML + 4 }, { t:m2(mo.R), x:ML + 114, a:'right' }, { t:m2(-mo.C), x:ML + 136, a:'right' }, { t:m2(mo.N), x:ML + 158, a:'right' }, { t:m2(mo.ozN), x:R, a:'right', c:sign(mo.ozN) }]);
@@ -1487,15 +1514,15 @@ const Reports = (function(){
     section('Investors and partners', 'where they stand: as of ' + shortDate(rd.today));
     if(!rd.investors.length) empty('No investor or partner cars had money in or out, and nobody is owed anything.');
     else {
-      cols([{ t:'NAME', x:ML + 4 }, { t:'CAR', x:ML + 46 }, { t:'THEIR SHARE', x:ML + 112, a:'right' }, { t:'PAID TO THEM', x:ML + 140, a:'right' }, { t:'WHERE THEY STAND', x:R, a:'right' }]);
+      cols([{ t:'NAME', x:ML + 4 }, { t:'CAR', x:ML + 42 }, { t:'THEIR SHARE', x:ML + 102, a:'right' }, { t:'PAID TO THEM', x:ML + 126, a:'right' }, { t:'WHERE THEY STAND', x:R, a:'right' }]);
       rd.investors.forEach((r, i) => {
         const b = r.balance;
-        row([{ t:r.c.owner_name || 'Not named', x:ML + 4, max:40 }, { t:(r.c.rego || '') + (r.part ? ' · ' + N(r.c.investor_share_pct) + '%' : ''), x:ML + 46, max:40, dot:ownCol(r.c) },
-             { t:m2(r.share), x:ML + 112, a:'right' }, { t:r.paid > 0 ? m2(r.paid) : '-', x:ML + 140, a:'right' },
-             { t:Math.abs(b) < 1 ? 'Settled' : b > 0 ? 'We owe ' + m2(b) : 'Paid ahead ' + m2(-b), x:R, a:'right', b:true, c:Math.abs(b) < 1 ? CLR.green : b > 0 ? CLR.dark : CLR.red }], i);
+        row([{ t:r.c.owner_name || 'Not named', x:ML + 4, max:36 }, { t:(r.c.rego || '') + (r.part ? ' · ' + N(r.c.investor_share_pct) + '%' : ''), x:ML + 42, max:30, dot:ownCol(r.c) },
+             { t:m2(r.share), x:ML + 102, a:'right' }, { t:r.paid > 0 ? m2(r.paid) : '-', x:ML + 126, a:'right' },
+             { t:Math.abs(b) < 1 ? 'Settled' : b > 0 ? 'Business owes ' + m2(b) : 'Owes the Business ' + m2(-b), x:R, a:'right', b:true, c:Math.abs(b) < 1 ? CLR.green : b > 0 ? CLR.dark : CLR.red }], i);
       });
       y += 1.5;
-      note('Their share and paid to them are for this period. Where they stand is the running total today, the same figure Car Finance shows: everything they have earned less everything paid to them.');
+      note('Their share and paid to them are for this period. Where they stand is the running total today, the same figure Car Finance shows: their share of rent less running costs and the service fee, less everything paid to them. "Owes the Business" covers running costs the Business paid that rent has not covered yet, and any advance or extra payments to them.');
     }
     gapAfter();
 
