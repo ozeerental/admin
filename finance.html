@@ -437,9 +437,9 @@ function settlement(){
   const bizPct = 100 - invPct;
   const invShare = partner ? afterCosts * invPct / 100 : afterCosts;
   const bizShare = afterCosts - invShare;
-  const fee = partner
-        ? ((feePct > 0 && invShare > 0) ? invShare * feePct / 100 : 0)
-        : (feePct > 0 ? (afterCosts * feePct / 100) : 0);
+  // No service fee is taken until the car has covered its running costs: while
+  // it has not, the investor or partner carries their full share of the gap.
+  const fee = (feePct > 0 && invShare > 0) ? invShare * feePct / 100 : 0;
   const rentalDue = invShare - fee;
 
   // The sale price is deliberately kept out of every figure here. It is money
@@ -582,7 +582,7 @@ async function openDetail(carId){
   document.getElementById('detailTitle').innerHTML =
     `${car.make_model} <span>${car.year||''} — ${car.rego||''}</span>` +
     (partnerPct(car) != null
-      ? `<span class="own-pill own-part">Partnership · Ozee ${pctTxt(100 - partnerPct(car))} / ${car.owner_name ? car.owner_name : 'Investor'} ${pctTxt(partnerPct(car))}${car.service_fee_pct ? ' · '+car.service_fee_pct+'% fee' : ''}</span>`
+      ? `<span class="own-pill own-part">Partnership · Business ${pctTxt(100 - partnerPct(car))} / ${car.owner_name ? car.owner_name : 'Investor'} ${pctTxt(partnerPct(car))}${car.service_fee_pct ? ' · '+car.service_fee_pct+'% fee' : ''}</span>`
       : car.externally_owned
       ? `<span class="own-pill own-ext">Investor's car${car.owner_name ? ' · '+car.owner_name : ''}${car.service_fee_pct ? ' · '+car.service_fee_pct+'% fee' : ''}</span>`
       : `<span class="own-pill own-biz">Owned by the business</span>`);
@@ -724,7 +724,7 @@ function renderDetail(){
         + (partnerPct(_car) != null
             ? '<div class="sale-pay">' + (_car.owner_name ? _car.owner_name + '\u2019s' : 'The investor\u2019s')
               + ' ' + pctTxt(partnerPct(_car)) + ' share, ' + money(_saleAmt * partnerPct(_car) / 100)
-              + ', will be transferred within two weeks. Ozee\u2019s ' + pctTxt(100 - partnerPct(_car))
+              + ', will be transferred within two weeks. The Business\u2019s ' + pctTxt(100 - partnerPct(_car))
               + ' share is ' + money(_saleAmt * (100 - partnerPct(_car)) / 100) + '.</div>'
           : _car.externally_owned
             ? '<div class="sale-pay">The full amount of ' + money(_saleAmt)
@@ -750,21 +750,21 @@ function renderDetail(){
       const sgn = n => (n < 0 ? '−' : '') + money(Math.abs(n));
       const gridHtml = S.partner ? `
         <div class="col-title">Partnership split
-          <span class="hist-sub">Ozee ${pctTxt(S.bizPct)} · ${S.car.owner_name ? S.car.owner_name : 'Investor'} ${pctTxt(S.invPct)}</span>
+          <span class="hist-sub">Business ${pctTxt(S.bizPct)} · ${S.car.owner_name ? S.car.owner_name : 'Investor'} ${pctTxt(S.invPct)}</span>
         </div>
         <div class="settle-grid">
           <div class="settle-line"><span>Gross rental income</span><b class="pos">${money(S.income)}</b></div>
           <div class="settle-line"><span>Less: operating expenses</span><b class="neg">−${money(S.costs)}</b></div>
           <div class="settle-line"><span>${S.afterCosts >= 0 ? 'Net rental profit' : 'Net rental loss'}</span><b class="${S.afterCosts >= 0 ? '' : 'neg'}">${sgn(S.afterCosts)}</b></div>
-          <div class="settle-line settle-share"><span>Ozee's share (${pctTxt(S.bizPct)})</span><b>${sgn(S.bizShare)}</b></div>
+          <div class="settle-line settle-share"><span>Business share (${pctTxt(S.bizPct)})</span><b>${sgn(S.bizShare)}</b></div>
           <div class="settle-line settle-share"><span>Investor's share (${pctTxt(S.invPct)})</span><b>${sgn(S.invShare)}</b></div>
           ${S.fee > 0 ? `<div class="settle-line"><span>Less: service fee (${S.feePct}% of investor's share)</span><b class="neg">−${money(S.fee)}</b></div>` : ''}
           <div class="settle-line settle-sub"><span>Total due to investor</span><b>${sgn(S.dueToOwner)}</b></div>
           <div class="settle-line"><span>Less: payments already made to investor</span><b class="neg">−${money(S.paidOut)}</b></div>
           ${S.feePct > 0 && S.invShare <= 0 ? `<div class="settle-note">No service fee is taken while the investor's share is a loss.</div>` : ''}
-          ${S.excluded > 0 ? `<div class="settle-note">Purchase price ${money(S.excluded)}: Ozee paid ${pctTxt(S.bizPct)} (${money(S.excludedBiz)}), ${S.car.owner_name ? S.car.owner_name : 'the investor'} paid ${pctTxt(S.invPct)} (${money(S.excludedInv)}). It is not part of this rent split.</div>` : ''}
+          ${S.excluded > 0 ? `<div class="settle-note">Purchase price ${money(S.excluded)}: the Business paid ${pctTxt(S.bizPct)} (${money(S.excludedBiz)}), ${S.car.owner_name ? S.car.owner_name : 'the investor'} paid ${pctTxt(S.invPct)} (${money(S.excludedInv)}). It is not part of this rent split.</div>` : ''}
           <div class="settle-line settle-final">
-            <span>${owed >= 0 ? 'Balance due to investor' : 'Investor owes Ozee'}</span>
+            <span>${owed >= 0 ? 'Balance due to investor' : 'Investor owes the Business'}</span>
             <b class="${owed > 0 ? 'neg' : 'pos'}">${money(Math.abs(owed))}</b>
           </div>
         </div>` : `
@@ -774,13 +774,14 @@ function renderDetail(){
         <div class="settle-grid">
           <div class="settle-line"><span>Gross rental income</span><b class="pos">${money(S.income)}</b></div>
           <div class="settle-line"><span>Less: operating expenses</span><b class="neg">−${money(S.costs)}</b></div>
-          <div class="settle-line"><span>Net rental income</span><b>${money(S.afterCosts)}</b></div>
+          <div class="settle-line"><span>${S.afterCosts >= 0 ? 'Net rental income' : 'Net rental loss'}</span><b class="${S.afterCosts >= 0 ? '' : 'neg'}">${sgn(S.afterCosts)}</b></div>
           ${S.fee > 0 ? `<div class="settle-line"><span>Less: service fee (${S.feePct}%)</span><b class="neg">−${money(S.fee)}</b></div>` : ''}
-          <div class="settle-line settle-sub"><span>Total due to owner</span><b>${money(S.dueToOwner)}</b></div>
+          <div class="settle-line settle-sub"><span>Total due to owner</span><b>${sgn(S.dueToOwner)}</b></div>
           <div class="settle-line"><span>Less: payments already remitted</span><b class="neg">−${money(S.paidOut)}</b></div>
+          ${S.feePct > 0 && S.afterCosts <= 0 ? `<div class="settle-note">No service fee is taken while the car has not covered its running costs. The running costs were paid by the business.</div>` : ''}
           ${S.excluded > 0 ? `<div class="settle-note">The vehicle purchase price of ${money(S.excluded)} is excluded — this vehicle was not acquired by the business.</div>` : ''}
           <div class="settle-line settle-final">
-            <span>${owed >= 0 ? 'Balance due to owner' : 'Overpaid — recoverable from owner'}</span>
+            <span>${owed >= 0 ? 'Balance due to owner' : 'Owner owes the Business'}</span>
             <b class="${owed > 0 ? 'neg' : 'pos'}">${money(Math.abs(owed))}</b>
           </div>
         </div>`;
@@ -1172,7 +1173,7 @@ async function exportPDF(mode){
     // Ownership pill
     const _pp = partnerPct(car);
     const ownLabel = _pp != null
-        ? ('PARTNERSHIP  ·  OZEE ' + pctTxt(100 - _pp) + ' / '
+        ? ('PARTNERSHIP  ·  BUSINESS ' + pctTxt(100 - _pp) + ' / '
              + (car.owner_name ? car.owner_name.toUpperCase() : 'INVESTOR') + ' ' + pctTxt(_pp)
              + (car.service_fee_pct ? '  ·  ' + car.service_fee_pct + '% SERVICE FEE' : ''))
         : car.externally_owned
@@ -1376,7 +1377,7 @@ async function exportPDF(mode){
           const _ip = partnerPct(car);
           const _txt = _ip != null
             ? 'Includes the vehicle purchase price of $' + pdfMoney(_pp) + ', funded '
-              + pctTxt(100 - _ip) + ' by Ozee ($' + pdfMoney(_pp * (100 - _ip) / 100) + ') and '
+              + pctTxt(100 - _ip) + ' by the Business ($' + pdfMoney(_pp * (100 - _ip) / 100) + ') and '
               + pctTxt(_ip) + ' by ' + investorName(car) + ' ($' + pdfMoney(_pp * _ip / 100) + ').'
             : 'Includes the vehicle purchase price of $'+pdfMoney(_pp)+', which was funded by the owner.';
           doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
@@ -1511,7 +1512,7 @@ async function exportPDF(mode){
       const payLine = _sp != null
             ? (car.owner_name ? car.owner_name + "'s" : "The investor's") + ' ' + pctTxt(_sp)
               + ' share, $' + pdfMoney(saleAmt * _sp / 100)
-              + ', will be transferred within two weeks. Ozee\'s ' + pctTxt(100 - _sp)
+              + ', will be transferred within two weeks. The Business\'s ' + pctTxt(100 - _sp)
               + ' share is $' + pdfMoney(saleAmt * (100 - _sp) / 100) + '.'
             : car.externally_owned
             ? 'The full amount of $' + pdfMoney(saleAmt)
@@ -1569,7 +1570,7 @@ async function exportPDF(mode){
         ['Gross rental income',                    '$'+pdfMoney(S.income),   CLR.green],
         ['Less: operating expenses',               '-$'+pdfMoney(S.costs),   CLR.red],
         [S.afterCosts >= 0 ? 'Net rental profit' : 'Net rental loss', sm(S.afterCosts), S.afterCosts >= 0 ? CLR.dark : CLR.red],
-        ["Ozee's share ("+pctTxt(S.bizPct)+')',    sm(S.bizShare), PURPLE],
+        ["Business share ("+pctTxt(S.bizPct)+')',  sm(S.bizShare), PURPLE],
         [investorName(S.car).replace(/^the i/, 'I')+"'s share ("+pctTxt(S.invPct)+')', sm(S.invShare), PURPLE],
         ...(S.fee > 0 ? [["Less: service fee ("+S.feePct+"% of investor's share)", '-$'+pdfMoney(S.fee), CLR.red]] : []),
         ['Total due to investor',                  sm(S.dueToOwner), CLR.dark],
@@ -1577,9 +1578,9 @@ async function exportPDF(mode){
       ] : [
         ['Gross rental income',                    '$'+pdfMoney(S.income),   CLR.green],
         ['Less: operating expenses',               '-$'+pdfMoney(S.costs),   CLR.red],
-        ['Net rental income',                      '$'+pdfMoney(S.afterCosts), CLR.dark],
+        [S.afterCosts >= 0 ? 'Net rental income' : 'Net rental loss', sm(S.afterCosts), S.afterCosts >= 0 ? CLR.dark : CLR.red],
         ...(S.fee > 0 ? [['Less: service fee ('+S.feePct+'%)', '-$'+pdfMoney(S.fee), CLR.red]] : []),
-        ['Total due to owner',                     '$'+pdfMoney(S.dueToOwner), CLR.dark],
+        ['Total due to owner',                     sm(S.dueToOwner), CLR.dark],
         ['Less: payments already remitted',        '-$'+pdfMoney(S.paidOut), CLR.red]
       ];
       const totalIdx = lines.findIndex(l => l[0] === 'Total due to owner' || l[0] === 'Total due to investor');
@@ -1601,6 +1602,8 @@ async function exportPDF(mode){
       const _sNotes = [];
       if(S.partner && S.feePct > 0 && S.invShare <= 0)
         _sNotes.push("No service fee is taken while the investor's share is a loss.");
+      if(!S.partner && S.feePct > 0 && S.afterCosts <= 0)
+        _sNotes.push('No service fee is taken while the car has not covered its running costs. The running costs were paid by the business.');
       if(S.excluded > 0)
         _sNotes.push('This statement covers rental settlement only. The vehicle purchase price of $'+pdfMoney(S.excluded)+' is accounted for in the vehicle position below.');
       _sNotes.forEach(function(t){
@@ -1620,8 +1623,8 @@ async function exportPDF(mode){
       doc.rect(M,y,CW,13,'F');
       doc.setFont('helvetica','bold'); doc.setFontSize(9);
       doc.setTextColor.apply(doc, CLR.white);
-      doc.text(S.partner ? (owed >= 0 ? 'BALANCE DUE TO INVESTOR' : 'INVESTOR OWES OZEE')
-                         : (owed >= 0 ? 'BALANCE DUE TO OWNER' : 'OVERPAID - RECOVERABLE FROM OWNER'), M+4, y+8.4);
+      doc.text(S.partner ? (owed >= 0 ? 'BALANCE DUE TO INVESTOR' : 'INVESTOR OWES THE BUSINESS')
+                         : (owed >= 0 ? 'BALANCE DUE TO OWNER' : 'OWNER OWES THE BUSINESS'), M+4, y+8.4);
       doc.setFontSize(12);
       doc.setTextColor.apply(doc, owed > 0 ? [255,140,140] : [110,220,140]);
       doc.text('$'+pdfMoney(Math.abs(owed)), PW-M-4, y+8.6, {align:'right'});
@@ -1681,14 +1684,15 @@ async function exportPDF(mode){
         bottomValue = lifetime;
         const sv = n => (n < 0 ? '-$' : '$') + pdfMoney(Math.abs(n));
         shareRows = [
-          ["Ozee's share (" + pctTxt(100 - partPct) + ')', sv(lifetime * (100 - partPct) / 100)],
+          ["Business share (" + pctTxt(100 - partPct) + ')', sv(lifetime * (100 - partPct) / 100)],
           [investorName(car).replace(/^the i/, 'I') + "'s share (" + pctTxt(partPct) + ')', sv(lifetime * partPct / 100)]
         ];
       } else if(ownerCar){
         // The service fee the business retained is shown so the owner can see
         // the complete rental picture in one place. The sale price is not part
         // of this — it has its own statement above.
-        const serviceFee = (activeIncome.reduce((s,i)=>s+Number(i.amount),0) - runningCost)
+        // Only once the car has covered its running costs (same rule as the settlement)
+        const serviceFee = Math.max(0, activeIncome.reduce((s,i)=>s+Number(i.amount),0) - runningCost)
                            * (Number(car.service_fee_pct)||0) / 100;
         const rentalToOwner = totalIncome - runningCost - serviceFee;
         // The sale price is stated on its own page block, never folded in here.
@@ -1773,7 +1777,7 @@ async function exportPDF(mode){
               + (ownerCar ? '; no service fee is taken on it' : '') + '. ';
       }
       if(partPct != null){
-        note += 'This vehicle is owned ' + pctTxt(100 - partPct) + ' by Ozee and ' + pctTxt(partPct)
+        note += 'This vehicle is owned ' + pctTxt(100 - partPct) + ' by the Business and ' + pctTxt(partPct)
               + ' by ' + investorName(car) + '. The position is shared in the same proportions'
               + (Number(car.service_fee_pct) > 0 ? '; the service fee is shown in the settlement statement above. ' : '. ');
       } else if(ownerCar && purchaseCost > 0){
