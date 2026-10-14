@@ -558,7 +558,7 @@ tr.own-row-part td:first-child{box-shadow:inset 3px 0 0 #a78bfa;}
         <div class="form-group">
           <label class="form-label">Investor's Share (%) <span class="req">*</span></label>
           <input class="form-input" id="c_inv_share" type="number" min="1" max="99" step="0.1" placeholder="e.g. 40" oninput="updateShareSplit()">
-          <div class="share-split" id="shareSplit">Enter the investor's share. Ozee's share is worked out for you.</div>
+          <div class="share-split" id="shareSplit">Enter the investor's share. The Business share is worked out for you.</div>
         </div>
       </div>
       <div class="form-row" id="serviceFeeRow" style="display:none;">
@@ -584,7 +584,7 @@ tr.own-row-part td:first-child{box-shadow:inset 3px 0 0 #a78bfa;}
         Rent, expenses and payouts for this car will be shown as an owner statement in Car Finance and on its PDF report.
       </div>
       <div id="partnerHint" class="odo-hint" style="display:none;">
-        Rent, running costs, the purchase price and any sale price are split between Ozee and the investor by these shares in Car Finance and on the PDF report. Losses are shared the same way. The service fee is taken from the investor's share only when that share is a profit.
+        Rent, running costs, the purchase price and any sale price are split between the Business and the investor by these shares in Car Finance and on the PDF report. Losses are shared the same way. The service fee is taken from the investor's share only when that share is a profit.
       </div>
 
       <div class="section-divider">Odometer</div>
@@ -741,8 +741,8 @@ function updateShareSplit(){
   if(!el) return;
   const inv = investorShareValue();
   el.innerHTML = inv == null
-    ? "Enter the investor's share (1 to 99). Ozee's share is worked out for you."
-    : 'Ozee <b>' + (Math.round((100 - inv) * 10) / 10) + '%</b> &nbsp;/&nbsp; Investor <b>' + inv + '%</b>';
+    ? "Enter the investor's share (1 to 99). The Business share is worked out for you."
+    : 'Business <b>' + (Math.round((100 - inv) * 10) / 10) + '%</b> &nbsp;/&nbsp; Investor <b>' + inv + '%</b>';
 }
 
 // The dropdown carries the common rates. "Custom percentage..." reveals a
@@ -990,7 +990,8 @@ async function outstandingToOwner(carId){
       const fee = (feePct > 0 && invShare > 0) ? invShare * feePct / 100 : 0;
       return (invShare - fee) - paidOut;
     }
-    const fee = feePct > 0 ? afterCosts * feePct / 100 : 0;
+    // No service fee until the car has covered its running costs (same as Car Finance)
+    const fee = (feePct > 0 && afterCosts > 0) ? afterCosts * feePct / 100 : 0;
     return (afterCosts - fee) - paidOut;
   }catch(e){ return 0; }   // never block a save because this check failed
 }
@@ -1065,7 +1066,7 @@ async function saveCar() {
     const inv = investorShareValue();
     if (inv == null) {
       alert("Please enter the investor's share as a percentage between 1 and 99.\n\n" +
-            "For example, 40 means the investor owns 40% of the car and Ozee owns 60%.");
+            "For example, 40 means the investor owns 40% of the car and the Business owns 60%.");
       document.getElementById('c_inv_share').focus();
       return;
     }
@@ -1225,7 +1226,7 @@ function renderCars(cars) {
     if (t === 'part') {
       const inv = Number(c.investor_share_pct), biz = Math.round((100 - inv) * 10) / 10;
       return `<div class="own-cell"><span class="own-tag own-part">Partnership</span>`
-           + `<div class="own-who">${escHtml(c.owner_name || 'Investor name not added')} ${inv}% · Ozee ${biz}%${fee}</div></div>`;
+           + `<div class="own-who">${escHtml(c.owner_name || 'Investor name not added')} ${inv}% · Business ${biz}%${fee}</div></div>`;
     }
     if (t === 'inv') {
       return `<div class="own-cell"><span class="own-tag own-ext">Investor</span>`
