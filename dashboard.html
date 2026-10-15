@@ -580,6 +580,13 @@ function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&
 function sum(arr, f){ return arr.reduce((s, x) => s + (Number(f(x)) || 0), 0); }
 const OWN_COL = { biz:'#F5A623', inv:'#60a5fa', part:'#a78bfa' };
 function ownType(c){ return !c || !c.externally_owned ? 'biz' : (c.investor_share_pct != null ? 'part' : 'inv'); }
+// Oldest model year first; within a year by make and model, then rego.
+// A car with no model year recorded goes last.
+function byYearOldest(a, b){
+  return ((Number(a.year) || 9999) - (Number(b.year) || 9999))
+      || String(a.make_model || '').localeCompare(String(b.make_model || ''))
+      || String(a.rego || '').localeCompare(String(b.rego || ''));
+}
 
 // ── Where an investor or partner stands with the Business ──
 // The Business pays every running cost (rego, insurance, repairs and so on);
@@ -918,7 +925,7 @@ async function loadStats(){
   });
 
   panel('on the road', () => {
-    const road = active.slice().sort((a, b) => drv(a).localeCompare(drv(b)));
+    const road = active.slice().sort((a, b) => byYearOldest(a.cars || {}, b.cars || {}) || drv(a).localeCompare(drv(b)));   // oldest car first
     document.getElementById('road').innerHTML = road.length ? road.map(a => {
       const c = a.cars || {}, wk = thisRows[a.id], ow = owing[a.id];
       let pill;
@@ -1156,7 +1163,7 @@ const Reports = (function(){
       x.invN = r2(x.invR - x.invC - x.fee);
       x.ozR = r2(x.R - x.invR); x.ozC = r2(x.C - x.invC); x.ozFee = x.fee; x.ozN = r2(x.N - x.invN);
       return x;
-    }).sort((a, b) => (order[a.t] - order[b.t]) || String(a.car.rego || '').localeCompare(String(b.car.rego || '')));
+    }).sort((a, b) => byYearOldest(a.car, b.car));   // oldest car first
     const T = k => r2(sum(byCar, x => x[k]));
     const money = { R:T('R'), C:T('C'), N:T('N'), invR:T('invR'), invC:T('invC'), fee:T('fee'), invN:T('invN'), ozR:T('ozR'), ozC:T('ozC'), ozN:T('ozN') };
     return { byCar, per, money, paysP, running, purchases, posP };
