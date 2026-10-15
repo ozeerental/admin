@@ -697,7 +697,8 @@ async function openAssignModal(){
   // reality — which is how the same car ends up rented to two drivers.
   const [{data:drivers},{data:cars},{data:busy}] = await Promise.all([
     window._sb.from('drivers').select('id,first_name,last_name').eq('status','Approved').order('first_name'),
-    window._sb.from('cars').select('id,rego,make_model,weekly_rate,status,retired_reason').order('rego'),
+    window._sb.from('cars').select('id,rego,make_model,year,weekly_rate,status,retired_reason')
+        .order('year', { ascending:true }).order('make_model').order('rego'),   // oldest car first
     window._sb.from('car_assignments').select('car_id').eq('status','Active')
   ]);
 
@@ -707,7 +708,7 @@ async function openAssignModal(){
 
   document.getElementById('a_driver').innerHTML = '<option value="">Select driver...</option>' + (drivers||[]).map(d=>`<option value="${d.id}">${d.first_name} ${d.last_name}</option>`).join('');
   document.getElementById('a_car').innerHTML = free.length
-      ? '<option value="">Select car...</option>' + free.map(c=>`<option value="${c.id}" data-rate="${c.weekly_rate}">${c.rego} — ${c.make_model} ($${c.weekly_rate}/wk)</option>`).join('')
+      ? '<option value="">Select car...</option>' + free.map(c=>`<option value="${c.id}" data-rate="${c.weekly_rate}">${c.rego} — ${c.make_model}${c.year ? ' ' + c.year : ''} ($${c.weekly_rate}/wk)</option>`).join('')
       : '<option value="">No cars are free to rent out right now</option>';
   document.getElementById('a_start').value = todayISO();
   _partWeekEdited = false;
