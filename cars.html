@@ -1261,9 +1261,9 @@ function renderCars(cars) {
 
   // Vehicles that have left the fleet sit in their own section underneath, so
   // the working list is only the cars actually on the road.
-  // Newest model year first in both sections.
-  const active  = cars.filter(c => !c.retired_reason).sort(byYearDesc);
-  const retired = cars.filter(c =>  c.retired_reason).sort(byYearDesc);
+  // Oldest model year first in both sections.
+  const active  = cars.filter(c => !c.retired_reason).sort(byYearOldest);
+  const retired = cars.filter(c =>  c.retired_reason).sort(byYearOldest);
 
   let html = active.length
         ? active.map(rowFor).join('')
@@ -1282,9 +1282,10 @@ function renderCars(cars) {
 function ownType(c){
   return !c.externally_owned ? 'biz' : (c.investor_share_pct != null ? 'part' : 'inv');
 }
-// Newest model year first; within a year by make and model, then rego.
-function byYearDesc(a, b){
-  return (Number(b.year) || 0) - (Number(a.year) || 0)
+// Oldest model year first; within a year by make and model, then rego.
+// A car with no model year recorded goes last.
+function byYearOldest(a, b){
+  return ((Number(a.year) || 9999) - (Number(b.year) || 9999))
       || String(a.make_model || '').localeCompare(String(b.make_model || ''))
       || String(a.rego || '').localeCompare(String(b.rego || ''));
 }
