@@ -400,9 +400,10 @@ function partnerPct(car){
 function pctTxt(n){ return (Math.round(Number(n) * 10) / 10) + '%'; }
 // 'biz' (business), 'inv' (investor) or 'part' (partnership).
 function ownType(c){ return !c.externally_owned ? 'biz' : (partnerPct(c) != null ? 'part' : 'inv'); }
-// Newest model year first; within a year by make and model, then rego.
-function byYearDesc(a, b){
-  return (Number(b.year) || 0) - (Number(a.year) || 0)
+// Oldest model year first; within a year by make and model, then rego.
+// A car with no model year recorded goes last.
+function byYearOldest(a, b){
+  return ((Number(a.year) || 9999) - (Number(b.year) || 9999))
       || String(a.make_model || '').localeCompare(String(b.make_model || ''))
       || String(a.rego || '').localeCompare(String(b.rego || ''));
 }
@@ -501,7 +502,7 @@ async function loadCars(){
   allCars = data || [];
 
   // Pull expense + income totals for all cars in two queries
-  const { data: exp } = await _db.from('car_expenses').select('car_id, amount');
+  const { data: exp } = await _db.from('car_expenses').select('car_id, amount, category');
   const { data: inc } = await _db.from('rent_payments').select('car_id, amount');
   // Who is driving each car right now (active rentals only)
   const { data: act } = await _db.from('car_assignments')
@@ -513,8 +514,11 @@ async function loadCars(){
     if(nm) driverOf[a.car_id] = driverOf[a.car_id] ? driverOf[a.car_id] + ', ' + nm : nm;
   });
 
-  const expTotals = {}, incTotals = {};
-  (exp||[]).forEach(e => expTotals[e.car_id] = (expTotals[e.car_id]||0) + Number(e.amount));
+  const expTotals = {}, incTotals = {}, runTotals = {};
+  (exp||[]).forEach(e => {
+    expTotals[e.car_id] = (expTotals[e.car_id]||0) + Number(e.amount);
+    if((e.category||'') !== 'Purchase Price') runTotals[e.car_id] = (runTotals[e.car_id]||0) + Number(e.amount);
+  });
   (inc||[]).forEach(i => incTotals[i.car_id] = (incTotals[i.car_id]||0) + Number(i.amount));
 
   const grid = document.getElementById('carGrid');
@@ -523,8 +527,15 @@ async function loadCars(){
   const cardFor = c => {
     const cost = expTotals[c.id] || 0;
     const income = incTotals[c.id] || 0;
-    const net = income - cost;
     const t = ownType(c);
+    // Same figure as POSITION TO DATE when the car is opened: on an investor's
+    // car the service fee comes off too (only once the car has covered its
+    // running costs, as in the settlement). A partnership car shows the whole
+    // car's position, and a business car its own, exactly as the detail does.
+    const feePct = Number(c.service_fee_pct) || 0;
+    const runResult = income - (runTotals[c.id] || 0);
+    const fee = (t === 'inv' && feePct > 0 && runResult > 0) ? runResult * feePct / 100 : 0;
+    const net = income - cost - fee;
     const who = esc(c.owner_name || 'name not added');
     const ownLine = t === 'part'
           ? `<div class="cc-own own-part">Partnership · ${who} ${pctTxt(partnerPct(c))}</div>`
@@ -543,6 +554,7 @@ async function loadCars(){
       ${ownLine}
       <div class="cc-row"><span>Total Cost</span><b>${money(cost)}</b></div>
       <div class="cc-row"><span>Total Earned</span><b>${money(income)}</b></div>
+      ${fee > 0 ? `<div class="cc-row"><span>Service fee (${feePct}%)</span><b>${money(fee)}</b></div>` : ''}
       <div class="cc-net">
         <span class="cc-net-label">Net</span>
         <span class="cc-net-val ${net>=0?'pos':'neg'}">${net>=0?'+':'-'}${money(Math.abs(net))}</span>
@@ -552,9 +564,9 @@ async function loadCars(){
 
   // Vehicles that have left the fleet get their own section below, so the
   // working grid holds only the cars still earning.
-  // Newest model year first in both sections.
-  const active  = allCars.filter(c => !c.retired_reason).sort(byYearDesc);
-  const retired = allCars.filter(c =>  c.retired_reason).sort(byYearDesc);
+  // Oldest model year first in both sections.
+  const active  = allCars.filter(c => !c.retired_reason).sort(byYearOldest);
+  const retired = allCars.filter(c =>  c.retired_reason).sort(byYearOldest);
 
   const nOf = t => allCars.filter(c => ownType(c) === t).length;
   let html = '<div class="own-legend">'
