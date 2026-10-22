@@ -297,7 +297,15 @@ tr:hover td{background:rgba(255,255,255,.03);}
 #kWeekBox{grid-area:week;} #kOverdueBox{grid-area:over;} #kMonthBox{grid-area:month;} #kNetBox{grid-area:net;}
 .wk-figs{display:flex;align-items:flex-end;gap:.6rem 1.6rem;flex-wrap:wrap;}
 .wk-cap{font-size:.68rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.45);margin-top:.3rem;}
-.kpi.hero .kpi-val.wk-paid{font-size:2.4rem;color:#fff;}
+.kpi.hero .kpi-val.wk-exp{font-size:2.4rem;color:#fff;}
+/* This week: bar with the share received beside it */
+.wk-meter{display:flex;align-items:center;gap:.8rem;margin-top:.9rem;}
+.wk-meter .meter{flex:1 1 auto;margin-top:0;height:10px;}
+.wk-pct{white-space:nowrap;font-size:.7rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.45);}
+.wk-pct b{font-family:"Barlow Condensed",sans-serif;font-size:1.35rem;font-weight:800;letter-spacing:0;color:#F5A623;
+  font-variant-numeric:tabular-nums;margin-right:.25rem;}
+.wk-meter.done .meter i{background:linear-gradient(90deg,#22c55e,#4ade80);}
+.wk-meter.done .wk-pct b{color:#4ade80;}
 .od-list{display:flex;flex-direction:column;gap:.45rem;margin-top:.85rem;}
 .od{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.7rem;padding:.6rem .75rem;border-radius:10px;
   background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.18);text-decoration:none;color:#fff;transition:border-color .2s;}
@@ -449,7 +457,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
   .panel{padding:1rem;}
   .kpi-val{font-size:1.9rem;}
   .kpi.hero .kpi-val{font-size:2.9rem;}
-  .kpi.hero .kpi-val.wk-paid{font-size:2rem;}
+  .kpi.hero .kpi-val.wk-exp{font-size:2rem;}
   .chart{padding-left:34px;}
   .chart .grid,.cols{left:34px;}
   .chart .tick{width:30px;}
@@ -507,10 +515,13 @@ tr:hover td{background:rgba(255,255,255,.03);}
   <div class="panel kpi hero" id="kWeekBox">
     <div class="kpi-label">Rent for this week</div>
     <div class="wk-figs">
-      <div><div class="kpi-val" id="kWeekExp">—</div><div class="wk-cap">Expected</div></div>
-      <div><div class="kpi-val wk-paid" id="kWeek">—</div><div class="wk-cap">Paid so far</div></div>
+      <div><div class="kpi-val" id="kWeek">—</div><div class="wk-cap">Received so far</div></div>
+      <div><div class="kpi-val wk-exp" id="kWeekExp">—</div><div class="wk-cap">Expected</div></div>
     </div>
-    <div class="meter"><i id="kWeekBar" style="width:0%"></i></div>
+    <div class="wk-meter" id="kWeekMeter">
+      <div class="meter"><i id="kWeekBar" style="width:0%"></i></div>
+      <div class="wk-pct"><b id="kWeekPct">—</b>received</div>
+    </div>
     <div class="kpi-note" id="kWeekNote">&nbsp;</div>
   </div>
   <div class="panel kpi" id="kOverdueBox">
@@ -784,6 +795,12 @@ async function loadStats(){
       + '<br>Last week: <b>' + $m(last.paid) + '</b> of ' + $m(last.due) + ' paid'
       + (last.due - last.paid > 0.5 ? ' · the rest is in Overdue rent' : '');
     document.getElementById('kWeekBar').style.width = (wk.due > 0 ? Math.min(100, wk.paid / wk.due * 100) : 0) + '%';
+    // The share received, never rounded up to 100% until the week is fully paid
+    // (the same test as "All paid for this week" above).
+    const allIn = wk.due > 0 && toCome <= 0.5;
+    document.getElementById('kWeekPct').textContent = wk.due > 0
+        ? (allIn ? 100 : Math.min(99, Math.floor(wk.paid / wk.due * 100))) + '%' : '—';
+    document.getElementById('kWeekMeter').classList.toggle('done', allIn);
   });
 
   panel('this month', () => {
