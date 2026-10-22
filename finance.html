@@ -76,6 +76,18 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 .summary-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:1rem;text-align:center;}
 .summary-label{font-size:.68rem;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.4);margin-bottom:.4rem;}
 .summary-val{font-family:"Barlow Condensed",sans-serif;font-size:1.7rem;font-weight:900;}
+/* Five-figure summary: purchase / rent / running costs, then the two results */
+.summary-row.v2{grid-template-columns:repeat(3,1fr)!important;}
+.summary-row.v2 .summary-box.wide{grid-column:span 2;}
+.summary-sub{font-size:.7rem;color:rgba(255,255,255,.38);margin-top:.25rem;line-height:1.35;}
+.payback{height:5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin:.55rem auto 0;max-width:260px;}
+.payback i{display:block;height:100%;background:#F5A623;border-radius:3px;}
+@media(max-width:900px){
+  .summary-row.v2{grid-template-columns:repeat(2,1fr)!important;gap:.6rem;padding:1rem;}
+  .summary-row.v2 .summary-box{padding:.75rem .6rem;}
+  .summary-row.v2 .summary-box.wide,.summary-row.v2 .summary-box.last-odd{grid-column:1 / -1;}
+  .summary-row.v2 .summary-val{font-size:1.45rem;}
+}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:0;}
 @media(max-width:768px){.two-col{grid-template-columns:1fr;} .summary-row{grid-template-columns:1fr;}}
 .col-pane{padding:1.5rem;}
@@ -304,22 +316,37 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
         </div>
       </div>
 
-      <div class="summary-row" id="summaryRow">
+      <div class="summary-row v2" id="summaryRow">
         <div class="summary-box">
-          <div class="summary-label">Total Expenses</div>
-          <div class="summary-val" id="sumCost">$0</div>
+          <div class="summary-label">Car Purchase Price</div>
+          <div class="summary-val" id="sumBuy">$0</div>
+          <div class="summary-sub" id="sumBuySub">Initial investment</div>
         </div>
         <div class="summary-box">
           <div class="summary-label">Rent Collected</div>
           <div class="summary-val" id="sumIncome">$0</div>
+          <div class="summary-sub">Total received, before costs</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Running Costs So Far</div>
+          <div class="summary-val" id="sumRun">$0</div>
+          <div class="summary-sub" id="sumRunSub">Purchase price not included</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Income After Running Costs</div>
+          <div class="summary-val" id="sumAfter">$0</div>
+          <div class="summary-sub">Rent collected less running costs</div>
         </div>
         <div class="summary-box" id="sumFeeBox" style="display:none;">
           <div class="summary-label">Service Fee</div>
           <div class="summary-val pos" id="sumFee">$0</div>
+          <div class="summary-sub" id="sumFeeSub"></div>
         </div>
-        <div class="summary-box">
+        <div class="summary-box" id="sumNetBox">
           <div class="summary-label" id="sumNetLabel">Net Position</div>
           <div class="summary-val" id="sumNet">$0</div>
+          <div class="summary-sub" id="sumNetSub"></div>
+          <div class="payback" id="sumPayback" style="display:none;"><i id="sumPaybackBar"></i></div>
         </div>
       </div>
 
@@ -685,19 +712,46 @@ function renderDetail(){
   const _final = (_S && !_S.partner) ? (totalIncome - totalCost - _S.fee)
                                      : (totalIncome - totalCost);
 
-  document.getElementById('sumCost').textContent = money(totalCost);
+  // Five figures that read as one sum, exactly as on the PDF:
+  //   rent collected - running costs = income after running costs
+  //   income after running costs - purchase price = net position
+  // _final above is unchanged; this only shows how it is made up.
+  const _buy = activeExpenses.filter(e => (e.category||'') === 'Purchase Price')
+                             .reduce((s,e) => s + Number(e.amount), 0);
+  const _runN = activeExpenses.filter(e => (e.category||'') !== 'Purchase Price').length;
+  const _run = totalCost - _buy;
+  const _after = totalIncome - _run;
+  const _pp = _car ? partnerPct(_car) : null;
+
+  document.getElementById('sumBuy').textContent = _buy > 0 ? money(_buy) : 'Not recorded';
+  document.getElementById('sumBuySub').textContent =
+      _buy <= 0 ? 'No purchase price entered'
+    : _pp != null ? 'Business ' + pctTxt(100 - _pp) + ' · ' + (_car.owner_name || 'Investor') + ' ' + pctTxt(_pp)
+    : (_car && _car.externally_owned) ? 'Funded by the owner'
+    : 'Initial investment';
   document.getElementById('sumIncome').textContent = money(totalIncome);
+  document.getElementById('sumRun').textContent = money(_run);
+  document.getElementById('sumRunSub').textContent =
+      _runN + (_runN === 1 ? ' expense' : ' expenses') + ', purchase not included';
+  const afterEl = document.getElementById('sumAfter');
+  afterEl.textContent = (_after>=0?'+':'-') + money(Math.abs(_after));
+  afterEl.className = 'summary-val' + (_after < 0 ? ' neg' : '');
 
   const feeBox = document.getElementById('sumFeeBox');
-  const row = document.getElementById('summaryRow');
+  const netBox = document.getElementById('sumNetBox');
   if(_S){
     feeBox.style.display = '';
-    row.classList.add('four');
     document.getElementById('sumFee').textContent = money(_S.fee);
+    document.getElementById('sumFeeSub').textContent =
+        _S.fee > 0 ? (_S.partner ? _S.feePct + '% of the investor\u2019s share' : _S.feePct + '% after running costs')
+                   : 'None until running costs are covered';
   } else {
     feeBox.style.display = 'none';
-    row.classList.remove('four');
   }
+  // Business car: five boxes, so the last one fills the row on a laptop.
+  netBox.classList.toggle('wide', !_S);
+  netBox.classList.toggle('last-odd', !_S);
+
   document.getElementById('sumNetLabel').textContent =
     (_car && _car.retired_reason) ? 'Final Position'
                                   : (_S ? 'Position to Date' : 'Net Position');
@@ -705,6 +759,21 @@ function renderDetail(){
   const netEl = document.getElementById('sumNet');
   netEl.textContent = (_final>=0?'+':'-') + money(Math.abs(_final));
   netEl.className = 'summary-val ' + (_final>=0?'pos':'neg');
+
+  // How much of the purchase price the car has earned back so far.
+  const _back = _after - ((_S && !_S.partner) ? _S.fee : 0);
+  const pbWrap = document.getElementById('sumPayback');
+  if(_buy > 0){
+    const pc = Math.max(0, Math.min(1, _back / _buy));
+    document.getElementById('sumNetSub').textContent = _back >= _buy
+        ? 'Purchase price fully paid back'
+        : Math.floor(pc * 100) + '% of purchase price paid back · ' + money(_buy - _back) + ' to go';
+    document.getElementById('sumPaybackBar').style.width = (pc * 100).toFixed(1) + '%';
+    pbWrap.style.display = '';
+  } else {
+    document.getElementById('sumNetSub').textContent = 'No purchase price entered';
+    pbWrap.style.display = 'none';
+  }
 
   document.getElementById('expList').innerHTML = activeExpenses.length ? activeExpenses.map(e => `
     <div class="log-item">
@@ -766,7 +835,7 @@ function renderDetail(){
         </div>
         <div class="settle-grid">
           <div class="settle-line"><span>Gross rental income</span><b class="pos">${money(S.income)}</b></div>
-          <div class="settle-line"><span>Less: operating expenses</span><b class="neg">−${money(S.costs)}</b></div>
+          <div class="settle-line"><span>Less: running costs</span><b class="neg">−${money(S.costs)}</b></div>
           <div class="settle-line"><span>${S.afterCosts >= 0 ? 'Net rental profit' : 'Net rental loss'}</span><b class="${S.afterCosts >= 0 ? '' : 'neg'}">${sgn(S.afterCosts)}</b></div>
           <div class="settle-line settle-share"><span>Business share (${pctTxt(S.bizPct)})</span><b>${sgn(S.bizShare)}</b></div>
           <div class="settle-line settle-share"><span>Investor's share (${pctTxt(S.invPct)})</span><b>${sgn(S.invShare)}</b></div>
@@ -785,7 +854,7 @@ function renderDetail(){
         </div>
         <div class="settle-grid">
           <div class="settle-line"><span>Gross rental income</span><b class="pos">${money(S.income)}</b></div>
-          <div class="settle-line"><span>Less: operating expenses</span><b class="neg">−${money(S.costs)}</b></div>
+          <div class="settle-line"><span>Less: running costs</span><b class="neg">−${money(S.costs)}</b></div>
           <div class="settle-line"><span>${S.afterCosts >= 0 ? 'Net rental income' : 'Net rental loss'}</span><b class="${S.afterCosts >= 0 ? '' : 'neg'}">${sgn(S.afterCosts)}</b></div>
           ${S.fee > 0 ? `<div class="settle-line"><span>Less: service fee (${S.feePct}%)</span><b class="neg">−${money(S.fee)}</b></div>` : ''}
           <div class="settle-line settle-sub"><span>Total due to owner</span><b>${sgn(S.dueToOwner)}</b></div>
@@ -1251,55 +1320,99 @@ async function exportPDF(mode){
     }
 
     // ─────────── SUMMARY CARDS ───────────
-    // Both cases carry the vehicle purchase price inside total expenses, and
-    // both finish on the same figure as the position block further down, so
-    // the top of the report and the bottom can never disagree.
+    // Five figures that read as one sum, top row then bottom row:
+    //   rent collected - running costs = income after running costs
+    //   income after running costs - purchase price = net position
+    // The purchase price is kept apart from the running costs, so it is clear
+    // how much of the car has been paid back. The last card is exactly the
+    // same figure as the position block further down -- only the breakdown
+    // above it is new.
     const _S0 = settlement();
-    let cards;
+    const buyCost  = activeExpenses.filter(e => (e.category||'') === 'Purchase Price')
+                                   .reduce((s,e)=>s+Number(e.amount),0);
+    const runCount = activeExpenses.filter(e => (e.category||'') !== 'Purchase Price').length;
+    const runCost  = totalCost - buyCost;
+    const afterRun = totalIncome - runCost;
+    // Investor's car: the service fee comes off too. A partnership car's
+    // position is the whole car's, shared by both; the fee only moves money
+    // between the partners. The sale price is never in here.
+    const feeOff   = (_S0 && !_S0.partner) ? _S0.fee : 0;
+    const position = totalIncome - totalCost - feeOff;
+    const sgnM = n => (n>=0?'+$':'-$') + pdfMoney(Math.abs(n));
+    const _bp = partnerPct(car);
 
-    if(_S0){
-      // Investor's car: expenses, what the driver paid, what we kept,
-      // and where the vehicle finishes once both come out.
-      // The sale price is never in here — it is stated on its own.
-      // A partnership car's position is the whole car's, shared by both.
-      const ownerFinal = _S0.partner ? (totalIncome - totalCost)
-                                     : (totalIncome - totalCost - _S0.fee);
-      cards = [
-        {label:'TOTAL EXPENSES',   val:'$'+pdfMoney(totalCost),    col:CLR.dark},
-        {label:'RENT COLLECTED',   val:'$'+pdfMoney(totalIncome),  col:CLR.dark},
-        {label:'SERVICE FEE',      val:'$'+pdfMoney(_S0.fee),      col:CLR.green},
-        {label: car.retired_reason ? 'FINAL POSITION' : 'POSITION TO DATE',
-         val:(ownerFinal>=0?'+$':'-$')+pdfMoney(Math.abs(ownerFinal)),
-         col: ownerFinal>=0?CLR.green:CLR.red, accent:true}
-      ];
-    } else {
-      const bizNet = totalIncome - totalCost;
-      cards = [
-        {label:'TOTAL EXPENSES', val:'$'+pdfMoney(totalCost),   col:CLR.dark},
-        {label:'RENT COLLECTED', val:'$'+pdfMoney(totalIncome), col:CLR.dark},
-        {label: car.retired_reason ? 'FINAL POSITION' : 'NET POSITION',
-         val:(bizNet>=0?'+$':'-$')+pdfMoney(Math.abs(bizNet)),
-         col: bizNet>=0?CLR.green:CLR.red, accent:true}
-      ];
+    const back = afterRun - feeOff;              // earned back towards the purchase
+    let payNote = null, payPct = null;
+    if(buyCost > 0){
+      payPct = Math.max(0, Math.min(1, back / buyCost));
+      const pc = Math.floor(payPct*100) + '%';
+      // Longest wording first; the card uses the first one that fits.
+      payNote = back >= buyCost ? ['Purchase price fully paid back', 'Fully paid back']
+              : [pc + ' of purchase price paid back  ·  $' + pdfMoney(buyCost - back) + ' to go',
+                 pc + ' paid back  ·  $' + pdfMoney(buyCost - back) + ' to go',
+                 pc + ' of purchase price paid back'];
     }
 
-    const gap = 4, cardH = 25, cardW = (CW - gap*(cards.length-1))/cards.length;
-    const valSize = cards.length > 3 ? 12 : 14;
-    cards.forEach((c,i)=>{
-      const x = M + i*(cardW+gap);
-      doc.setFillColor(250,250,251);
-      doc.setDrawColor.apply(doc, CLR.line);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(x,y,cardW,cardH,1.5,1.5,'FD');
-      if(c.accent){ doc.setFillColor.apply(doc, c.col); doc.rect(x,y,1.5,cardH,'F'); }
-      doc.setFont('helvetica','normal'); doc.setFontSize(6.6);
-      doc.setTextColor.apply(doc, CLR.grey);
-      doc.text(c.label, x+5, y+8);
-      doc.setFont('helvetica','bold'); doc.setFontSize(valSize);
-      doc.setTextColor.apply(doc, c.col);
-      doc.text(c.val, x+5, y+18);
-    });
-    y += cardH + 12;
+    const row1 = [
+      {label:'CAR PURCHASE PRICE', val: buyCost > 0 ? '$'+pdfMoney(buyCost) : 'Not recorded', col:CLR.dark,
+       note: buyCost <= 0 ? 'No purchase price entered'
+           : _bp != null ? 'Business ' + pctTxt(100-_bp) + '  ·  ' + (car.owner_name || 'Investor') + ' ' + pctTxt(_bp)
+           : car.externally_owned ? 'Funded by the owner' : 'Initial investment'},
+      {label:'RENT COLLECTED', val:'$'+pdfMoney(totalIncome), col:CLR.dark, note:'Total received, before costs'},
+      {label:'RUNNING COSTS SO FAR', val:'$'+pdfMoney(runCost), col:CLR.dark,
+       note: runCount + (runCount===1?' expense':' expenses') + ', purchase not included'}
+    ];
+    const row2 = [
+      {label:'INCOME AFTER RUNNING COSTS', val:sgnM(afterRun), col: afterRun>=0 ? CLR.dark : CLR.red,
+       note:'Rent collected less running costs'}
+    ];
+    if(_S0){
+      row2.push({label:'SERVICE FEE', val:'$'+pdfMoney(_S0.fee), col:CLR.green,
+       note: _S0.fee > 0 ? (_S0.partner ? _S0.feePct + "% of the investor's share" : _S0.feePct + '% after running costs')
+                         : 'None until running costs are covered'});
+    }
+    row2.push({label: car.retired_reason ? 'FINAL POSITION' : (_S0 ? 'POSITION TO DATE' : 'NET POSITION'),
+       val:sgnM(position), col: position>=0 ? CLR.green : CLR.red, accent:true,
+       note: payNote || 'No purchase price entered', bar: payPct});
+
+    function cardRow(cards){
+      const gap = 4, cardH = 26, cardW = (CW - gap*(cards.length-1))/cards.length;
+      cards.forEach((c,i)=>{
+        const x = M + i*(cardW+gap);
+        doc.setFillColor(250,250,251);
+        doc.setDrawColor.apply(doc, CLR.line);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(x,y,cardW,cardH,1.5,1.5,'FD');
+        if(c.accent){ doc.setFillColor.apply(doc, c.col); doc.rect(x,y,1.5,cardH,'F'); }
+        doc.setFont('helvetica','normal'); doc.setFontSize(6.6);
+        doc.setTextColor.apply(doc, CLR.grey);
+        doc.text(c.label, x+5, y+7);
+        doc.setFont('helvetica','bold'); doc.setFontSize(14);
+        doc.setTextColor.apply(doc, c.col);
+        doc.text(c.val, x+5, y+15.5);
+        if(c.note){
+          doc.setFont('helvetica','normal'); doc.setFontSize(6.4);
+          doc.setTextColor.apply(doc, CLR.grey);
+          const opts = Array.isArray(c.note) ? c.note : [c.note];
+          let t = opts.find(o => doc.getTextWidth(o) <= cardW - 9) || opts[opts.length-1];
+          const full = t;
+          while(t.length > 4 && doc.getTextWidth(t) > cardW - 9) t = t.slice(0,-1);
+          if(t !== full) t = t.replace(/\s+\S*$/, '') + '...';
+          doc.text(t, x+5, y+20.5);
+        }
+        if(c.bar != null){
+          const bw = cardW - 10;
+          doc.setFillColor(232,234,237); doc.roundedRect(x+5, y+22.4, bw, 1.4, 0.7, 0.7, 'F');
+          if(c.bar > 0){ doc.setFillColor.apply(doc, CLR.gold);
+                         doc.roundedRect(x+5, y+22.4, Math.max(1.4, bw*c.bar), 1.4, 0.7, 0.7, 'F'); }
+        }
+      });
+      y += cardH;
+    }
+    cardRow(row1);
+    y += 4;
+    cardRow(row2);
+    y += 12;
 
     // ─────────── TABLE RENDERER ───────────
     function ensure(h){
@@ -1367,40 +1480,50 @@ async function exportPDF(mode){
       y += 10;
     }
 
-    // ─────────── EXPENSES ───────────
-    section('Operating Expenses', activeExpenses.length);
-    if(!activeExpenses.length){ emptyNote('No expenses recorded for this vehicle.'); }
-    else {
-      cols([{t:'DATE',x:M+4},{t:'CATEGORY',x:M+32},{t:'DESCRIPTION',x:M+72},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
-      activeExpenses.slice().sort((a,b)=>String(b.expense_date).localeCompare(String(a.expense_date)))
-        .forEach((e,i)=>row([
+    // ─────────── CAR PURCHASE, then RUNNING COSTS ───────────
+    // Two tables, so each total matches its card at the top of the report.
+    const byDateDesc = (a,b)=>String(b.expense_date).localeCompare(String(a.expense_date));
+    const expCols = () => cols([{t:'DATE',x:M+4},{t:'CATEGORY',x:M+32},{t:'DESCRIPTION',x:M+72},{t:'AMOUNT',x:PW-M-4,a:'right'}]);
+    const expRow = (e,i)=>row([
           {t:fmtDate(e.expense_date),x:M+4},
           {t:e.category,x:M+32,max:36},
           {t:e.description||'-',x:M+72,max:70},
           {t:'-$'+pdfMoney(e.amount),x:PW-M-4,a:'right',amt:true}
-        ], i, CLR.red));
-      totalRow('Total Operating Expenses','-$'+pdfMoney(totalCost), CLR.red);
-      // Reconcile the total with the summary card above, which excludes a
-      // purchase the owner funded.
+        ], i, CLR.red);
+    const buyRows = activeExpenses.filter(e => (e.category||'') === 'Purchase Price');
+    const runRows = activeExpenses.filter(e => (e.category||'') !== 'Purchase Price');
+
+    section('Car Purchase', buyRows.length);
+    if(!buyRows.length){ emptyNote('No purchase price recorded for this vehicle.'); }
+    else {
+      expCols();
+      buyRows.slice().sort(byDateDesc).forEach((e,i,arr)=>{ if(i===arr.length-1) ensure(7+9); expRow(e,i); });
+      totalRow('Car Purchase Price','-$'+pdfMoney(buyCost), CLR.red);
+      // Who paid for it, on a vehicle the business does not wholly own.
       if(car.externally_owned){
-        const _pp = activeExpenses.filter(e => (e.category||'') === 'Purchase Price')
-                                  .reduce((a,e)=>a+Number(e.amount),0);
-        if(_pp > 0){
-          const _ip = partnerPct(car);
-          const _txt = _ip != null
-            ? 'Includes the vehicle purchase price of $' + pdfMoney(_pp) + ', funded '
-              + pctTxt(100 - _ip) + ' by the Business ($' + pdfMoney(_pp * (100 - _ip) / 100) + ') and '
-              + pctTxt(_ip) + ' by ' + investorName(car) + ' ($' + pdfMoney(_pp * _ip / 100) + ').'
-            : 'Includes the vehicle purchase price of $'+pdfMoney(_pp)+', which was funded by the owner.';
-          doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
-          const _lines = doc.splitTextToSize(_txt, CW - 8);
-          ensure(4 + _lines.length * 3.6);
-          doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
-          doc.setTextColor.apply(doc, CLR.grey);
-          _lines.forEach((t, k) => doc.text(t, M+4, y + 4.5 + k * 3.6));
-          y += 4.4 + _lines.length * 3.6;
-        }
+        const _ip = partnerPct(car);
+        const _txt = _ip != null
+          ? 'Funded ' + pctTxt(100 - _ip) + ' by the Business ($' + pdfMoney(buyCost * (100 - _ip) / 100) + ') and '
+            + pctTxt(_ip) + ' by ' + investorName(car) + ' ($' + pdfMoney(buyCost * _ip / 100) + ').'
+          : 'The purchase price was funded by the owner, not by the Business.';
+        doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+        const _lines = doc.splitTextToSize(_txt, CW - 8);
+        ensure(4 + _lines.length * 3.6);
+        doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+        doc.setTextColor.apply(doc, CLR.grey);
+        _lines.forEach((t, k) => doc.text(t, M+4, y + 4.5 + k * 3.6));
+        y += 4.4 + _lines.length * 3.6;
       }
+    }
+    y += 10;
+
+    section('Running Costs', runRows.length);
+    if(!runRows.length){ emptyNote('No running costs recorded for this vehicle.'); }
+    else {
+      expCols();
+      // The last row never sits alone above a page break without its total.
+      runRows.slice().sort(byDateDesc).forEach((e,i,arr)=>{ if(i===arr.length-1) ensure(7+9); expRow(e,i); });
+      totalRow('Total Running Costs','-$'+pdfMoney(runCost), CLR.red);
     }
     y += 10;
 
@@ -1580,7 +1703,7 @@ async function exportPDF(mode){
       const PURPLE = [109,40,217];
       const lines = S.partner ? [
         ['Gross rental income',                    '$'+pdfMoney(S.income),   CLR.green],
-        ['Less: operating expenses',               '-$'+pdfMoney(S.costs),   CLR.red],
+        ['Less: running costs',                    '-$'+pdfMoney(S.costs),   CLR.red],
         [S.afterCosts >= 0 ? 'Net rental profit' : 'Net rental loss', sm(S.afterCosts), S.afterCosts >= 0 ? CLR.dark : CLR.red],
         ["Business share ("+pctTxt(S.bizPct)+')',  sm(S.bizShare), PURPLE],
         [investorName(S.car).replace(/^the i/, 'I')+"'s share ("+pctTxt(S.invPct)+')', sm(S.invShare), PURPLE],
@@ -1589,7 +1712,7 @@ async function exportPDF(mode){
         ['Less: payments already made to investor', '-$'+pdfMoney(S.paidOut), CLR.red]
       ] : [
         ['Gross rental income',                    '$'+pdfMoney(S.income),   CLR.green],
-        ['Less: operating expenses',               '-$'+pdfMoney(S.costs),   CLR.red],
+        ['Less: running costs',                    '-$'+pdfMoney(S.costs),   CLR.red],
         [S.afterCosts >= 0 ? 'Net rental income' : 'Net rental loss', sm(S.afterCosts), S.afterCosts >= 0 ? CLR.dark : CLR.red],
         ...(S.fee > 0 ? [['Less: service fee ('+S.feePct+'%)', '-$'+pdfMoney(S.fee), CLR.red]] : []),
         ['Total due to owner',                     sm(S.dueToOwner), CLR.dark],
@@ -1691,7 +1814,7 @@ async function exportPDF(mode){
         const lifetime = totalIncome - purchaseCost - runningCost;
         if(purchaseCost > 0) rows.push(['Vehicle purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
         rows.push(['Gross rental income', '$'+pdfMoney(totalIncome), CLR.green]);
-        rows.push(['Less: operating expenses', '-$'+pdfMoney(runningCost), CLR.red]);
+        rows.push(['Less: running costs', '-$'+pdfMoney(runningCost), CLR.red]);
         bottomLabel = 'NET POSITION';
         bottomValue = lifetime;
         const sv = n => (n < 0 ? '-$' : '$') + pdfMoney(Math.abs(n));
@@ -1712,7 +1835,7 @@ async function exportPDF(mode){
 
         if(purchaseCost > 0) rows.push(['Vehicle purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
         rows.push(['Gross rental income', '$'+pdfMoney(totalIncome), CLR.green]);
-        rows.push(['Less: operating expenses', '-$'+pdfMoney(runningCost), CLR.red]);
+        rows.push(['Less: running costs', '-$'+pdfMoney(runningCost), CLR.red]);
         if(serviceFee > 0)
           rows.push(['Less: service fee (' + (Number(car.service_fee_pct)||0) + '%)',
                      '-$'+pdfMoney(serviceFee), CLR.red]);
@@ -1726,7 +1849,7 @@ async function exportPDF(mode){
         const lifetime = totalIncome - purchaseCost - runningCost;
         if(purchaseCost > 0) rows.push(['Vehicle purchase price', '-$'+pdfMoney(purchaseCost), CLR.red]);
         rows.push(['Gross rental income', '$'+pdfMoney(totalIncome), CLR.green]);
-        rows.push(['Less: operating expenses', '-$'+pdfMoney(runningCost), CLR.red]);
+        rows.push(['Less: running costs', '-$'+pdfMoney(runningCost), CLR.red]);
         bottomLabel = 'NET POSITION';
         bottomValue = lifetime;
       }
@@ -1812,13 +1935,16 @@ async function exportPDF(mode){
     doc.roundedRect(M,y,CW,22,1.5,1.5,'F');
     doc.setFont('helvetica','normal'); doc.setFontSize(8);
     doc.setTextColor(175,182,190);
-    doc.text('NET POSITION  (income less expenses)', M+6, y+8);
+    doc.text(buyCost > 0 ? 'NET POSITION  (income after running costs, less purchase price)'
+                         : 'NET POSITION  (income less running costs)', M+6, y+8);
     doc.setFont('helvetica','bold'); doc.setFontSize(17);
     doc.setTextColor.apply(doc, net>=0?[110,220,140]:[255,140,140]);
     doc.text((net>=0?'+$':'-$')+pdfMoney(Math.abs(net)), M+6, y+17);
     doc.setFont('helvetica','normal'); doc.setFontSize(8);
     doc.setTextColor(175,182,190);
-    doc.text(net>=0 ? 'This vehicle has covered its costs.' : 'This vehicle has not yet covered its costs.',
+    doc.text(buyCost > 0
+               ? (net>=0 ? 'This vehicle has paid back its purchase price.' : 'This vehicle has not yet paid back its purchase price.')
+               : (net>=0 ? 'This vehicle has covered its costs.' : 'This vehicle has not yet covered its costs.'),
              PW-M-6, y+17, {align:'right'});
     y += 30;
     }
@@ -1836,7 +1962,7 @@ async function exportPDF(mode){
         'Finance report - ' + vehicleLabel,
         '<p>Hello' + (car.owner_name ? ' ' + car.owner_name : '') + ',</p>'
         + '<p>Please find attached the current finance report for <strong>' + vehicleLabel + '</strong>, '
-        + 'covering rental income, operating expenses, service fee and the overall position of the vehicle.</p>'
+        + 'covering the purchase price, rental income, running costs, service fee and the overall position of the vehicle.</p>'
         + '<p>Kind regards,<br>Ozee Rentals</p>');
       alert('The finance report has been emailed to ' + car.owner_email + '.');
     } else if(mode === 'whatsapp'){
