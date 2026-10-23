@@ -58,6 +58,8 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 .cc-driver.none b{color:rgba(255,255,255,.35);font-weight:600;}
 .cc-row{display:flex;justify-content:space-between;font-size:.82rem;padding:.25rem 0;color:rgba(255,255,255,.6);}
 .cc-row b{color:#fff;}
+.cc-row b.neg{color:#f87171;}
+.cc-row small{font-size:.7rem;color:rgba(255,255,255,.35);margin-left:.3rem;}
 .cc-net{margin-top:.6rem;padding-top:.6rem;border-top:1px dashed rgba(255,255,255,.12);display:flex;justify-content:space-between;align-items:center;}
 .cc-net-label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.4);}
 .cc-net-val{font-family:"Barlow Condensed",sans-serif;font-size:1.4rem;font-weight:900;}
@@ -563,6 +565,11 @@ async function loadCars(){
     const runResult = income - (runTotals[c.id] || 0);
     const fee = (t === 'inv' && feePct > 0 && runResult > 0) ? runResult * feePct / 100 : 0;
     const net = income - cost - fee;
+    // Three figures only, the same ones as at the top of the car's report:
+    //   purchase price · net earning (rent less running costs, and on an
+    //   investor's car less the service fee) · net position (unchanged above).
+    const buy = cost - (runTotals[c.id] || 0);
+    const earn = runResult - fee;
     const who = esc(c.owner_name || 'name not added');
     const ownLine = t === 'part'
           ? `<div class="cc-own own-part">Partnership · ${who} ${pctTxt(partnerPct(c))}</div>`
@@ -579,11 +586,10 @@ async function loadCars(){
       <div class="cc-rego">${c.rego||''}</div>
       </div>${driverBox}</div>
       ${ownLine}
-      <div class="cc-row"><span>Total Cost</span><b>${money(cost)}</b></div>
-      <div class="cc-row"><span>Total Earned</span><b>${money(income)}</b></div>
-      ${fee > 0 ? `<div class="cc-row"><span>Service fee (${feePct}%)</span><b>${money(fee)}</b></div>` : ''}
+      <div class="cc-row"><span>Purchase Price</span><b>${buy > 0.005 ? money(buy) : 'Not recorded'}</b></div>
+      <div class="cc-row"><span>Net Earning${fee > 0 ? `<small>after ${feePct}% fee</small>` : ''}</span><b class="${earn < 0 ? 'neg' : ''}">${earn>=0?'+':'-'}${money(Math.abs(earn))}</b></div>
       <div class="cc-net">
-        <span class="cc-net-label">Net</span>
+        <span class="cc-net-label">Net Position</span>
         <span class="cc-net-val ${net>=0?'pos':'neg'}">${net>=0?'+':'-'}${money(Math.abs(net))}</span>
       </div>
     </div>`;
