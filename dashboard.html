@@ -331,6 +331,51 @@ tr:hover td{background:rgba(255,255,255,.03);}
 .meter{height:8px;border-radius:8px;background:rgba(245,166,35,.16);margin-top:.9rem;overflow:hidden;}
 .meter i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#F5A623,#ffc861);}
 
+/* Service fee earned by the Business (investor and partnership cars) */
+.fee-panel{margin-bottom:1rem;}
+.fee-figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;}
+.fee-fig{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:.85rem 1rem;min-width:0;}
+.fee-fig.total{border-color:rgba(74,222,128,.32);background:rgba(74,222,128,.06);}
+.fee-lbl{font-size:.68rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.5);}
+.fee-val{font-family:"Barlow Condensed",sans-serif;font-size:2.1rem;font-weight:900;line-height:1;margin-top:.45rem;color:#fff;
+  font-variant-numeric:tabular-nums;white-space:nowrap;}
+.fee-fig.total .fee-val{color:#4ade80;}
+.fee-val.neg{color:#f87171;}
+.fee-sub{font-size:.74rem;color:rgba(255,255,255,.45);margin-top:.35rem;line-height:1.3;}
+.fee-split{margin-top:1rem;font-size:.84rem;font-variant-numeric:tabular-nums;}
+.fs-row{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr));gap:.4rem;align-items:center;padding:.5rem 0;
+  border-top:1px solid rgba(255,255,255,.06);text-align:right;color:rgba(255,255,255,.88);}
+.fs-row > span{white-space:nowrap;min-width:0;}
+.fs-row > span:first-child{text-align:left;white-space:normal;color:rgba(255,255,255,.65);}
+.fs-row.fs-head{border-top:0;padding:.2rem 0;font-size:.64rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.4);}
+.fs-row.tot{font-weight:700;color:#fff;}
+.fs-row.tot > span:first-child{color:#fff;}
+.fee-split i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.45rem;vertical-align:middle;}
+.fee-split .neg{color:#f87171;}
+.fee-cars{margin-top:.6rem;}
+.fee-cars > summary{cursor:pointer;list-style:none;font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#F5A623;padding:.45rem 0;}
+.fee-cars > summary::-webkit-details-marker{display:none;}
+.fee-car{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.65rem;align-items:center;padding:.55rem 0;border-top:1px solid rgba(255,255,255,.06);}
+.fee-car .dot{width:8px;height:8px;border-radius:50%;}
+.fee-car .nm{font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fee-car .sub{font-size:.74rem;color:rgba(255,255,255,.5);margin-top:.1rem;line-height:1.35;}
+.fee-car .rt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.fee-car .rt b{font-family:"Barlow Condensed",sans-serif;font-size:1.15rem;font-weight:800;}
+.fee-car .rt small{display:block;font-size:.72rem;color:rgba(255,255,255,.45);}
+.fee-car .tag{display:inline-block;font-size:.62rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:.05rem .35rem;border-radius:4px;
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);margin-left:.35rem;vertical-align:1px;}
+.fee-note{font-size:.74rem;color:rgba(255,255,255,.42);margin-top:.7rem;line-height:1.45;}
+@media(max-width:600px){
+  .fee-figs{gap:.45rem;}
+  .fee-fig{padding:.65rem .6rem;}
+  .fee-val{font-size:1.35rem;}
+  .fee-lbl{font-size:.58rem;letter-spacing:.8px;}
+  .fee-sub{font-size:.66rem;}
+  .fee-split{font-size:.76rem;}
+  .fs-row{grid-template-columns:minmax(0,1.25fr) repeat(3,minmax(0,1fr));gap:.3rem;}
+  .fs-row.fs-head{font-size:.56rem;letter-spacing:.6px;}
+}
+
 /* Two-column rows */
 .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:1rem;margin-bottom:1rem;}
 .row2b{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:1rem;}
@@ -540,6 +585,22 @@ tr:hover td{background:rgba(255,255,255,.03);}
     <div class="kpi-val" id="kNet">—</div>
     <div class="kpi-note" id="kNetNote">&nbsp;</div>
   </div>
+</div>
+
+<!-- SERVICE FEE EARNED -->
+<div class="panel fee-panel" id="feeBox">
+  <div class="panel-head">
+    <div><div class="panel-title">Service fee earned</div><div class="panel-sub">Kept by the Business from investor and partnership cars</div></div>
+    <a class="panel-link" href="finance.html">Car Finance &rsaquo;</a>
+  </div>
+  <div class="fee-figs">
+    <div class="fee-fig"><div class="fee-lbl">This week</div><div class="fee-val" id="feeWeek">—</div><div class="fee-sub" id="feeWeekSub">&nbsp;</div></div>
+    <div class="fee-fig"><div class="fee-lbl">This month</div><div class="fee-val" id="feeMonth">—</div><div class="fee-sub" id="feeMonthSub">&nbsp;</div></div>
+    <div class="fee-fig total"><div class="fee-lbl">To date</div><div class="fee-val" id="feeTotal">—</div><div class="fee-sub" id="feeTotalSub">&nbsp;</div></div>
+  </div>
+  <div id="feeSplit"></div>
+  <details class="fee-cars" id="feeCarsBox"><summary id="feeCarsSum">By car</summary><div id="feeCars"></div></details>
+  <div class="fee-note" id="feeNote"></div>
 </div>
 
 <!-- FLEET + TREND -->
@@ -954,6 +1015,71 @@ async function loadStats(){
         + '<span style="min-width:0"><div class="nm">' + esc(drv(a)) + '</div><div class="car">' + esc((c.rego || '') + ' · ' + (c.make_model || '') + ' ' + (c.year || '')) + (a.start_date ? ' · since ' + shortDate(a.start_date) : '') + '</div></span>'
         + '<span class="rt"><div class="rate">$' + Number(a.weekly_rate || 0) + '/wk</div>' + pill + '</span></a>';
     }).join('') : '<div class="road-empty">No cars are out with drivers right now.</div>';
+  });
+
+  // ── Service fee earned by the Business ──
+  // Read only. This week and this month come from the same sums as the
+  // weekly and monthly PDF reports (Reports.moneyFor), and "to date" is the
+  // same figure as the Service fee in Car Finance (ownerStatement), so all
+  // three always agree with those pages. The fee is only taken once a car
+  // has covered its running costs.
+  panel('service fee', () => {
+    const r2f = x => Math.round(((Number(x) || 0) + Number.EPSILON) * 100) / 100;
+    const fm = n => (n < -0.004 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-AU', { minimumFractionDigits:2, maximumFractionDigits:2 });
+    const D = { cars, pays, exps, pos };
+    const weekEnd = dAdd(thisMon, 6);
+    const monthEnd = dISO(new Date(t.getFullYear(), t.getMonth() + 1, 0));
+    const W  = Reports.moneyFor(thisMon, weekEnd, D);
+    const Mo = Reports.moneyFor(monthStart, monthEnd, D);
+    const rows = cars.filter(c => ownType(c) !== 'biz').map(c => {
+      const S = ownerStatement(c, pays, exps, pos);
+      return { c, t: ownType(c), feePct: S.feePct, share: S.share,
+               week: r2f((W.per[c.id] || {}).fee), month: r2f((Mo.per[c.id] || {}).fee), total: r2f(S.fee) };
+    }).sort((a, b) => byYearOldest(a.c, b.c));
+    const tot = (list, k) => r2f(sum(list, x => x[k]));
+    const setFig = (id, n) => { const el = document.getElementById(id); el.textContent = fm(n); el.classList.toggle('neg', n < -0.004); };
+    const monthName = t.toLocaleDateString('en-AU', { month:'long' });
+    const withFee = rows.filter(x => x.feePct > 0);
+
+    setFig('feeWeek',  tot(rows, 'week'));
+    setFig('feeMonth', tot(rows, 'month'));
+    setFig('feeTotal', tot(rows, 'total'));
+    document.getElementById('feeWeekSub').textContent  = shortDate(thisMon) + ' – ' + shortDate(weekEnd);
+    document.getElementById('feeMonthSub').textContent = monthName + ' so far';
+    document.getElementById('feeTotalSub').textContent = withFee.length + ' car' + (withFee.length === 1 ? '' : 's') + ' with a service fee';
+
+    const cell = n => '<span class="' + (n < -0.004 ? 'neg' : '') + '">' + fm(n) + '</span>';
+    const inv = rows.filter(x => x.t === 'inv'), part = rows.filter(x => x.t === 'part');
+    // Plain rows, not a table: the page's phone styles hide table columns 3 and 4.
+    const line = (dot, label, list) => '<div class="fs-row"><span><i style="background:' + dot + '"></i>' + label + ' (' + list.length + ')</span>'
+                                     + cell(tot(list, 'week')) + cell(tot(list, 'month')) + cell(tot(list, 'total')) + '</div>';
+    document.getElementById('feeSplit').innerHTML = rows.length
+      ? '<div class="fee-split"><div class="fs-row fs-head"><span></span><span>This week</span><span>This month</span><span>To date</span></div>'
+        + line(OWN_COL.inv, 'Investor cars', inv) + line(OWN_COL.part, 'Partnership cars', part)
+        + '<div class="fs-row tot"><span>Total</span>' + cell(tot(rows, 'week')) + cell(tot(rows, 'month')) + cell(tot(rows, 'total')) + '</div></div>'
+      : '';
+
+    document.getElementById('feeCarsSum').textContent = 'By car (' + rows.length + ') ▾';
+    document.getElementById('feeCarsBox').style.display = rows.length ? '' : 'none';
+    document.getElementById('feeCars').innerHTML = rows.map(x => {
+      const c = x.c, who = esc(c.owner_name || 'name not added');
+      let sub = x.t === 'part'
+        ? 'Partnership · ' + who + ' ' + Number(c.investor_share_pct) + '%' + (x.feePct > 0 ? ' · ' + x.feePct + '% of their share' : '')
+        : 'Investor · ' + who + (x.feePct > 0 ? ' · ' + x.feePct + '%' : '');
+      if(!(x.feePct > 0)) sub += ' · no service fee set';
+      else if(x.share <= 0) sub += ' · running costs not covered yet, so no fee';
+      return '<div class="fee-car"><span class="dot" style="background:' + OWN_COL[x.t] + '"></span>'
+        + '<span style="min-width:0"><div class="nm">' + esc((c.make_model || '') + ' ' + (c.year || '')) + ' · ' + esc(c.rego || '')
+        + (c.retired_reason ? '<span class="tag">' + esc(c.retired_reason) + '</span>' : '') + '</div>'
+        + '<div class="sub">' + sub + '</div></span>'
+        + '<span class="rt"><b class="' + (x.total < -0.004 ? 'neg' : '') + '">' + fm(x.total) + '</b><small>this month ' + fm(x.month) + '</small></span></div>';
+    }).join('');
+
+    const anyMinus = rows.some(x => x.week < -0.004 || x.month < -0.004);
+    document.getElementById('feeNote').textContent = !rows.length
+      ? 'No investor or partnership cars yet.'
+      : 'The service fee is only taken once a car has covered its running costs. Same figures as Car Finance and the PDF reports.'
+        + (anyMinus ? ' A minus means running costs that came in reduced the fee already earned on that car.' : '');
   });
 }
 
