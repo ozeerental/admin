@@ -365,7 +365,25 @@ tr:hover td{background:rgba(255,255,255,.03);}
 .fee-car .tag{display:inline-block;font-size:.62rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:.05rem .35rem;border-radius:4px;
   background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);margin-left:.35rem;vertical-align:1px;}
 .fee-note{font-size:.74rem;color:rgba(255,255,255,.42);margin-top:.7rem;line-height:1.45;}
+.fee-head{display:flex;align-items:center;gap:.75rem;cursor:pointer;list-style:none;user-select:none;-webkit-user-select:none;}
+.fee-head::-webkit-details-marker{display:none;}
+.fee-title{flex:1 1 auto;min-width:0;}
+.fee-now{display:flex;align-items:baseline;gap:.45rem;white-space:nowrap;}
+.fee-now b{font-family:"Barlow Condensed",sans-serif;font-size:1.55rem;font-weight:900;line-height:1;color:#4ade80;font-variant-numeric:tabular-nums;}
+.fee-now b.neg{color:#f87171;}
+.fee-now small{font-size:.64rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.45);}
+.fee-arrow{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:#F5A623;font-size:.8rem;transition:transform .2s;}
+.fee-panel[open] .fee-arrow{transform:rotate(180deg);}
+.fee-body{margin-top:1rem;}
+.fee-intro{margin-bottom:.9rem;}
+.fee-intro .panel-link{margin-left:.25rem;}
+.fee-since{display:block;color:rgba(255,255,255,.75);font-weight:600;}
 @media(max-width:600px){
+  .fee-head{gap:.55rem;}
+  .fee-now{flex-direction:column;align-items:flex-end;gap:.1rem;}
+  .fee-now b{font-size:1.3rem;}
+  .fee-now small{font-size:.56rem;letter-spacing:.8px;}
   .fee-figs{gap:.45rem;}
   .fee-fig{padding:.65rem .6rem;}
   .fee-val{font-size:1.35rem;}
@@ -588,11 +606,14 @@ tr:hover td{background:rgba(255,255,255,.03);}
 </div>
 
 <!-- SERVICE FEE EARNED -->
-<div class="panel fee-panel" id="feeBox">
-  <div class="panel-head">
-    <div><div class="panel-title">Service fee earned</div><div class="panel-sub">Kept by the Business from investor and partnership cars</div></div>
-    <a class="panel-link" href="finance.html">Car Finance &rsaquo;</a>
-  </div>
+<details class="panel fee-panel" id="feeBox">
+  <summary class="fee-head" title="Show or hide the details">
+    <span class="fee-title"><span class="panel-title">Service fee earned</span></span>
+    <span class="fee-now"><b id="feeHeadWeek">—</b><small>this week</small></span>
+    <span class="fee-arrow" aria-hidden="true">▼</span>
+  </summary>
+  <div class="fee-body">
+  <div class="panel-sub fee-intro">Kept by the Business from investor and partnership cars ·<a class="panel-link" href="finance.html">Car Finance &rsaquo;</a></div>
   <div class="fee-figs">
     <div class="fee-fig"><div class="fee-lbl">This week</div><div class="fee-val" id="feeWeek">—</div><div class="fee-sub" id="feeWeekSub">&nbsp;</div></div>
     <div class="fee-fig"><div class="fee-lbl">This month</div><div class="fee-val" id="feeMonth">—</div><div class="fee-sub" id="feeMonthSub">&nbsp;</div></div>
@@ -601,7 +622,8 @@ tr:hover td{background:rgba(255,255,255,.03);}
   <div id="feeSplit"></div>
   <details class="fee-cars" id="feeCarsBox"><summary id="feeCarsSum">By car</summary><div id="feeCars"></div></details>
   <div class="fee-note" id="feeNote"></div>
-</div>
+  </div>
+</details>
 
 <!-- FLEET + TREND -->
 <div class="row2">
@@ -1031,11 +1053,27 @@ async function loadStats(){
     const monthEnd = dISO(new Date(t.getFullYear(), t.getMonth() + 1, 0));
     const W  = Reports.moneyFor(thisMon, weekEnd, D);
     const Mo = Reports.moneyFor(monthStart, monthEnd, D);
+    // The first day the Business earned a service fee on a car: its rent and
+    // running costs are added up day by day until the fee first goes above zero
+    // (the same rule as above: only once the car has covered its running costs).
+    const firstFeeDay = c => {
+      const feePct = Number(c.service_fee_pct) || 0;
+      if(!(feePct > 0)) return null;
+      const p = ownType(c) === 'part' ? (Number(c.investor_share_pct) || 0) / 100 : 1;
+      const byDay = {};
+      pays.forEach(x => { if(x.car_id === c.id && x.payment_date){ const d = String(x.payment_date).slice(0, 10); byDay[d] = (byDay[d] || 0) + (Number(x.amount) || 0); } });
+      exps.forEach(e => { if(e.car_id === c.id && e.expense_date && (e.category || '') !== 'Purchase Price'){ const d = String(e.expense_date).slice(0, 10); byDay[d] = (byDay[d] || 0) - (Number(e.amount) || 0); } });
+      let run = 0;
+      for(const d of Object.keys(byDay).sort()){ run += byDay[d]; if(feeOnShare(run * p, feePct) > 0.004) return d; }
+      return null;
+    };
+    const longDate = d => { const x = dParse(d); return x.getDate() + ' ' + MON[x.getMonth()] + ' ' + x.getFullYear(); };
     const rows = cars.filter(c => ownType(c) !== 'biz').map(c => {
       const S = ownerStatement(c, pays, exps, pos);
-      return { c, t: ownType(c), feePct: S.feePct, share: S.share,
+      return { c, t: ownType(c), feePct: S.feePct, share: S.share, since: firstFeeDay(c),
                week: r2f((W.per[c.id] || {}).fee), month: r2f((Mo.per[c.id] || {}).fee), total: r2f(S.fee) };
     }).sort((a, b) => byYearOldest(a.c, b.c));
+    const firstEver = rows.map(x => x.since).filter(Boolean).sort()[0] || null;
     const tot = (list, k) => r2f(sum(list, x => x[k]));
     const setFig = (id, n) => { const el = document.getElementById(id); el.textContent = fm(n); el.classList.toggle('neg', n < -0.004); };
     const monthName = t.toLocaleDateString('en-AU', { month:'long' });
@@ -1044,9 +1082,11 @@ async function loadStats(){
     setFig('feeWeek',  tot(rows, 'week'));
     setFig('feeMonth', tot(rows, 'month'));
     setFig('feeTotal', tot(rows, 'total'));
+    setFig('feeHeadWeek', tot(rows, 'week'));
     document.getElementById('feeWeekSub').textContent  = shortDate(thisMon) + ' – ' + shortDate(weekEnd);
     document.getElementById('feeMonthSub').textContent = monthName + ' so far';
-    document.getElementById('feeTotalSub').textContent = withFee.length + ' car' + (withFee.length === 1 ? '' : 's') + ' with a service fee';
+    document.getElementById('feeTotalSub').innerHTML = (firstEver ? '<span class="fee-since">Since ' + longDate(firstEver) + '</span>' : '')
+        + withFee.length + ' car' + (withFee.length === 1 ? '' : 's') + ' with a service fee';
 
     const cell = n => '<span class="' + (n < -0.004 ? 'neg' : '') + '">' + fm(n) + '</span>';
     const inv = rows.filter(x => x.t === 'inv'), part = rows.filter(x => x.t === 'part');
@@ -1066,6 +1106,7 @@ async function loadStats(){
       let sub = x.t === 'part'
         ? 'Partnership · ' + who + ' ' + Number(c.investor_share_pct) + '%' + (x.feePct > 0 ? ' · ' + x.feePct + '% of their share' : '')
         : 'Investor · ' + who + (x.feePct > 0 ? ' · ' + x.feePct + '%' : '');
+      if(x.since && x.total > 0.004) sub += ' · since ' + longDate(x.since);
       if(!(x.feePct > 0)) sub += ' · no service fee set';
       else if(x.share <= 0) sub += ' · running costs not covered yet, so no fee';
       return '<div class="fee-car"><span class="dot" style="background:' + OWN_COL[x.t] + '"></span>'
