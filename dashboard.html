@@ -394,6 +394,22 @@ tr:hover td{background:rgba(255,255,255,.03);}
   .fs-row.fs-head{font-size:.56rem;letter-spacing:.6px;}
 }
 
+/* Fold-down panels: Needs attention and On the road now */
+.fold-panel{align-self:start;}
+.fold-head{display:flex;align-items:center;gap:.7rem;cursor:pointer;list-style:none;user-select:none;-webkit-user-select:none;}
+.fold-head::-webkit-details-marker{display:none;}
+.fold-head .panel-title{flex:1 1 auto;min-width:0;}
+.fold-count{white-space:nowrap;font-size:.7rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#F5A623;
+  background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.28);border-radius:999px;padding:.3rem .65rem;}
+.fold-count.good,.fold-count:empty{color:#4ade80;background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.28);}
+.fold-count:empty::before{content:'All clear';}
+.fold-arrow{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:#F5A623;font-size:.8rem;transition:transform .2s;}
+.fold-panel[open] .fold-arrow{transform:rotate(180deg);}
+.fold-body{margin-top:1rem;}
+.fold-links{display:flex;justify-content:flex-end;margin:-.35rem 0 .5rem;}
+@media(max-width:600px){ .fold-head{gap:.5rem;} .fold-count{font-size:.62rem;letter-spacing:.6px;padding:.25rem .5rem;} }
+
 /* Two-column rows */
 .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:1rem;margin-bottom:1rem;}
 .row2b{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:1rem;}
@@ -647,14 +663,23 @@ tr:hover td{background:rgba(255,255,255,.03);}
 
 <!-- ATTENTION + ON THE ROAD -->
 <div class="row2b">
-  <div class="panel">
-    <div class="panel-head"><div class="panel-title">Needs attention</div><span class="panel-sub" id="aCount"></span></div>
+  <details class="panel fold-panel" id="attnBox">
+    <summary class="fold-head" title="Show or hide the details">
+      <span class="panel-title">Needs attention</span><span class="fold-count" id="aCount">…</span><span class="fold-arrow" aria-hidden="true">▼</span>
+    </summary>
+    <div class="fold-body">
     <div class="alerts" id="alerts"><div class="loading">Checking…</div></div>
-  </div>
-  <div class="panel">
-    <div class="panel-head"><div class="panel-title">On the road now</div><a class="panel-link" href="rent-tracker.html">Rent tracker &rsaquo;</a></div>
+    </div>
+  </details>
+  <details class="panel fold-panel" id="roadBox">
+    <summary class="fold-head" title="Show or hide the details">
+      <span class="panel-title">On the road now</span><span class="fold-count" id="roadCount">…</span><span class="fold-arrow" aria-hidden="true">▼</span>
+    </summary>
+    <div class="fold-body">
+    <div class="fold-links"><a class="panel-link" href="rent-tracker.html">Rent tracker &rsaquo;</a></div>
     <div class="road" id="road"><div class="loading">Loading…</div></div>
-  </div>
+    </div>
+  </details>
 </div>
 
 </div>
@@ -1037,6 +1062,19 @@ async function loadStats(){
         + '<span style="min-width:0"><div class="nm">' + esc(drv(a)) + '</div><div class="car">' + esc((c.rego || '') + ' · ' + (c.make_model || '') + ' ' + (c.year || '')) + (a.start_date ? ' · since ' + shortDate(a.start_date) : '') + '</div></span>'
         + '<span class="rt"><div class="rate">$' + Number(a.weekly_rate || 0) + '/wk</div>' + pill + '</span></a>';
     }).join('') : '<div class="road-empty">No cars are out with drivers right now.</div>';
+  });
+
+  panel('on the road count', () => {
+    let notPaid = 0;
+    active.forEach(a => {
+      const wk = thisRows[a.id], ow = owing[a.id];
+      const paid = !(ow && ow.amt > 0) && wk && wk.status === 'Paid';
+      if(!paid) notPaid++;
+    });
+    const el = document.getElementById('roadCount');
+    el.textContent = !active.length ? 'No cars out'
+      : active.length + ' car' + (active.length === 1 ? '' : 's') + ' · ' + (notPaid ? notPaid + ' not paid' : 'all paid');
+    el.classList.toggle('good', active.length > 0 && notPaid === 0);
   });
 
   // ── Service fee earned by the Business ──
