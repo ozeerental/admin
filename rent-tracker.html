@@ -44,6 +44,12 @@ body{font-family:"Barlow",sans-serif;background:#04090F;color:#fff;min-height:10
 .week-banner{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:8px;padding:.9rem 1.2rem;margin-bottom:1.5rem;font-size:.88rem;color:#F5A623;font-weight:700;}
 
 .driver-list{display:flex;flex-direction:column;gap:.9rem;}
+.list-group{display:flex;align-items:center;gap:.55rem;margin:.5rem 0 -.35rem;font-size:.72rem;font-weight:800;letter-spacing:1.5px;
+  text-transform:uppercase;color:rgba(255,255,255,.5);}
+.list-group:first-child{margin-top:0;}
+.list-group b{font-size:.68rem;letter-spacing:.5px;padding:.12rem .5rem;border-radius:100px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.75);}
+.list-group.lg-due{color:#f87171;} .list-group.lg-due b{background:rgba(239,68,68,.15);color:#f87171;}
+.list-group.lg-paid{color:#4ade80;} .list-group.lg-paid b{background:rgba(74,222,128,.12);color:#4ade80;}
 .d-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;overflow:hidden;}
 .d-head{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.2rem;cursor:pointer;flex-wrap:wrap;gap:.8rem;}
 .d-head:hover{background:rgba(255,255,255,.02);}
@@ -419,7 +425,7 @@ async function loadAll(){
 
 function renderList(thisMonday){
   const list = document.getElementById('driverList');
-  list.innerHTML = assignments.map(a => {
+  const cardHtml = a => {
     const weeks = weeksByAssignment[a.id] || [];
     const unpaid = weeks.filter(w => w.status !== 'Paid');
     const owed = unpaid.reduce((s,w) => s + (Number(w.amount_due) - Number(w.amount_paid||0)), 0);
@@ -472,7 +478,7 @@ function renderList(thisMonday){
             <div class="d-name">${driverName}</div>
             <div class="d-car">${carInfo}</div>
           </div>
-          ${unpaid.length>1 ? `<span class="overdue-tag">${unpaid.length} weeks overdue — ${money(owed)}</span>` : ''}
+          ${(unpaid.length>1 || unpaid.some(w => w.week_start < thisMonday)) ? `<span class="overdue-tag">${unpaid.length} week${unpaid.length===1?'':'s'} overdue — ${money(owed)}</span>` : ''}
         </div>
         <div class="d-right">
           <span class="d-week-status ${stClass}">This week: ${thisStatus}</span>
@@ -484,7 +490,40 @@ function renderList(thisMonday){
         ${weeks.slice().reverse().map(w => weekRow(a, w)).join('')}
       </div>
     </div>`;
-  }).join('');
+  };
+
+  // Who still has rent to pay comes first; fully paid drivers go to the bottom.
+  //   0  owes for an earlier week        1  this week not paid
+  //   2  this week part paid             3  paid up to date
+  //   4  ended rental, left owing        5  ended rental, settled
+  // Inside each group the order is the same as before (newest rental first).
+  // Only the order changes: every card is built exactly as before.
+  const rankOf = a => {
+    const weeks = weeksByAssignment[a.id] || [];
+    if(a.status !== 'Active'){
+      const owed = weeks.filter(w => w.status !== 'Paid').reduce((s,w) => s + (Number(w.amount_due) - Number(w.amount_paid||0)), 0);
+      return owed > 0 ? 4 : 5;
+    }
+    if(weeks.some(w => w.week_start < thisMonday && w.status !== 'Paid')) return 0;
+    const tw = weeks.find(w => w.week_start === thisMonday);
+    const st = tw ? tw.status : 'Unpaid';
+    return st === 'Paid' ? 3 : (st === 'Partial' ? 2 : 1);
+  };
+  const ordered = assignments.map((a, i) => ({ a, i, r: rankOf(a) }))
+                             .sort((x, y) => (x.r - y.r) || (x.i - y.i));
+  const groupOf = r => r <= 2 ? ['due', 'Still to pay'] : r === 3 ? ['paid', 'Paid up'] : r === 4 ? ['', 'Ended · left owing'] : ['', 'Ended · settled'];
+  const count = {};
+  ordered.forEach(x => { const g = groupOf(x.r)[1]; count[g] = (count[g] || 0) + 1; });
+  let html = '', last = null;
+  ordered.forEach(x => {
+    const [cls, label] = groupOf(x.r);
+    if(label !== last){
+      html += `<div class="list-group${cls ? ' lg-' + cls : ''}">${label} <b>${count[label]}</b></div>`;
+      last = label;
+    }
+    html += cardHtml(x.a);
+  });
+  list.innerHTML = html;
 }
 
 function weekRow(assignment, w){
