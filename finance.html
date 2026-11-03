@@ -525,17 +525,44 @@ function kmTxt(n){ return Number(n||0).toLocaleString('en-AU') + ' km'; }
 
 function money(n){ return '$'+Number(n||0).toLocaleString('en-AU',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 
+// Reads every matching row, page by page, however many there are (the
+// database hands back at most 1,000 rows at a time). The first request also
+// asks how many rows there are in total, so a normal list arrives in a single
+// trip and only a very long one needs more. Read only.
+async function readEvery(table, cols, filter){
+  const all = [], seen = new Set();
+  let total = null;
+  for(let from = 0; from < 500000; ){
+    let q = _db.from(table).select(cols, total === null ? { count:'exact' } : undefined);
+    if(filter) q = filter(q);
+    const r = await q.order('id', { ascending:true }).range(from, from + 999);
+    if(r.error) return { data:null, error:r.error };
+    if(total === null && typeof r.count === 'number') total = r.count;
+    const got = r.data || [];
+    const fresh = got.filter(x => !seen.has(x.id));          // never count a row twice
+    fresh.forEach(x => seen.add(x.id));
+    all.push(...fresh);
+    if(!fresh.length) break;
+    if(total !== null && all.length >= total) break;         // everything is here
+    from += got.length;
+  }
+  return { data:all, error:null };
+}
+
 async function loadCars(){
-  const { data, error } = await _db.from('cars').select('*').order('make_model');
+  // Everything the car tiles need is asked for at the same time instead of one
+  // after another, and expenses and payments are read in full past 1,000 rows.
+  const [carsR, expR, incR, actR] = await Promise.all([
+    _db.from('cars').select('*').order('make_model'),
+    readEvery('car_expenses', 'id, car_id, amount, category'),
+    readEvery('rent_payments', 'id, car_id, amount'),
+    // Who is driving each car right now (active rentals only)
+    _db.from('car_assignments').select('car_id, drivers(first_name,last_name)').eq('status', 'Active')
+  ]);
+  const { data, error } = carsR;
   if(error){ document.getElementById('carGrid').innerHTML = '<div class="empty-msg">Could not load cars.</div>'; return; }
   allCars = data || [];
-
-  // Pull expense + income totals for all cars in two queries
-  const { data: exp } = await _db.from('car_expenses').select('car_id, amount, category');
-  const { data: inc } = await _db.from('rent_payments').select('car_id, amount');
-  // Who is driving each car right now (active rentals only)
-  const { data: act } = await _db.from('car_assignments')
-        .select('car_id, drivers(first_name,last_name)').eq('status', 'Active');
+  const exp = expR.data, inc = incR.data, act = actR.data;
   const driverOf = {};
   (act||[]).forEach(a => {
     const d = a.drivers;
