@@ -759,14 +759,18 @@ async function loadStats(){
   // payments, totals would quietly leave some out. (Read only — nothing is written.)
   const readAll = async (make) => {
     const all = [], seen = new Set();
-    for(let from = 0; from < 500000; ){
-      const r = await make().order('id', { ascending: true }).range(from, from + 999);
+    // The first page also asks how many rows there are, so a normal list needs
+    // one trip; the extra "anything more?" request is only made when it could matter.
+    for(let from = 0, total = null; from < 500000; ){
+      const r = await make(total === null ? { count:'exact' } : undefined).order('id', { ascending: true }).range(from, from + 999);
       if(r.error) return r;
+      if(total === null && typeof r.count === 'number') total = r.count;
       const got = r.data || [];
       const fresh = got.filter(x => !seen.has(x.id));          // never count a row twice
       fresh.forEach(x => seen.add(x.id));
       all.push(...fresh);
       if(!fresh.length) break;
+      if(total !== null && all.length >= total) break;         // everything is here
       from += got.length;
     }
     return { data: all, error: null };
@@ -778,9 +782,9 @@ async function loadStats(){
     sb.from('car_assignments').select('*,cars(*),drivers(first_name,last_name)'),
     sb.from('rent_weeks').select('id,assignment_id,week_start,amount_due,amount_paid,status').gte('week_start', firstWeek),
     sb.from('rent_weeks').select('assignment_id,week_start,amount_due,amount_paid,status').lt('week_start', thisMon).neq('status', 'Paid'),
-    readAll(() => sb.from('rent_payments').select('id,car_id,amount,payment_date,rent_week_id')),
-    readAll(() => sb.from('car_expenses').select('id,car_id,amount,category,expense_date')),
-    readAll(() => sb.from('owner_payouts').select('id,car_id,amount,payout_date')),
+    readAll(o => sb.from('rent_payments').select('id,car_id,amount,payment_date,rent_week_id', o)),
+    readAll(o => sb.from('car_expenses').select('id,car_id,amount,category,expense_date', o)),
+    readAll(o => sb.from('owner_payouts').select('id,car_id,amount,payout_date', o)),
     sb.from('drivers').select('id').eq('status', 'Pending')
   ]);
   const failed = [carsR, asgR, recentWkR, owingWkR, payR, expR, poR, appsR].filter(r => r && r.error);
@@ -1297,13 +1301,15 @@ const Reports = (function(){
   // ── Reading the records (read only) ──────────────────────────────
   async function readAll(make){
     const all = [], seen = new Set();
-    for(let from = 0; from < 500000; ){
-      const r = await make().order('id', { ascending:true }).range(from, from + 999);
+    for(let from = 0, total = null; from < 500000; ){
+      const r = await make(total === null ? { count:'exact' } : undefined).order('id', { ascending:true }).range(from, from + 999);
       if(r.error) return r;
+      if(total === null && typeof r.count === 'number') total = r.count;
       const got = r.data || [], fresh = got.filter(x => !seen.has(x.id));
       fresh.forEach(x => seen.add(x.id));
       all.push(...fresh);
       if(!fresh.length) break;
+      if(total !== null && all.length >= total) break;         // everything is here
       from += got.length;
     }
     return { data:all, error:null };
@@ -1313,13 +1319,13 @@ const Reports = (function(){
     const res = await Promise.all([
       sb.from('cars').select('*'),
       sb.from('car_assignments').select('*,cars(*),drivers(first_name,last_name)'),
-      readAll(() => sb.from('rent_weeks').select('id,assignment_id,week_start,amount_due,amount_paid,status')
+      readAll(o => sb.from('rent_weeks').select('id,assignment_id,week_start,amount_due,amount_paid,status', o)
                       .gte('week_start', P.start).lte('week_start', P.kind === 'week' ? P.start : P.end)),
-      readAll(() => sb.from('rent_weeks').select('id,assignment_id,week_start,amount_due,amount_paid,status')
+      readAll(o => sb.from('rent_weeks').select('id,assignment_id,week_start,amount_due,amount_paid,status', o)
                       .lt('week_start', thisMon).neq('status', 'Paid')),
-      readAll(() => sb.from('rent_payments').select('*')),
-      readAll(() => sb.from('car_expenses').select('*')),
-      readAll(() => sb.from('owner_payouts').select('*'))
+      readAll(o => sb.from('rent_payments').select('*', o)),
+      readAll(o => sb.from('car_expenses').select('*', o)),
+      readAll(o => sb.from('owner_payouts').select('*', o))
     ]);
     const bad = res.find(r => r && r.error);
     if(bad) throw new Error(bad.error.message);
