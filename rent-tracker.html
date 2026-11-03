@@ -294,11 +294,35 @@ function partWeekRent(weekly, days){
   return Math.round(dailyRate(weekly) * days * 100) / 100;
 }
 
-async function ensureWeeksExist(assignment){
+// Reads every matching row, page by page, however many there are (the
+// database hands back at most 1,000 rows at a time). The first request also
+// asks how many rows there are in total, so a normal list arrives in a single
+// trip and only a very long one needs more. Read only.
+async function readEvery(table, cols, filter){
+  const all = [], seen = new Set();
+  let total = null;
+  for(let from = 0; from < 500000; ){
+    let q = _db.from(table).select(cols, total === null ? { count:'exact' } : undefined);
+    if(filter) q = filter(q);
+    const r = await q.order('id', { ascending:true }).range(from, from + 999);
+    if(r.error) return { data:null, error:r.error };
+    if(total === null && typeof r.count === 'number') total = r.count;
+    const got = r.data || [];
+    const fresh = got.filter(x => !seen.has(x.id));          // never count a row twice
+    fresh.forEach(x => seen.add(x.id));
+    all.push(...fresh);
+    if(!fresh.length) break;
+    if(total !== null && all.length >= total) break;         // everything is here
+    from += got.length;
+  }
+  return { data:all, error:null };
+}
+
+async function ensureWeeksExist(assignment, known){
   // Only ever auto-generate for live rentals. For ended rentals we show the
   // weeks that already exist, so we never invent unpaid weeks for a period
   // after the driver returned the car.
-  if(assignment.status !== 'Active') return;
+  if(assignment.status !== 'Active') return false;
   const startMonday = mondayOf(assignment.start_date);
 
   // NEVER past the current week. The agreed end date is what was agreed, not
@@ -314,10 +338,12 @@ async function ensureWeeksExist(assignment){
     cur.setDate(cur.getDate()+7);
   }
 
-  const { data: existing } = await _db.from('rent_weeks').select('week_start').eq('assignment_id', assignment.id);
+  // The weeks this rental already has: handed in by loadAll, which reads them
+  // for every rental at once; asked for here only if they were not.
+  const existing = known || (await _db.from('rent_weeks').select('week_start').eq('assignment_id', assignment.id)).data;
   const existingSet = new Set((existing||[]).map(r=>r.week_start));
   const missing = weeks.filter(w => !existingSet.has(w));
-  if(!missing.length) return;
+  if(!missing.length) return false;
 
   // FIRST-TIME SETUP of a driver who started in the past:
   // assume everything before this week was already settled, so you get a
@@ -368,6 +394,7 @@ async function ensureWeeksExist(assignment){
       rent_week_id: r.id
     })));
   }
+  return true;
 }
 
 let currentFilter = 'Active';
@@ -398,12 +425,21 @@ async function loadAll(){
     return;
   }
 
-  // Backfill missing weeks for every active assignment
-  for(const a of assignments){ await ensureWeeksExist(a); }
-
-  // Now load all weeks
+  // All weeks for these rentals in one go (page by page past 1,000 rows).
+  // Missing weeks for live rentals are then created exactly as before, which
+  // only needs the database when a week really is missing. Before, every
+  // rental was checked with a request of its own, one after another.
   const ids = assignments.map(a=>a.id);
-  const { data: weeks } = await _db.from('rent_weeks').select('*').in('assignment_id', ids).order('week_start',{ascending:true});
+  const readWeeks = async () => {
+    const r = await readEvery('rent_weeks', '*', q => q.in('assignment_id', ids));
+    return (r.data || []).slice().sort((x, y) => String(x.week_start).localeCompare(String(y.week_start)));
+  };
+  let weeks = await readWeeks();
+  const known = {};
+  weeks.forEach(w => { (known[w.assignment_id] = known[w.assignment_id] || []).push(w); });
+  let created = false;
+  for(const a of assignments){ if(await ensureWeeksExist(a, known[a.id] || [])) created = true; }
+  if(created) weeks = await readWeeks();
   weeksByAssignment = {};
   (weeks||[]).forEach(w => {
     if(!weeksByAssignment[w.assignment_id]) weeksByAssignment[w.assignment_id] = [];
