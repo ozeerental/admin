@@ -359,6 +359,53 @@ select option{background:#0d1526;color:#fff;}
 .ho-terms-head{font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
   color:#F5A623;margin-bottom:.75rem;}
 .ho-terms-head span{font-weight:500;text-transform:none;letter-spacing:0;color:rgba(255,255,255,.4);}
+/* ── Share the application form: one-time codes ── */
+.inv-panel{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);margin-bottom:1rem;}
+.inv-head{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.2rem;cursor:pointer;list-style:none;user-select:none;-webkit-user-select:none;}
+.inv-head::-webkit-details-marker{display:none;}
+.inv-title{flex:1 1 auto;font-family:"Barlow Condensed",sans-serif;font-size:1.1rem;font-weight:900;text-transform:uppercase;letter-spacing:1px;}
+.inv-count{white-space:nowrap;font-size:.68rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#F5A623;
+  background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.28);border-radius:999px;padding:.28rem .6rem;}
+.inv-arrow{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;background:rgba(255,255,255,.06);
+  color:#F5A623;font-size:.75rem;transition:transform .2s;}
+.inv-panel[open] .inv-arrow{transform:rotate(180deg);}
+.inv-body{border-top:1px solid rgba(255,255,255,.08);padding:.4rem 1.2rem .9rem;}
+.inv-list{display:flex;flex-direction:column;}
+.inv-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.4rem .9rem;align-items:center;padding:.7rem 0;border-bottom:1px solid rgba(255,255,255,.06);}
+.inv-row:last-child{border-bottom:none;}
+.inv-nm{font-weight:700;font-size:.9rem;}
+.inv-nm .code{font-family:monospace;font-size:.8rem;letter-spacing:1px;color:rgba(255,255,255,.55);margin-left:.4rem;}
+.inv-sub{font-size:.75rem;color:rgba(255,255,255,.45);margin-top:.15rem;line-height:1.4;}
+.inv-st{justify-self:end;}
+.inv-acts{grid-column:1 / -1;display:flex;gap:.45rem;flex-wrap:wrap;}
+.inv-empty{font-size:.85rem;color:rgba(255,255,255,.45);padding:.8rem 0;}
+.inv-err{font-size:.85rem;color:#f87171;padding:.8rem 0;line-height:1.5;}
+.btn-wa{background:#25D366;color:#062b14;text-decoration:none;display:inline-block;}
+.btn-wa:hover{filter:brightness(1.05);}
+a.btn{text-decoration:none;display:inline-block;}
+.inv-box{max-width:620px;}
+.inv-intro{color:rgba(255,255,255,.55);font-size:.86rem;line-height:1.55;margin-bottom:1rem;}
+.inv-grid{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1rem;}
+.inv-lbl{display:block;font-size:.72rem;color:rgba(255,255,255,.5);margin-bottom:.3rem;}
+.inv-in{width:100%;min-width:0!important;}
+.inv-made{margin-top:1rem;border:1px solid rgba(245,166,35,.25);background:rgba(245,166,35,.05);padding:1rem;}
+.inv-code-row{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;margin-bottom:.9rem;}
+.inv-code{font-family:"Barlow Condensed",sans-serif;font-size:2rem;font-weight:900;letter-spacing:3px;color:#F5A623;line-height:1;}
+.inv-valid{font-size:.8rem;color:rgba(255,255,255,.6);}
+.inv-actions{display:flex;gap:.6rem;flex-wrap:wrap;}
+.inv-msg{font-size:.82rem;margin-top:.7rem;min-height:1.2em;color:#4ade80;}
+.inv-msg.bad{color:#f87171;}
+.inv-preview{margin-top:.6rem;}
+.inv-preview summary{cursor:pointer;font-size:.78rem;color:rgba(255,255,255,.55);}
+.inv-preview pre{white-space:pre-wrap;font-family:"Barlow",sans-serif;font-size:.82rem;line-height:1.5;color:rgba(255,255,255,.8);
+  background:rgba(0,0,0,.25);padding:.8rem;margin-top:.5rem;max-height:260px;overflow:auto;}
+@media(max-width:600px){
+  .inv-grid{grid-template-columns:1fr;}
+  .inv-head{padding:.8rem .9rem;gap:.5rem;}
+  .inv-body{padding:.3rem .9rem .8rem;}
+  .inv-count{font-size:.6rem;letter-spacing:.6px;padding:.22rem .5rem;}
+  .inv-actions .btn{flex:1 1 auto;text-align:center;}
+}
 </style>
 </head>
 <body>
@@ -388,6 +435,13 @@ select option{background:#0d1526;color:#fff;}
     
 <div class="page-title">Driver <span>Applications</span></div>
 <div class="page-sub">Review, approve or reject driver applications submitted via the online form</div>
+<!-- APPLICATION INVITES (one-time codes) -->
+<details class="inv-panel" id="invPanel">
+  <summary class="inv-head" title="Show or hide the invites">
+    <span class="inv-title">Application invites</span><span class="inv-count" id="invCount">…</span><span class="inv-arrow" aria-hidden="true">▼</span>
+  </summary>
+  <div class="inv-body"><div class="inv-list" id="invList"><div class="inv-empty">Loading…</div></div></div>
+</details>
 <div class="table-wrap">
   <div class="table-header">
     <div class="table-title">Applications</div>
@@ -397,6 +451,7 @@ select option{background:#0d1526;color:#fff;}
         <option value="">All Status</option>
         <option>Pending</option><option>Approved</option><option>Rejected</option>
       </select>
+      <button class="btn btn-gold" onclick="openInviteModal()">&#9993; Share application</button>
       <button class="btn btn-gold" onclick="openAddDriverModal()">+ Add Existing Driver</button>
     </div>
   </div>
@@ -1728,6 +1783,344 @@ async function openDoc(fileUrl) {
     a.addEventListener('click', function(){ if(window.innerWidth<=900) closeSidebar(); });
   });
 })();
+</script>
+
+
+<!-- SHARE THE APPLICATION FORM (one-time code) -->
+<div class="modal" id="inviteModal">
+  <div class="modal-box inv-box">
+    <div class="modal-head"><h3>Share the application form</h3><button class="modal-close" onclick="closeInviteModal()">×</button></div>
+    <div class="modal-body">
+      <p class="inv-intro">Send a new driver his own link and one-time code. The code opens the application form for him only, and stops working as soon as he sends his application.</p>
+      <div class="inv-grid">
+        <div><label class="inv-lbl" for="iv_name">Driver's name</label><input class="search-input inv-in" id="iv_name" placeholder="e.g. Ali Khan" autocomplete="off"></div>
+        <div><label class="inv-lbl" for="iv_days">Code works for</label>
+          <select class="search-input inv-in" id="iv_days"><option value="3">3 days</option><option value="7" selected>7 days</option><option value="14">14 days</option><option value="30">30 days</option></select></div>
+        <div><label class="inv-lbl" for="iv_mobile">Mobile (for WhatsApp)</label><input class="search-input inv-in" id="iv_mobile" type="tel" placeholder="04xx xxx xxx" autocomplete="off" oninput="refreshInviteLinks()"></div>
+        <div><label class="inv-lbl" for="iv_email">Email (for email)</label><input class="search-input inv-in" id="iv_email" type="email" placeholder="name@example.com" autocomplete="off"></div>
+      </div>
+      <button class="btn btn-gold" id="iv_make" onclick="createInvite()">Create code</button>
+      <div class="inv-msg" id="iv_err"></div>
+      <div class="inv-made" id="iv_made" style="display:none">
+        <div class="inv-code-row">
+          <div><span class="inv-lbl">One-time code</span><div class="inv-code" id="iv_code">—</div></div>
+          <div class="inv-valid" id="iv_valid"></div>
+        </div>
+        <div class="inv-actions">
+          <a class="btn btn-wa" id="iv_wa" href="#" target="_blank" rel="noopener" onclick="inviteSent('whatsapp')">Send by WhatsApp</a>
+          <button class="btn btn-gold" id="iv_mail" onclick="emailInvite()">Send by email</button>
+          <button class="btn btn-outline" onclick="copyInvite()">Copy message</button>
+        </div>
+        <div class="inv-msg" id="iv_msg"></div>
+        <details class="inv-preview"><summary>See the message</summary><pre id="iv_preview"></pre></details>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeInviteModal()">Done</button></div>
+  </div>
+</div>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  SHARE THE APPLICATION FORM — one-time codes
+//  A code opens the public application form for one driver only. It is
+//  used up the moment he sends his application (checked in the database by
+//  submit_driver_application_with_code), and it expires after the days chosen.
+//  Everything here is new; nothing else on this page is changed.
+// ═══════════════════════════════════════════════════════════════════
+var INV_FORM_URL = 'https://ozeerentals.com.au/apply';
+var INV_PHONE = '0450 786 145';
+var INV_ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // no 0/O or 1/I/L, so it is easy to read out
+var invCur = null;        // the code made in the open window
+var invRows = [];         // the codes in the list
+
+function invEsc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function invVal(id){ return String(document.getElementById(id).value || '').trim(); }
+function invNewCode(){
+  var out = '', b = new Uint8Array(1);
+  while(out.length < 8){ crypto.getRandomValues(b); if(b[0] < 248) out += INV_ALPHA[b[0] % 31]; }   // 248 = 8 x 31, so every letter is equally likely
+  return out;
+}
+function invFmt(c){ c = String(c || ''); return c.length === 8 ? c.slice(0, 4) + '-' + c.slice(4) : c; }
+function invLink(c){ return INV_FORM_URL + '?code=' + encodeURIComponent(c); }
+function invDate(ts){ return ts ? new Date(ts).toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric', timeZone:'Australia/Sydney' }) : ''; }
+function invFirst(n){ return String(n || '').trim().split(/\s+/)[0] || ''; }
+function invWaNumber(raw){
+  var n = String(raw || '').replace(/[^0-9+]/g, '');
+  if(!n) return '';
+  if(n.charAt(0) === '+') return n.slice(1);
+  if(n.charAt(0) === '0') return '61' + n.slice(1);
+  if(n.indexOf('61') === 0) return n;
+  return '61' + n;
+}
+function invEmailOk(e){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e || ''); }
+
+// ── The message: link, code, how to apply and which documents to have ready ──
+function invText(inv){
+  var first = invFirst(inv.driver_name);
+  return [
+    'Hi' + (first ? ' ' + first : '') + ',',
+    '',
+    'Thanks for choosing Ozee Rentals! Here is your personal link to apply for your rental car:',
+    invLink(inv.code),
+    '',
+    'Your one-time code: *' + invFmt(inv.code) + '*',
+    'It is for you only and works once' + (inv.expires_at ? '. It expires on ' + invDate(inv.expires_at) : '') + '.',
+    '',
+    '*How to apply*',
+    '1. Open the link. Your code fills in by itself (or type it in).',
+    '2. Fill in your personal details, your licence and an emergency contact.',
+    '3. Upload your documents.',
+    '4. Read the rental agreement and sign on the screen.',
+    '5. Press Submit. A PDF copy of your application downloads to your phone.',
+    '',
+    '*Documents to have ready*',
+    '• Driver’s licence (front and back)',
+    '• Passport',
+    '• Visa or VEVO',
+    '• Bond + rent payment receipt (optional, if you have already paid)',
+    '',
+    'Photos must be clear and readable, with all four corners showing. PDF, JPG or PNG, up to 10MB each.',
+    'Overseas licence? Also have its country, city, the name as printed and the address on it.',
+    '',
+    'We aim to reply within an hour of your application.',
+    'Questions? Call or WhatsApp ' + INV_PHONE + '.',
+    '',
+    'Ozee Rentals'
+  ].join('\n');
+}
+function invEmailHtml(inv){
+  var first = invFirst(inv.driver_name), link = invLink(inv.code);
+  var li = function(t){ return '<li style="margin:0 0 6px;">' + t + '</li>'; };
+  var h3 = function(t){ return '<h3 style="color:#070b12;font-size:16px;margin:22px 0 8px;">' + t + '</h3>'; };
+  return '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">'
+    + '<div style="background:#070b12;padding:24px;text-align:center;">'
+    + '<h1 style="color:#f8b400;margin:0;font-size:26px;">OZEE RENTALS</h1>'
+    + '<p style="color:#fff;margin:4px 0 0;font-size:13px;">Newcastle NSW Car Rentals</p></div>'
+    + '<div style="padding:28px;background:#fff;color:#333;font-size:15px;line-height:1.55;">'
+    + '<p>Hi' + (first ? ' ' + invEsc(first) : '') + ',</p>'
+    + '<p>Thanks for choosing Ozee Rentals! Here is your personal link to apply for your rental car.</p>'
+    + '<p style="text-align:center;margin:26px 0;"><a href="' + link + '" style="display:inline-block;background:#f8b400;color:#070b12;font-weight:bold;font-size:16px;padding:14px 28px;border-radius:8px;text-decoration:none;">Start my application</a></p>'
+    + '<div style="background:#f8f8f8;border-left:4px solid #f8b400;padding:14px 16px;">'
+    + '<div style="font-size:12px;color:#888;text-transform:uppercase;letter-spacing:1px;">Your one-time code</div>'
+    + '<div style="font-size:26px;font-weight:bold;letter-spacing:3px;color:#070b12;margin:4px 0;">' + invFmt(inv.code) + '</div>'
+    + '<div style="font-size:13px;color:#666;">It is for you only and works once' + (inv.expires_at ? '. It expires on ' + invDate(inv.expires_at) : '') + '.</div></div>'
+    + h3('How to apply')
+    + '<ol style="padding-left:20px;margin:0;">'
+    + li('Press <strong>Start my application</strong>. Your code fills in by itself (or type it in).')
+    + li('Fill in your personal details, your licence and an emergency contact.')
+    + li('Upload your documents.')
+    + li('Read the rental agreement and sign on the screen.')
+    + li('Press <strong>Submit</strong>. A PDF copy of your application downloads to your phone.')
+    + '</ol>'
+    + h3('Documents to have ready')
+    + '<ul style="padding-left:20px;margin:0;">'
+    + li('Driver’s licence (front and back)') + li('Passport') + li('Visa or VEVO')
+    + li('Bond + rent payment receipt (optional, if you have already paid)')
+    + '</ul>'
+    + '<p style="font-size:13px;color:#666;margin-top:12px;">Photos must be clear and readable, with all four corners showing. PDF, JPG or PNG, up to 10MB each. '
+    + 'Overseas licence? Also have its country, city, the name as printed and the address on it.</p>'
+    + '<p>We aim to reply within an hour of your application.</p>'
+    + '<p>Questions? Call or WhatsApp <strong>' + INV_PHONE + '</strong> or email admin@ozeerentals.com.au.</p>'
+    + '<p style="margin-top:24px;">Best regards,<br><strong>Ozee Rentals Team</strong></p>'
+    + '<p style="font-size:12px;color:#999;margin-top:20px;">If the button does not work, copy this link into your browser:<br>' + link + '</p>'
+    + '</div>'
+    + '<div style="background:#070b12;padding:16px;text-align:center;color:rgba(255,255,255,.5);font-size:11px;">'
+    + 'Ozee Rentals Pty Ltd · ABN 71 694 905 667 · 17A Drift St, West Wallsend, Newcastle NSW 2286</div></div>';
+}
+function invWaLink(inv, mobile){ return 'https://wa.me/' + invWaNumber(mobile) + '?text=' + encodeURIComponent(invText(inv)); }
+
+// Sends through the same email service as the approval email
+async function invSendEmail(inv, to){
+  var res = await fetch('https://tbhqamcuewycaqertpba.supabase.co/functions/v1/send-driver-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window._sb.supabaseKey, 'apikey': window._sb.supabaseKey },
+    body: JSON.stringify({ to: to, subject: 'Your Ozee Rentals application link', html: invEmailHtml(inv) })
+  });
+  var data = {};
+  try{ data = await res.json(); }catch(_){}
+  if(!res.ok || data.error) throw new Error(data.error || ('Email send failed (' + res.status + ')'));
+}
+async function invNoteVia(inv, via){
+  if(!inv) return;
+  var list = String(inv.sent_via || '').split(',').filter(Boolean);
+  if(list.indexOf(via) !== -1) return;
+  list.push(via);
+  inv.sent_via = list.join(',');
+  var r = await window._sb.from('application_invites').update({ sent_via: inv.sent_via }).eq('id', inv.id);
+  if(r.error) console.error('Invite note:', r.error.message);
+}
+async function invCopy(text){
+  try{ await navigator.clipboard.writeText(text); return true; }
+  catch(_){
+    var t = document.createElement('textarea'); t.value = text; t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    var ok = false; try{ ok = document.execCommand('copy'); }catch(__){}
+    t.remove(); return ok;
+  }
+}
+function invSay(id, text, bad){ var el = document.getElementById(id); if(!el) return; el.textContent = text; el.className = 'inv-msg' + (bad ? ' bad' : ''); }
+
+// ── The window ──
+function openInviteModal(){
+  invCur = null;
+  ['iv_name', 'iv_mobile', 'iv_email'].forEach(function(id){ var el = document.getElementById(id); el.value = ''; el.disabled = false; });
+  var d = document.getElementById('iv_days'); d.value = '7'; d.disabled = false;
+  var b = document.getElementById('iv_make'); b.style.display = ''; b.disabled = false; b.textContent = 'Create code';
+  invSay('iv_err', ''); invSay('iv_msg', '');
+  document.getElementById('iv_made').style.display = 'none';
+  document.getElementById('inviteModal').classList.add('open');
+}
+function closeInviteModal(){ document.getElementById('inviteModal').classList.remove('open'); }
+
+async function createInvite(){
+  var btn = document.getElementById('iv_make');
+  invSay('iv_err', '');
+  var name = invVal('iv_name'), mobile = invVal('iv_mobile'), email = invVal('iv_email');
+  var days = Number(document.getElementById('iv_days').value) || 7;
+  if(email && !invEmailOk(email)){ invSay('iv_err', 'Check the email address.', true); return; }
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try{
+    var s = await window._sb.auth.getSession();
+    var who = s && s.data && s.data.session && s.data.session.user ? s.data.session.user.email : null;
+    var expires = new Date(Date.now() + days * 86400000).toISOString();
+    var row = null, lastErr = null;
+    for(var i = 0; i < 5 && !row; i++){          // a brand-new code clashing with an old one is very unlikely; just pick again
+      var r = await window._sb.from('application_invites')
+        .insert({ code: invNewCode(), driver_name: name || null, mobile: mobile || null, email: email || null, created_by: who, expires_at: expires })
+        .select().single();
+      if(!r.error) row = r.data;
+      else { lastErr = r.error; if(!/duplicate|unique/i.test(r.error.message || '')) break; }
+    }
+    if(!row) throw (lastErr || new Error('The code could not be saved.'));
+    invCur = row;
+    document.getElementById('iv_code').textContent = invFmt(row.code);
+    document.getElementById('iv_valid').textContent = 'Works once · until ' + invDate(row.expires_at);
+    document.getElementById('iv_name').disabled = true;
+    document.getElementById('iv_days').disabled = true;
+    btn.style.display = 'none';
+    refreshInviteLinks();
+    document.getElementById('iv_made').style.display = 'block';
+    invSay('iv_msg', 'Code created. Now send it by WhatsApp or email, or copy the message.');
+    loadInvites();
+  }catch(e){
+    var m = String(e && e.message || e);
+    invSay('iv_err', /application_invites|schema cache|does not exist/i.test(m)
+      ? 'Codes can’t be saved yet: run schema-application-invites.sql in Supabase first.'
+      : 'The code could not be created: ' + m, true);
+    btn.disabled = false; btn.textContent = 'Create code';
+  }
+}
+function refreshInviteLinks(){
+  if(!invCur) return;
+  document.getElementById('iv_wa').href = invWaLink(invCur, invVal('iv_mobile'));
+  document.getElementById('iv_preview').textContent = invText(invCur);
+}
+async function inviteSent(via){
+  if(via === 'whatsapp') invSay('iv_msg', 'WhatsApp is opening with the message ready. Press send in WhatsApp.');
+  var m = invVal('iv_mobile');
+  if(invCur && via === 'whatsapp' && m && m !== (invCur.mobile || '')){
+    invCur.mobile = m;
+    var r = await window._sb.from('application_invites').update({ mobile: m }).eq('id', invCur.id);
+    if(r.error) console.error('Invite mobile:', r.error.message);
+  }
+  await invNoteVia(invCur, via);
+  loadInvites();
+}
+async function emailInvite(){
+  if(!invCur) return;
+  var email = invVal('iv_email'), btn = document.getElementById('iv_mail');
+  if(!invEmailOk(email)){ invSay('iv_msg', 'Add the driver’s email address above first.', true); return; }
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try{
+    if(email !== (invCur.email || '')){
+      var r = await window._sb.from('application_invites').update({ email: email }).eq('id', invCur.id);
+      if(r.error) throw r.error;
+      invCur.email = email;
+    }
+    await invSendEmail(invCur, email);
+    invSay('iv_msg', 'Email sent to ' + email + '.');
+    await invNoteVia(invCur, 'email');
+    loadInvites();
+  }catch(e){ invSay('iv_msg', 'The email could not be sent: ' + (e.message || e), true); }
+  btn.disabled = false; btn.textContent = 'Send by email';
+}
+async function copyInvite(){
+  if(!invCur) return;
+  var ok = await invCopy(invText(invCur));
+  invSay('iv_msg', ok ? 'Message copied. Paste it into any chat or SMS.' : 'Copy did not work here. Open "See the message" and copy it by hand.', !ok);
+  if(ok){ await invNoteVia(invCur, 'copied'); loadInvites(); }
+}
+
+// ── The list of codes ──
+function invStatus(x){
+  if(x.cancelled_at) return { key:'cancelled', label:'Cancelled', cls:'badge-red' };
+  if(x.used_at) return { key:'used', label:'Applied', cls:'badge-green' };
+  if(x.expires_at && new Date(x.expires_at).getTime() < Date.now()) return { key:'expired', label:'Expired', cls:'badge-red' };
+  return { key:'waiting', label:'Waiting', cls:'badge-yellow' };
+}
+async function loadInvites(){
+  var list = document.getElementById('invList'), cnt = document.getElementById('invCount');
+  if(!list) return;
+  var r = await window._sb.from('application_invites').select('*').order('created_at', { ascending:false }).limit(50);
+  if(r.error){
+    list.innerHTML = '<div class="inv-err">Invites can’t be shown yet: run schema-application-invites.sql in Supabase first.<br><small>' + invEsc(r.error.message) + '</small></div>';
+    cnt.textContent = 'set-up needed';
+    return;
+  }
+  invRows = r.data || [];
+  var ids = invRows.filter(function(x){ return x.driver_id; }).map(function(x){ return x.driver_id; });
+  var names = {};
+  if(ids.length){
+    var d = await window._sb.from('drivers').select('id,first_name,last_name').in('id', ids);
+    (d.data || []).forEach(function(x){ names[x.id] = ((x.first_name || '') + ' ' + (x.last_name || '')).trim(); });
+  }
+  var waiting = 0;
+  list.innerHTML = invRows.length ? invRows.map(function(x){
+    var st = invStatus(x);
+    if(st.key === 'waiting') waiting++;
+    var contact = [x.mobile, x.email].filter(Boolean).map(invEsc).join(' · ');
+    var sub;
+    if(st.key === 'used') sub = 'Applied ' + invDate(x.used_at) + (names[x.driver_id] ? ' as ' + invEsc(names[x.driver_id]) : '');
+    else if(st.key === 'cancelled') sub = 'Cancelled ' + invDate(x.cancelled_at);
+    else if(st.key === 'expired') sub = 'Expired ' + invDate(x.expires_at);
+    else sub = 'Works until ' + invDate(x.expires_at);
+    sub = (contact ? contact + ' · ' : '') + 'made ' + invDate(x.created_at) + (x.sent_via ? ' · sent by ' + invEsc(x.sent_via.replace(/,/g, ', ')) : '') + ' · ' + sub;
+    var acts = st.key !== 'waiting' ? '' : '<div class="inv-acts">'
+      + '<a class="btn btn-sm btn-wa" href="' + invEsc(invWaLink(x, x.mobile)) + '" target="_blank" rel="noopener" onclick="invRowVia(\'' + x.id + '\',\'whatsapp\')">WhatsApp</a>'
+      + (x.email ? '<button class="btn btn-sm btn-gold" onclick="invRowEmail(\'' + x.id + '\', this)">Email again</button>' : '')
+      + '<button class="btn btn-sm btn-outline" onclick="invRowCopy(\'' + x.id + '\', this)">Copy message</button>'
+      + '<button class="btn btn-sm btn-danger" onclick="invCancel(\'' + x.id + '\')">Cancel code</button></div>';
+    return '<div class="inv-row"><div><div class="inv-nm">' + (x.driver_name ? invEsc(x.driver_name) : 'No name') + '<span class="code">' + invEsc(invFmt(x.code)) + '</span></div>'
+      + '<div class="inv-sub">' + sub + '</div></div>'
+      + '<span class="inv-st badge ' + st.cls + '">' + st.label + '</span>' + acts + '</div>';
+  }).join('') : '<div class="inv-empty">No invites yet. Use “Share application” to send a driver his own link and code.</div>';
+  cnt.textContent = waiting ? waiting + ' waiting' : (invRows.length ? 'none waiting' : 'none yet');
+}
+function invById(id){ return invRows.find(function(x){ return x.id === id; }); }
+async function invRowVia(id, via){ await invNoteVia(invById(id), via); loadInvites(); }
+async function invRowEmail(id, btn){
+  var x = invById(id); if(!x || !x.email) return;
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try{ await invSendEmail(x, x.email); btn.textContent = 'Sent'; await invNoteVia(x, 'email'); setTimeout(loadInvites, 1200); }
+  catch(e){ btn.disabled = false; btn.textContent = 'Email again'; alert('The email could not be sent: ' + (e.message || e)); }
+}
+async function invRowCopy(id, btn){
+  var x = invById(id); if(!x) return;
+  var ok = await invCopy(invText(x));
+  btn.textContent = ok ? 'Copied' : 'Copy failed';
+  if(ok) await invNoteVia(x, 'copied');
+}
+async function invCancel(id){
+  var x = invById(id); if(!x) return;
+  if(!confirm('Cancel code ' + invFmt(x.code) + '? It will stop working straight away.')) return;
+  var r = await window._sb.from('application_invites').update({ cancelled_at: new Date().toISOString() }).eq('id', id);
+  if(r.error){ alert('The code could not be cancelled: ' + r.error.message); return; }
+  loadInvites();
+}
+
+document.addEventListener('DOMContentLoaded', async function(){
+  var s = await window._sb.auth.getSession();
+  if(s && s.data && s.data.session) loadInvites();
+});
 </script>
 
 </body></html>
